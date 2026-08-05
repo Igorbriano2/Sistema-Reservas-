@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { adminRouter } from "./modules/admin/index.js";
+import { errorHandler } from "./middleware/error-handler.js";
 
 export function createApp() {
   const app = express();
@@ -15,6 +17,9 @@ export function createApp() {
   });
 
   app.use("/auth", authRouter);
+  app.use("/admin", adminRouter);
+
+  app.use(errorHandler);
 
   return app;
 }

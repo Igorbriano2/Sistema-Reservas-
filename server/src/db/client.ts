@@ -11,3 +11,7 @@ export const pool = new Pool({
 export const db = drizzle(pool, { schema });
 
 export type Database = typeof db;
+
+// Aceita tanto o client top-level (db) quanto um tx dentro de db.transaction(async (tx) => ...),
+// para que funcoes de lib/ possam ser chamadas em ambos os contextos.
+export type Queryable = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
