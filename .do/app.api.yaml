@@ -2,6 +2,12 @@
 # So roda o codigo aqui - o banco de dados e o Supabase, NUNCA o Managed Database da
 # propria Digital Ocean (DATABASE_URL abaixo deve sempre apontar para o Supabase).
 #
+# ATENCAO: use a connection string do "Session pooler" do Supabase (Project Settings >
+# Database > Connection string), NAO a conexao direta (db.<projeto>.supabase.co) - essa
+# so tem endereco IPv6, e a App Platform (como a maioria das PaaS) so tem saida IPv4,
+# entao a conexao direta falha aqui. O host do pooler e IPv4-compativel (formato
+# aws-0-<regiao>.pooler.supabase.com:5432, usuario "postgres.<ref-do-projeto>").
+#
 # Como usar:
 #   1. No painel da Digital Ocean: Apps > Create App > escolha este repositorio Github
 #      e aponte para este arquivo (.do/app.api.yaml), ou rode:
