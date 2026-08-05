@@ -19,6 +19,8 @@ interface FixtureEmpresaOptions {
   senhaAdmin?: string;
 }
 
+// Nome mantido "ComAdmin" por compatibilidade com os testes existentes, mas o
+// usuario criado tem papel "owner" (acesso total) - ver decisao de papeis.
 export async function criarEmpresaComAdmin(options: FixtureEmpresaOptions = {}) {
   const nomeEmpresa = options.nomeEmpresa ?? "Empresa Teste";
   const emailAdmin = options.emailAdmin ?? "admin@teste.com";
@@ -34,12 +36,27 @@ export async function criarEmpresaComAdmin(options: FixtureEmpresaOptions = {}) 
     .insert(usuarios)
     .values({
       empresaId: empresa.id,
-      nome: "Admin Teste",
+      nome: "Owner Teste",
       email: emailAdmin.toLowerCase(),
       senhaHash,
-      papel: "admin",
+      papel: "owner",
     })
     .returning();
 
   return { empresa, unidade, usuario, senhaAdmin };
+}
+
+export async function criarFuncionario(empresaId: string, email = "funcionario@teste.com", senha = "senha-funcionario-123") {
+  const senhaHash = await hashPassword(senha);
+  const [usuario] = await db
+    .insert(usuarios)
+    .values({
+      empresaId,
+      nome: "Funcionario Teste",
+      email: email.toLowerCase(),
+      senhaHash,
+      papel: "funcionario",
+    })
+    .returning();
+  return { usuario, senha };
 }

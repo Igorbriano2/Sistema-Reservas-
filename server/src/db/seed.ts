@@ -40,10 +40,10 @@ async function main() {
     nome: "Administrador",
     email,
     senhaHash,
-    papel: "admin",
+    papel: "owner",
   });
 
-  console.log(`Empresa "${empresa.nome}" criada com usuario admin ${email}.`);
+  console.log(`Empresa "${empresa.nome}" criada com usuario owner ${email}.`);
   await pool.end();
 }
 

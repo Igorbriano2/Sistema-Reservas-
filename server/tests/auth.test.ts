@@ -28,7 +28,7 @@ describe("POST /auth/login", () => {
       id: usuario.id,
       email: usuario.email,
       empresaId: empresa.id,
-      papel: "admin",
+      papel: "owner",
     });
     expect(res.body.usuario.senhaHash).toBeUndefined();
 

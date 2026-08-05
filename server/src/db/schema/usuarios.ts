@@ -1,9 +1,10 @@
 import { pgTable, uuid, text, timestamp, pgEnum, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { empresas } from "./empresas.js";
 
-// MVP: apenas "admin" (um login admin por empresa). Papeis adicionais
-// (gerente, atendente, etc.) ficam para depois do MVP validado.
-export const papelUsuarioEnum = pgEnum("papel_usuario", ["admin"]);
+// owner: acesso total (mesas, saloes, regras de horario, config do agente, usuarios,
+// reservas). funcionario: acesso restrito a reservas do dia (ver/criar/editar/cancelar).
+// Sem permissoes granulares por unidade ainda - fica para depois do MVP validado.
+export const papelUsuarioEnum = pgEnum("papel_usuario", ["owner", "funcionario"]);
 
 export const usuarios = pgTable(
   "usuarios",
@@ -15,7 +16,7 @@ export const usuarios = pgTable(
     nome: text("nome").notNull(),
     email: text("email").notNull(),
     senhaHash: text("senha_hash").notNull(),
-    papel: papelUsuarioEnum("papel").notNull().default("admin"),
+    papel: papelUsuarioEnum("papel").notNull().default("owner"),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

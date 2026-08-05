@@ -3,13 +3,14 @@ import type { Database, Queryable } from "../db/client.js";
 import { mesas, regrasHorario, reservas, saloes, type Reserva } from "../db/schema/index.js";
 import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from "./time.js";
 import { ConflitoDeHorarioError, RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
+import { codigoDoErroPostgres } from "./pg-error.js";
 
 const STATUS_ATIVOS = ["pendente", "confirmada"] as const;
 // Codigo do Postgres para violacao de EXCLUDE constraint (reservas_sem_sobreposicao).
 const PG_EXCLUSION_VIOLATION = "23P01";
 
 function ehViolacaoDeExclusao(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && err.code === PG_EXCLUSION_VIOLATION;
+  return codigoDoErroPostgres(err) === PG_EXCLUSION_VIOLATION;
 }
 
 interface JanelaDaReserva {
