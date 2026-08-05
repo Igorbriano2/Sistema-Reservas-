@@ -34,7 +34,7 @@ jobs:
     kind: PRE_DEPLOY
     github:
       repo: Igorbriano2/Sistema-Reservas-
-      branch: main
+      branch: claude/restaurant-booking-ai-agent-tjfvag
       deploy_on_push: true
     source_dir: server
     build_command: npm ci && npm run build
@@ -52,7 +52,7 @@ services:
   - name: api
     github:
       repo: Igorbriano2/Sistema-Reservas-
-      branch: main
+      branch: claude/restaurant-booking-ai-agent-tjfvag
       deploy_on_push: true
     source_dir: server
     build_command: npm ci && npm run build

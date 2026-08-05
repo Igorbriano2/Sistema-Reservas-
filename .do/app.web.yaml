@@ -14,7 +14,7 @@ static_sites:
   - name: web
     github:
       repo: Igorbriano2/Sistema-Reservas-
-      branch: main
+      branch: claude/restaurant-booking-ai-agent-tjfvag
       deploy_on_push: true
     source_dir: web
     build_command: npm ci && npm run build
