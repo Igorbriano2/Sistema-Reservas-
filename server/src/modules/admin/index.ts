@@ -7,10 +7,13 @@ import { regrasHorarioRouter } from "./regras-horario.routes.js";
 import { availabilityRouter } from "./availability.routes.js";
 import { reservationsRouter } from "./reservations.routes.js";
 import { conversasRouter } from "./conversas.routes.js";
+import { unidadesRouter } from "./unidades.routes.js";
 
 export const adminRouter = Router();
 
 adminRouter.use(requireAuth);
+
+adminRouter.use("/unidades", unidadesRouter);
 
 const unidadeRouter = Router({ mergeParams: true });
 unidadeRouter.use(resolveUnidade);
