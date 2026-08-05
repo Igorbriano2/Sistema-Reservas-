@@ -1,0 +1,89 @@
+# App Spec da Digital Ocean App Platform para o BACKEND (API + webhook do Instagram).
+# So roda o codigo aqui - o banco de dados e o Supabase, NUNCA o Managed Database da
+# propria Digital Ocean (DATABASE_URL abaixo deve sempre apontar para o Supabase).
+#
+# Como usar:
+#   1. No painel da Digital Ocean: Apps > Create App > escolha este repositorio Github
+#      e aponte para este arquivo (.do/app.api.yaml), ou rode:
+#        doctl apps create --spec .do/app.api.yaml
+#   2. As variaveis abaixo com "type: SECRET" e sem "value" ficam em branco no spec
+#      de proposito (nunca vao pro Git) - a Digital Ocean pede o valor de cada uma
+#      na tela de criacao do app, ou preencha depois em Settings > App-Level Env Vars.
+#   3. O job pre_deploy roda "npm run db:migrate" automaticamente a cada deploy,
+#      antes do novo release receber trafego - garante que a migration roda uma
+#      unica vez mesmo com varias instancias do servico.
+#   4. Depois do primeiro deploy, rode localmente (uma vez, fora do App Platform):
+#        SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=... DATABASE_URL=<supabase> \
+#          npm --prefix server run db:seed
+#      e, para conectar o Instagram:
+#        INSTAGRAM_BUSINESS_ACCOUNT_ID=... INSTAGRAM_ACCESS_TOKEN=... \
+#        TOKEN_ENCRYPTION_KEY=... DATABASE_URL=<supabase> \
+#          npm --prefix server run instagram:connect -- --empresa-id <uuid>
+
+name: sistema-reservas-api
+region: nyc
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: Igorbriano2/Sistema-Reservas-
+      branch: main
+      deploy_on_push: true
+    source_dir: server
+    build_command: npm ci && npm run build
+    run_command: npm run db:migrate
+    environment_slug: node-js
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    envs:
+      - key: DATABASE_URL
+        type: SECRET
+      - key: DATABASE_SSL
+        value: "true"
+
+services:
+  - name: api
+    github:
+      repo: Igorbriano2/Sistema-Reservas-
+      branch: main
+      deploy_on_push: true
+    source_dir: server
+    build_command: npm ci && npm run build
+    run_command: npm start
+    environment_slug: node-js
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    http_port: 3000
+    health_check:
+      http_path: /health
+    routes:
+      - path: /
+    envs:
+      - key: NODE_ENV
+        value: production
+      # Supabase (Postgres) - NUNCA o Managed Database da Digital Ocean.
+      - key: DATABASE_URL
+        type: SECRET
+      - key: DATABASE_SSL
+        value: "true"
+      - key: JWT_SECRET
+        type: SECRET
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: ANTHROPIC_API_KEY
+        type: SECRET
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5
+      - key: INSTAGRAM_APP_SECRET
+        type: SECRET
+      - key: INSTAGRAM_WEBHOOK_VERIFY_TOKEN
+        type: SECRET
+      - key: TOKEN_ENCRYPTION_KEY
+        type: SECRET
+      # URL publica do app estatico do frontend (ver .do/app.web.yaml), usada para
+      # restringir o CORS em producao. Ex: https://sistema-reservas-web-xxxxx.ondigitalocean.app
+      # Preencha depois de criar o app web (nao existe ainda no primeiro deploy da API).
+      - key: CORS_ORIGIN
+        type: GENERAL
+        value: ""

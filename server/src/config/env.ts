@@ -21,6 +21,9 @@ const envSchema = z.object({
     .string()
     .regex(/^[0-9a-fA-F]{64}$/, "TOKEN_ENCRYPTION_KEY deve ter 64 caracteres hexadecimais (32 bytes)")
     .optional(),
+  // URL publica do frontend admin, para restringir o CORS em producao (ex:
+  // https://sistema-reservas-web-xxxxx.ondigitalocean.app). Sem isso, aceita qualquer origem.
+  CORS_ORIGIN: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

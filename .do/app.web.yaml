@@ -1,0 +1,28 @@
+# App Spec da Digital Ocean App Platform para o FRONTEND admin (site estatico).
+# Nao tem banco nem variaveis de runtime - VITE_API_URL e injetada no BUILD (o Vite
+# grava o valor direto no bundle), entao precisa ser preenchida com a URL publica do
+# app da API (.do/app.api.yaml) ANTES de rodar o build.
+#
+# Como usar:
+#   doctl apps create --spec .do/app.web.yaml
+#   (ou pelo painel: Apps > Create App > este repositorio > aponte para este arquivo)
+
+name: sistema-reservas-web
+region: nyc
+
+static_sites:
+  - name: web
+    github:
+      repo: Igorbriano2/Sistema-Reservas-
+      branch: main
+      deploy_on_push: true
+    source_dir: web
+    build_command: npm ci && npm run build
+    output_dir: dist
+    routes:
+      - path: /
+    envs:
+      # URL publica do app da API, ex: https://sistema-reservas-api-xxxxx.ondigitalocean.app
+      - key: VITE_API_URL
+        scope: BUILD_TIME
+        type: SECRET
