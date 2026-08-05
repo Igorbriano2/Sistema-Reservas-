@@ -1,0 +1,1187 @@
+{
+  "id": "b7d5acbe-40ca-4e98-9dc3-b4b2ca064d27",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.empresas": {
+      "name": "empresas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plano": {
+          "name": "plano",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'trial'"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.unidades": {
+      "name": "unidades",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "endereco": {
+          "name": "endereco",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'America/Sao_Paulo'"
+        }
+      },
+      "indexes": {
+        "unidades_empresa_id_idx": {
+          "name": "unidades_empresa_id_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "unidades_empresa_id_empresas_id_fk": {
+          "name": "unidades_empresa_id_empresas_id_fk",
+          "tableFrom": "unidades",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.usuarios": {
+      "name": "usuarios",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "senha_hash": {
+          "name": "senha_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "papel": {
+          "name": "papel",
+          "type": "papel_usuario",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'admin'"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "usuarios_email_idx": {
+          "name": "usuarios_email_idx",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "usuarios_empresa_id_idx": {
+          "name": "usuarios_empresa_id_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "usuarios_empresa_id_empresas_id_fk": {
+          "name": "usuarios_empresa_id_empresas_id_fk",
+          "tableFrom": "usuarios",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.instagram_connections": {
+      "name": "instagram_connections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ig_business_account_id": {
+          "name": "ig_business_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token_encrypted": {
+          "name": "access_token_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "instagram_connection_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ativo'"
+        }
+      },
+      "indexes": {
+        "instagram_connections_empresa_id_idx": {
+          "name": "instagram_connections_empresa_id_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "instagram_connections_unidade_id_idx": {
+          "name": "instagram_connections_unidade_id_idx",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "instagram_connections_ig_account_idx": {
+          "name": "instagram_connections_ig_account_idx",
+          "columns": [
+            {
+              "expression": "ig_business_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "instagram_connections_empresa_id_empresas_id_fk": {
+          "name": "instagram_connections_empresa_id_empresas_id_fk",
+          "tableFrom": "instagram_connections",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "instagram_connections_unidade_id_unidades_id_fk": {
+          "name": "instagram_connections_unidade_id_unidades_id_fk",
+          "tableFrom": "instagram_connections",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.saloes": {
+      "name": "saloes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "saloes_unidade_id_idx": {
+          "name": "saloes_unidade_id_idx",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "saloes_unidade_id_unidades_id_fk": {
+          "name": "saloes_unidade_id_unidades_id_fk",
+          "tableFrom": "saloes",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.mesas": {
+      "name": "mesas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "salao_id": {
+          "name": "salao_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capacidade_min": {
+          "name": "capacidade_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capacidade_max": {
+          "name": "capacidade_max",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "formato": {
+          "name": "formato",
+          "type": "mesa_formato",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'redonda'"
+        },
+        "combinavel_com": {
+          "name": "combinavel_com",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::uuid[]"
+        }
+      },
+      "indexes": {
+        "mesas_salao_id_idx": {
+          "name": "mesas_salao_id_idx",
+          "columns": [
+            {
+              "expression": "salao_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "mesas_salao_id_saloes_id_fk": {
+          "name": "mesas_salao_id_saloes_id_fk",
+          "tableFrom": "mesas",
+          "tableTo": "saloes",
+          "columnsFrom": [
+            "salao_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "mesas_capacidade_check": {
+          "name": "mesas_capacidade_check",
+          "value": "\"mesas\".\"capacidade_min\" > 0 AND \"mesas\".\"capacidade_max\" >= \"mesas\".\"capacidade_min\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.regras_horario": {
+      "name": "regras_horario",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dia_semana": {
+          "name": "dia_semana",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hora_abertura": {
+          "name": "hora_abertura",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hora_fechamento": {
+          "name": "hora_fechamento",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duracao_padrao_min": {
+          "name": "duracao_padrao_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 90
+        },
+        "buffer_min": {
+          "name": "buffer_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "regras_horario_unidade_id_idx": {
+          "name": "regras_horario_unidade_id_idx",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "regras_horario_unidade_id_unidades_id_fk": {
+          "name": "regras_horario_unidade_id_unidades_id_fk",
+          "tableFrom": "regras_horario",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "regras_horario_dia_semana_check": {
+          "name": "regras_horario_dia_semana_check",
+          "value": "\"regras_horario\".\"dia_semana\" BETWEEN 0 AND 6"
+        },
+        "regras_horario_intervalo_check": {
+          "name": "regras_horario_intervalo_check",
+          "value": "\"regras_horario\".\"hora_fechamento\" > \"regras_horario\".\"hora_abertura\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.excecoes_horario": {
+      "name": "excecoes_horario",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fechado": {
+          "name": "fechado",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "hora_abertura": {
+          "name": "hora_abertura",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hora_fechamento": {
+          "name": "hora_fechamento",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "excecoes_horario_unidade_id_idx": {
+          "name": "excecoes_horario_unidade_id_idx",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "excecoes_horario_unidade_data_unq": {
+          "name": "excecoes_horario_unidade_data_unq",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "excecoes_horario_unidade_id_unidades_id_fk": {
+          "name": "excecoes_horario_unidade_id_unidades_id_fk",
+          "tableFrom": "excecoes_horario",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.reservas": {
+      "name": "reservas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mesa_id": {
+          "name": "mesa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ig_sender_id": {
+          "name": "ig_sender_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cliente_nome": {
+          "name": "cliente_nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cliente_telefone": {
+          "name": "cliente_telefone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "num_pessoas": {
+          "name": "num_pessoas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hora_inicio": {
+          "name": "hora_inicio",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hora_fim": {
+          "name": "hora_fim",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "reserva_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'confirmada'"
+        },
+        "observacoes": {
+          "name": "observacoes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "canal_origem": {
+          "name": "canal_origem",
+          "type": "canal_origem",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "reservas_unidade_id_idx": {
+          "name": "reservas_unidade_id_idx",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservas_mesa_id_idx": {
+          "name": "reservas_mesa_id_idx",
+          "columns": [
+            {
+              "expression": "mesa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservas_ig_sender_id_idx": {
+          "name": "reservas_ig_sender_id_idx",
+          "columns": [
+            {
+              "expression": "ig_sender_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservas_unidade_data_idx": {
+          "name": "reservas_unidade_data_idx",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reservas_unidade_id_unidades_id_fk": {
+          "name": "reservas_unidade_id_unidades_id_fk",
+          "tableFrom": "reservas",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "reservas_mesa_id_mesas_id_fk": {
+          "name": "reservas_mesa_id_mesas_id_fk",
+          "tableFrom": "reservas",
+          "tableTo": "mesas",
+          "columnsFrom": [
+            "mesa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "reservas_num_pessoas_check": {
+          "name": "reservas_num_pessoas_check",
+          "value": "\"reservas\".\"num_pessoas\" > 0"
+        },
+        "reservas_horario_check": {
+          "name": "reservas_horario_check",
+          "value": "\"reservas\".\"hora_fim\" > \"reservas\".\"hora_inicio\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.conversas": {
+      "name": "conversas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unidade_id": {
+          "name": "unidade_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ig_sender_id": {
+          "name": "ig_sender_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "agent_paused": {
+          "name": "agent_paused",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "ultima_atividade_humana_em": {
+          "name": "ultima_atividade_humana_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "conversas_empresa_id_idx": {
+          "name": "conversas_empresa_id_idx",
+          "columns": [
+            {
+              "expression": "empresa_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "conversas_unidade_id_idx": {
+          "name": "conversas_unidade_id_idx",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "conversas_unidade_sender_unq": {
+          "name": "conversas_unidade_sender_unq",
+          "columns": [
+            {
+              "expression": "unidade_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ig_sender_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "conversas_empresa_id_empresas_id_fk": {
+          "name": "conversas_empresa_id_empresas_id_fk",
+          "tableFrom": "conversas",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "conversas_unidade_id_unidades_id_fk": {
+          "name": "conversas_unidade_id_unidades_id_fk",
+          "tableFrom": "conversas",
+          "tableTo": "unidades",
+          "columnsFrom": [
+            "unidade_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agente_config": {
+      "name": "agente_config",
+      "schema": "",
+      "columns": {
+        "empresa_id": {
+          "name": "empresa_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nome_do_agente": {
+          "name": "nome_do_agente",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Assistente'"
+        },
+        "descricao_restaurante": {
+          "name": "descricao_restaurante",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "tom_de_voz": {
+          "name": "tom_de_voz",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'cordial e objetivo'"
+        },
+        "saudacao": {
+          "name": "saudacao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "despedida": {
+          "name": "despedida",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "politicas_reserva": {
+          "name": "politicas_reserva",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "faq": {
+          "name": "faq",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "topicos_proibidos": {
+          "name": "topicos_proibidos",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agente_config_empresa_id_empresas_id_fk": {
+          "name": "agente_config_empresa_id_empresas_id_fk",
+          "tableFrom": "agente_config",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "empresa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.papel_usuario": {
+      "name": "papel_usuario",
+      "schema": "public",
+      "values": [
+        "admin"
+      ]
+    },
+    "public.instagram_connection_status": {
+      "name": "instagram_connection_status",
+      "schema": "public",
+      "values": [
+        "ativo",
+        "inativo"
+      ]
+    },
+    "public.mesa_formato": {
+      "name": "mesa_formato",
+      "schema": "public",
+      "values": [
+        "redonda",
+        "quadrada",
+        "retangular"
+      ]
+    },
+    "public.canal_origem": {
+      "name": "canal_origem",
+      "schema": "public",
+      "values": [
+        "instagram",
+        "manual"
+      ]
+    },
+    "public.reserva_status": {
+      "name": "reserva_status",
+      "schema": "public",
+      "values": [
+        "pendente",
+        "confirmada",
+        "cancelada",
+        "concluida",
+        "no_show"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
