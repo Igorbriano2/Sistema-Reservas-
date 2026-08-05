@@ -1,5 +1,6 @@
 import { db } from "../../src/db/client.js";
-import { conversas, mesas, regrasHorario, saloes } from "../../src/db/schema/index.js";
+import { agenteConfig, conversas, instagramConnections, mesas, regrasHorario, saloes } from "../../src/db/schema/index.js";
+import { encrypt } from "../../src/lib/crypto.js";
 
 export async function criarSalao(unidadeId: string, nome = "Salao Principal") {
   const [salao] = await db.insert(saloes).values({ unidadeId, nome }).returning();
@@ -51,4 +52,38 @@ export async function criarConversa(empresaId: string, unidadeId: string, igSend
     .values({ empresaId, unidadeId, igSenderId })
     .returning();
   return conversa;
+}
+
+export async function criarAgenteConfig(empresaId: string, overrides: Partial<{ nomeDoAgente: string }> = {}) {
+  const [config] = await db
+    .insert(agenteConfig)
+    .values({
+      empresaId,
+      nomeDoAgente: overrides.nomeDoAgente ?? "Assistente Teste",
+      descricaoRestaurante: "Restaurante de teste",
+      saudacao: "Ola!",
+      despedida: "Ate mais!",
+    })
+    .returning();
+  return config;
+}
+
+export async function criarConexaoInstagram(
+  empresaId: string,
+  unidadeId: string | null,
+  igBusinessAccountId: string,
+  tokenPlano = "token-de-teste-do-instagram",
+) {
+  const chave = process.env.TOKEN_ENCRYPTION_KEY!;
+  const [conexao] = await db
+    .insert(instagramConnections)
+    .values({
+      empresaId,
+      unidadeId,
+      igBusinessAccountId,
+      accessTokenEncrypted: encrypt(tokenPlano, chave),
+      status: "ativo",
+    })
+    .returning();
+  return conexao;
 }

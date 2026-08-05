@@ -6,6 +6,7 @@ import { mesasRouter } from "./mesas.routes.js";
 import { regrasHorarioRouter } from "./regras-horario.routes.js";
 import { availabilityRouter } from "./availability.routes.js";
 import { reservationsRouter } from "./reservations.routes.js";
+import { conversasRouter } from "./conversas.routes.js";
 
 export const adminRouter = Router();
 
@@ -18,5 +19,6 @@ unidadeRouter.use("/mesas", mesasRouter);
 unidadeRouter.use("/regras-horario", regrasHorarioRouter);
 unidadeRouter.use("/availability", availabilityRouter);
 unidadeRouter.use("/reservations", reservationsRouter);
+unidadeRouter.use("/conversas", conversasRouter);
 
 adminRouter.use("/unidades/:unidadeId", unidadeRouter);

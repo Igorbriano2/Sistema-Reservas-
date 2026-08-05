@@ -15,6 +15,12 @@ const envSchema = z.object({
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-5"),
   INSTAGRAM_APP_SECRET: z.string().optional(),
   INSTAGRAM_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  // Chave AES-256 em hex (64 caracteres = 32 bytes), gerada com `openssl rand -hex 32`.
+  // Usada para cifrar/decifrar instagram_connections.access_token_encrypted.
+  TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, "TOKEN_ENCRYPTION_KEY deve ter 64 caracteres hexadecimais (32 bytes)")
+    .optional(),
 });
 
 export const env = envSchema.parse(process.env);
