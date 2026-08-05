@@ -1,5 +1,5 @@
 import { api } from "./client.js";
-import type { Mesa, MesaFormato, Reserva, Salao, Unidade, Usuario } from "../types.js";
+import type { AgenteConfig, Mesa, MesaFormato, PapelUsuario, Reserva, Salao, Unidade, Usuario } from "../types.js";
 
 export function login(email: string, senha: string) {
   return api.post<{ token: string; usuario: Usuario }>("/auth/login", { email, senha });
@@ -78,4 +78,28 @@ export function atualizarReserva(unidadeId: string, reservaId: string, dados: Da
 
 export function cancelarReserva(unidadeId: string, reservaId: string) {
   return api.delete<Reserva>(`/admin/unidades/${unidadeId}/reservations/${reservaId}`);
+}
+
+// Owner apenas (backend rejeita com 403 para funcionario nestas rotas).
+export function listarUsuarios() {
+  return api.get<Usuario[]>("/admin/usuarios");
+}
+
+export interface DadosNovoUsuario {
+  nome: string;
+  email: string;
+  senha: string;
+  papel: PapelUsuario;
+}
+
+export function criarUsuario(dados: DadosNovoUsuario) {
+  return api.post<Usuario>("/admin/usuarios", dados);
+}
+
+export function obterAgenteConfig() {
+  return api.get<AgenteConfig>("/admin/agente-config");
+}
+
+export function atualizarAgenteConfig(dados: Partial<Omit<AgenteConfig, "empresaId">>) {
+  return api.patch<AgenteConfig>("/admin/agente-config", dados);
 }

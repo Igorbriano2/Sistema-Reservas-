@@ -1,9 +1,23 @@
+export type PapelUsuario = "owner" | "funcionario";
+
 export interface Usuario {
   id: string;
   nome: string;
   email: string;
-  papel: "admin";
+  papel: PapelUsuario;
   empresaId: string;
+}
+
+export interface AgenteConfig {
+  empresaId: string;
+  nomeDoAgente: string;
+  descricaoRestaurante: string;
+  tomDeVoz: string;
+  saudacao: string;
+  despedida: string;
+  politicasReserva: string;
+  faq: Array<{ pergunta: string; resposta: string }>;
+  topicosProibidos: string[];
 }
 
 export interface Unidade {

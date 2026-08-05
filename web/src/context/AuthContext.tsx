@@ -9,6 +9,7 @@ interface AuthContextValue {
   unidades: Unidade[];
   carregando: boolean;
   erroInicial: string | null;
+  isOwner: boolean;
   login: (email: string, senha: string) => Promise<void>;
   logout: () => void;
   selecionarUnidade: (unidade: Unidade) => void;
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unidades,
       carregando,
       erroInicial,
+      isOwner: usuario?.papel === "owner",
       login,
       logout: limparSessao,
       selecionarUnidade: setUnidade,

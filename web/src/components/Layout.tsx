@@ -2,7 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 
 export function Layout() {
-  const { usuario, unidade, unidades, selecionarUnidade, logout } = useAuth();
+  const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout } = useAuth();
 
   return (
     <div className="layout">
@@ -12,9 +12,19 @@ export function Layout() {
           <NavLink to="/reservas" className={({ isActive }) => (isActive ? "ativo" : "")}>
             Reservas do dia
           </NavLink>
-          <NavLink to="/mesas" className={({ isActive }) => (isActive ? "ativo" : "")}>
-            Mesas
-          </NavLink>
+          {isOwner && (
+            <>
+              <NavLink to="/mesas" className={({ isActive }) => (isActive ? "ativo" : "")}>
+                Mesas
+              </NavLink>
+              <NavLink to="/agente" className={({ isActive }) => (isActive ? "ativo" : "")}>
+                Agente de IA
+              </NavLink>
+              <NavLink to="/usuarios" className={({ isActive }) => (isActive ? "ativo" : "")}>
+                Usuarios
+              </NavLink>
+            </>
+          )}
         </nav>
         <nav>
           {unidades.length > 1 && (
