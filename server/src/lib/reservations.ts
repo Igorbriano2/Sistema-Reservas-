@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, type SQL } from "drizzle-orm";
 import type { Database, Queryable } from "../db/client.js";
 import { mesas, regrasHorario, reservas, saloes, type Reserva } from "../db/schema/index.js";
 import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from "./time.js";
@@ -165,17 +165,20 @@ export interface AtualizarReservaParams {
   observacoes?: string;
 }
 
-export async function atualizarReservaDaUnidade(
+// condicoesDeIdentidade SEMPRE inclui id + unidade_id; quando chamada em nome de um
+// cliente do Instagram, tambem inclui ig_sender_id, transformando a checagem de posse
+// em parte da propria query (nunca um "buscar depois comparar" separado e falivel).
+async function atualizarReservaComCondicoes(
   db: Database,
   unidadeId: string,
-  reservaId: string,
+  condicoesDeIdentidade: SQL[],
   patch: AtualizarReservaParams,
 ): Promise<Reserva> {
   return db.transaction(async (tx) => {
     const [atual] = await tx
       .select()
       .from(reservas)
-      .where(and(eq(reservas.id, reservaId), eq(reservas.unidadeId, unidadeId)))
+      .where(and(...condicoesDeIdentidade))
       .for("update");
 
     if (!atual) {
@@ -222,7 +225,7 @@ export async function atualizarReservaDaUnidade(
         horaInicio,
         horaFim,
         bufferMin,
-        ignorarReservaId: reservaId,
+        ignorarReservaId: atual.id,
       });
     }
 
@@ -240,7 +243,7 @@ export async function atualizarReservaDaUnidade(
           status: patch.status,
           observacoes: patch.observacoes,
         })
-        .where(and(eq(reservas.id, reservaId), eq(reservas.unidadeId, unidadeId)))
+        .where(eq(reservas.id, atual.id))
         .returning();
       return atualizada;
     } catch (err) {
@@ -252,15 +255,76 @@ export async function atualizarReservaDaUnidade(
   });
 }
 
-export async function cancelarReservaDaUnidade(db: Database, unidadeId: string, reservaId: string): Promise<Reserva> {
+export async function atualizarReservaDaUnidade(
+  db: Database,
+  unidadeId: string,
+  reservaId: string,
+  patch: AtualizarReservaParams,
+): Promise<Reserva> {
+  return atualizarReservaComCondicoes(
+    db,
+    unidadeId,
+    [eq(reservas.id, reservaId), eq(reservas.unidadeId, unidadeId)],
+    patch,
+  );
+}
+
+// Usada pelas tools do agente: a posse (ig_sender_id) e resolvida sempre a partir de
+// conversas.ig_sender_id no backend, nunca aceita como parametro vindo do modelo, e
+// entra na propria condicao de busca da reserva (nao um cheque "depois de buscar").
+export async function atualizarReservaDoCliente(
+  db: Database,
+  params: { unidadeId: string; igSenderId: string; reservaId: string },
+  patch: AtualizarReservaParams,
+): Promise<Reserva> {
+  return atualizarReservaComCondicoes(
+    db,
+    params.unidadeId,
+    [
+      eq(reservas.id, params.reservaId),
+      eq(reservas.unidadeId, params.unidadeId),
+      eq(reservas.igSenderId, params.igSenderId),
+    ],
+    patch,
+  );
+}
+
+async function cancelarReservaComCondicoes(db: Database, condicoesDeIdentidade: SQL[]): Promise<Reserva> {
   const [reserva] = await db
     .update(reservas)
     .set({ status: "cancelada" })
-    .where(and(eq(reservas.id, reservaId), eq(reservas.unidadeId, unidadeId)))
+    .where(and(...condicoesDeIdentidade))
     .returning();
 
   if (!reserva) {
     throw new RecursoNaoEncontradoError("Reserva nao encontrada");
   }
   return reserva;
+}
+
+export async function cancelarReservaDaUnidade(db: Database, unidadeId: string, reservaId: string): Promise<Reserva> {
+  return cancelarReservaComCondicoes(db, [eq(reservas.id, reservaId), eq(reservas.unidadeId, unidadeId)]);
+}
+
+export async function cancelarReservaDoCliente(
+  db: Database,
+  params: { unidadeId: string; igSenderId: string; reservaId: string },
+): Promise<Reserva> {
+  return cancelarReservaComCondicoes(db, [
+    eq(reservas.id, params.reservaId),
+    eq(reservas.unidadeId, params.unidadeId),
+    eq(reservas.igSenderId, params.igSenderId),
+  ]);
+}
+
+export async function buscarReservasDoCliente(
+  db: Database,
+  params: { unidadeId: string; igSenderId: string; limite?: number },
+): Promise<Reserva[]> {
+  return db
+    .select()
+    .from(reservas)
+    .where(and(eq(reservas.unidadeId, params.unidadeId), eq(reservas.igSenderId, params.igSenderId)))
+    .orderBy(desc(reservas.data), desc(reservas.horaInicio))
+    .limit(params.limite ?? 20);
 }

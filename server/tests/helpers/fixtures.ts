@@ -1,5 +1,5 @@
 import { db } from "../../src/db/client.js";
-import { mesas, regrasHorario, saloes } from "../../src/db/schema/index.js";
+import { conversas, mesas, regrasHorario, saloes } from "../../src/db/schema/index.js";
 
 export async function criarSalao(unidadeId: string, nome = "Salao Principal") {
   const [salao] = await db.insert(saloes).values({ unidadeId, nome }).returning();
@@ -43,4 +43,12 @@ export async function criarRegraHorarioTodosOsDias(
     regras.push(regra);
   }
   return regras;
+}
+
+export async function criarConversa(empresaId: string, unidadeId: string, igSenderId: string) {
+  const [conversa] = await db
+    .insert(conversas)
+    .values({ empresaId, unidadeId, igSenderId })
+    .returning();
+  return conversa;
 }
