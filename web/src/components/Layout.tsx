@@ -8,7 +8,10 @@ export function Layout() {
     <div className="layout">
       <header className="topo">
         <nav>
-          <strong>{unidade?.nome ?? "Reservas"}</strong>
+          <span className="marca">
+            Quero<span className="marca-ponto">Reservar</span>
+          </span>
+          <span className="texto-secundario">{unidade?.nome ?? ""}</span>
           <NavLink to="/reservas" className={({ isActive }) => (isActive ? "ativo" : "")}>
             Reservas do dia
           </NavLink>
@@ -51,6 +54,12 @@ export function Layout() {
       <main className="conteudo">
         <Outlet />
       </main>
+      <footer className="rodape">
+        <span className="marca">
+          Quero<span className="marca-ponto">Reservar</span>
+        </span>
+        <div>Painel administrativo</div>
+      </footer>
     </div>
   );
 }

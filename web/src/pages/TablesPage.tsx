@@ -183,7 +183,7 @@ export function TablesPage() {
           <button className="btn" type="submit" disabled={salvandoMesa || saloes.length === 0}>
             {salvandoMesa ? "Salvando..." : "Adicionar mesa"}
           </button>
-          {saloes.length === 0 && <p style={{ fontSize: "0.85rem", color: "#777" }}>Cadastre um salão antes de adicionar mesas.</p>}
+          {saloes.length === 0 && <p className="texto-secundario" style={{ fontSize: "0.85rem" }}>Cadastre um salão antes de adicionar mesas.</p>}
         </form>
       </div>
 

@@ -60,7 +60,7 @@ export function UsersPage() {
 
       <div className="cartao">
         <h3 style={{ marginTop: 0 }}>Novo login</h3>
-        <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
+        <p className="texto-secundario" style={{ marginTop: 0, fontSize: "0.85rem" }}>
           Cadastre o login direto aqui - sem convite por email por enquanto. Compartilhe a senha com a pessoa por um
           canal seguro.
         </p>

@@ -259,7 +259,7 @@ export function ReservationsPage() {
                   <td>{reserva.horaInicio.slice(0, 5)}</td>
                   <td>
                     {reserva.clienteNome}
-                    {reserva.clienteTelefone && <div style={{ fontSize: "0.8rem", color: "#777" }}>{reserva.clienteTelefone}</div>}
+                    {reserva.clienteTelefone && <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>{reserva.clienteTelefone}</div>}
                   </td>
                   <td>{reserva.numPessoas}</td>
                   <td>{mesasPorId.get(reserva.mesaId)?.nome ?? "-"}</td>

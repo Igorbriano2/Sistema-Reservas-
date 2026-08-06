@@ -30,6 +30,9 @@ export function LoginPage() {
   return (
     <div className="tela-login">
       <form className="form-login" onSubmit={handleSubmit}>
+        <span className="marca">
+          Quero<span className="marca-ponto">Reservar</span>
+        </span>
         <h1 style={{ margin: 0, fontSize: "1.25rem" }}>Entrar</h1>
         <label>
           Email

@@ -77,7 +77,7 @@ export function AgentConfigPage() {
   return (
     <div className="cartao">
       <h3 style={{ marginTop: 0 }}>Personalizacao do agente de IA</h3>
-      <p style={{ marginTop: 0, color: "#666", fontSize: "0.85rem" }}>
+      <p className="texto-secundario" style={{ marginTop: 0, fontSize: "0.85rem" }}>
         Isso define como o assistente se comporta ao conversar com clientes pelo Instagram Direct.
       </p>
       <form onSubmit={salvar}>
@@ -114,7 +114,7 @@ export function AgentConfigPage() {
           <input value={form.topicosProibidos} onChange={(e) => setForm({ ...form, topicosProibidos: e.target.value })} />
         </label>
         {erro && <p className="erro">{erro}</p>}
-        {salvo && <p style={{ color: "#146c3e", fontSize: "0.85rem" }}>Configuracao salva.</p>}
+        {salvo && <p className="sucesso" style={{ fontSize: "0.85rem" }}>Configuracao salva.</p>}
         <button className="btn" type="submit" disabled={salvando}>
           {salvando ? "Salvando..." : "Salvar"}
         </button>

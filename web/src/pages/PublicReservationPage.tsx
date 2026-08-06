@@ -66,8 +66,11 @@ export function PublicReservationPage() {
     return (
       <div className="tela-login">
         <div className="form-login">
+          <span className="marca">
+            Quero<span className="marca-ponto">Reservar</span>
+          </span>
           <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Link expirado</h1>
-          <p style={{ color: "#666", fontSize: "0.9rem" }}>
+          <p className="texto-secundario" style={{ fontSize: "0.9rem" }}>
             Este link de reserva expirou ou e invalido. Volte na conversa do Instagram e peca um novo link ao
             atendente.
           </p>
@@ -80,12 +83,15 @@ export function PublicReservationPage() {
     return (
       <div className="tela-login">
         <div className="form-login">
+          <span className="marca">
+            Quero<span className="marca-ponto">Reservar</span>
+          </span>
           <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reserva confirmada!</h1>
           <p style={{ fontSize: "0.9rem" }}>
             {confirmada.data.split("-").reverse().join("/")} as {confirmada.horaInicio.slice(0, 5)}, para{" "}
             {confirmada.numPessoas} pessoa(s).
           </p>
-          <p style={{ color: "#666", fontSize: "0.85rem" }}>
+          <p className="texto-secundario" style={{ fontSize: "0.85rem" }}>
             Voce tambem vai receber a confirmacao pelo Instagram. Ate breve!
           </p>
         </div>
@@ -96,6 +102,9 @@ export function PublicReservationPage() {
   return (
     <div className="tela-login">
       <form className="form-login" onSubmit={handleSubmit} style={{ width: 360 }}>
+        <span className="marca">
+          Quero<span className="marca-ponto">Reservar</span>
+        </span>
         <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reservar em {unidadeNome}</h1>
         <label>
           Data
