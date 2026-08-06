@@ -572,6 +572,63 @@
   margin: 0;
 }
 
+/* Comparativo -------------------------------------------------------------- */
+
+.lp-comparativo-wrap {
+  overflow-x: auto;
+}
+
+.lp-comparativo {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.lp-comparativo th,
+.lp-comparativo td {
+  padding: 0.9rem 1rem;
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.lp-comparativo thead th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.lp-comparativo tbody th {
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lp-comparativo td {
+  color: var(--text-secondary);
+}
+
+.lp-comparativo th:last-child,
+.lp-comparativo td:last-child {
+  background: rgba(185, 122, 79, 0.1);
+  color: var(--text-primary);
+  font-weight: 600;
+  border-left: 1px solid rgba(185, 122, 79, 0.3);
+  border-right: 1px solid rgba(185, 122, 79, 0.3);
+}
+
+.lp-comparativo thead th:last-child {
+  border-top: 1px solid rgba(185, 122, 79, 0.3);
+  border-radius: 8px 8px 0 0;
+}
+
+.lp-comparativo tbody tr:last-child td:last-child {
+  border-radius: 0 0 8px 8px;
+  border-bottom: 1px solid rgba(185, 122, 79, 0.3);
+}
+
 /* Preco -------------------------------------------------------------------- */
 
 .lp-card-preco {

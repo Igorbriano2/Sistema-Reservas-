@@ -5,6 +5,7 @@ import { Marca } from "../components/Marca.js";
 import { ComoFuncionaMidia } from "../components/landing/ComoFuncionaMidia.js";
 import { TrustSection } from "../components/landing/TrustSection.js";
 import { FounderSection } from "../components/landing/FounderSection.js";
+import { ComparisonSection } from "../components/landing/ComparisonSection.js";
 
 function prefereMovimentoReduzido(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -305,6 +306,9 @@ export function LandingPage() {
 
         {/* 6.1 Sobre o fundador (isolado) ------------------------------------- */}
         <FounderSection />
+
+        {/* 6.2 Comparativo (isolado) ------------------------------------------- */}
+        <ComparisonSection />
 
         {/* 7. Preco ----------------------------------------------------------- */}
         <section className="lp-secao" id="preco">
