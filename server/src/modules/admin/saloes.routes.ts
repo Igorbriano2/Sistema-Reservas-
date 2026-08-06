@@ -8,8 +8,16 @@ import { RecursoNaoEncontradoError } from "../../lib/errors.js";
 
 export const saloesRouter = Router({ mergeParams: true });
 
-const criarSalaoSchema = z.object({ nome: z.string().min(1) });
-const atualizarSalaoSchema = z.object({ nome: z.string().min(1) });
+const modoConfiguracaoSchema = z.enum(["simples", "mapa"]);
+
+const criarSalaoSchema = z.object({
+  nome: z.string().min(1),
+  modoConfiguracao: modoConfiguracaoSchema.optional(),
+  capacidadeTotal: z.number().int().positive().optional(),
+});
+const atualizarSalaoSchema = criarSalaoSchema
+  .partial()
+  .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar");
 
 saloesRouter.get(
   "/",
@@ -22,8 +30,8 @@ saloesRouter.get(
 saloesRouter.post(
   "/",
   asyncHandler(async (req, res) => {
-    const { nome } = criarSalaoSchema.parse(req.body);
-    const [salao] = await db.insert(saloes).values({ unidadeId: req.unidadeId!, nome }).returning();
+    const dados = criarSalaoSchema.parse(req.body);
+    const [salao] = await db.insert(saloes).values({ unidadeId: req.unidadeId!, ...dados }).returning();
     res.status(201).json(salao);
   }),
 );
@@ -31,10 +39,10 @@ saloesRouter.post(
 saloesRouter.patch(
   "/:salaoId",
   asyncHandler(async (req, res) => {
-    const { nome } = atualizarSalaoSchema.parse(req.body);
+    const dados = atualizarSalaoSchema.parse(req.body);
     const [salao] = await db
       .update(saloes)
-      .set({ nome })
+      .set(dados)
       .where(and(eq(saloes.id, req.params.salaoId), eq(saloes.unidadeId, req.unidadeId!)))
       .returning();
     if (!salao) throw new RecursoNaoEncontradoError("Salao nao encontrado");

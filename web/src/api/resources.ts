@@ -4,6 +4,7 @@ import type {
   Bloqueio,
   Mesa,
   MesaFormato,
+  ModoConfiguracaoSalao,
   PapelUsuario,
   Relatorio,
   Reserva,
@@ -24,8 +25,18 @@ export function listarSaloes(unidadeId: string) {
   return api.get<Salao[]>(`/admin/unidades/${unidadeId}/saloes`);
 }
 
-export function criarSalao(unidadeId: string, nome: string) {
-  return api.post<Salao>(`/admin/unidades/${unidadeId}/saloes`, { nome });
+export interface DadosSalao {
+  nome: string;
+  modoConfiguracao?: ModoConfiguracaoSalao;
+  capacidadeTotal?: number;
+}
+
+export function criarSalao(unidadeId: string, dados: DadosSalao) {
+  return api.post<Salao>(`/admin/unidades/${unidadeId}/saloes`, dados);
+}
+
+export function atualizarSalao(unidadeId: string, salaoId: string, dados: Partial<DadosSalao>) {
+  return api.patch<Salao>(`/admin/unidades/${unidadeId}/saloes/${salaoId}`, dados);
 }
 
 export function listarMesas(unidadeId: string) {
@@ -89,7 +100,9 @@ export function listarReservasPorPeriodo(unidadeId: string, dataInicio: string, 
 }
 
 export interface DadosNovaReserva {
-  mesaId: string;
+  // Exatamente um dos dois: mesaId (salao modo "mapa") ou salaoId (modo "simples").
+  mesaId?: string;
+  salaoId?: string;
   data: string;
   horaInicio: string;
   horaFim?: string;
@@ -105,6 +118,7 @@ export function criarReserva(unidadeId: string, dados: DadosNovaReserva) {
 
 export interface DadosEditarReserva {
   mesaId?: string;
+  salaoId?: string;
   data?: string;
   horaInicio?: string;
   horaFim?: string;

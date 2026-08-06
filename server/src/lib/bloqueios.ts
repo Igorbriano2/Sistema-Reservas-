@@ -72,6 +72,27 @@ export async function removerBloqueio(db: Database, unidadeId: string, bloqueioI
   }
 }
 
+// Mesma ideia de bloqueioAtivoPara, mas para reservas do modo "simples" (sem mesa):
+// so existe bloqueio direto no salao inteiro (nao ha mesa pra checar).
+export async function bloqueioDeSalaoAtivoPara(
+  db: Queryable,
+  params: { unidadeId: string; salaoId: string; data: string },
+): Promise<Bloqueio | null> {
+  const [bloqueio] = await db
+    .select()
+    .from(bloqueios)
+    .where(
+      and(
+        eq(bloqueios.unidadeId, params.unidadeId),
+        lte(bloqueios.dataInicio, params.data),
+        gte(bloqueios.dataFim, params.data),
+        eq(bloqueios.salaoId, params.salaoId),
+      ),
+    )
+    .limit(1);
+  return bloqueio ?? null;
+}
+
 // Usada na criacao/edicao de UMA reserva (mesa ja resolvida): devolve o bloqueio que
 // a impede (direto na mesa, ou no salao inteiro) nessa data, ou null se estiver livre.
 export async function bloqueioAtivoPara(
@@ -91,6 +112,27 @@ export async function bloqueioAtivoPara(
     )
     .limit(1);
   return bloqueio ?? null;
+}
+
+// Mesma ideia de mesasBloqueadasEm, mas para varios saloes candidatos do modo
+// "simples" de uma vez: devolve o conjunto de salaoId com bloqueio ativo na data.
+export async function saloesBloqueadosEm(
+  db: Queryable,
+  params: { unidadeId: string; data: string; salaoIds: string[] },
+): Promise<Set<string>> {
+  if (params.salaoIds.length === 0) return new Set();
+  const linhas = await db
+    .select({ salaoId: bloqueios.salaoId })
+    .from(bloqueios)
+    .where(
+      and(
+        eq(bloqueios.unidadeId, params.unidadeId),
+        lte(bloqueios.dataInicio, params.data),
+        gte(bloqueios.dataFim, params.data),
+        inArray(bloqueios.salaoId, params.salaoIds),
+      ),
+    );
+  return new Set(linhas.map((l) => l.salaoId).filter((v): v is string => !!v));
 }
 
 // Usada pela checagem de disponibilidade (varias mesas candidatas de uma vez): devolve

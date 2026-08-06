@@ -43,6 +43,8 @@ async function checkAvailability(db: Database, ctx: AgentContext, input: unknown
       hora_inicio: resultado.horaInicio,
       hora_fim: resultado.horaFim,
       mesas_disponiveis: resultado.mesasDisponiveis.length,
+      // Saloes em modo "simples" (sem mesas individuais) com capacidade sobrando.
+      saloes_disponiveis: resultado.saloesSimplesDisponiveis.length,
     },
   };
 }

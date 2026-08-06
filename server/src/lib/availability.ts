@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../db/client.js";
 import { excecoesHorario, mesas, regrasHorario, reservas, saloes } from "../db/schema/index.js";
 import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from "./time.js";
-import { mesasBloqueadasEm } from "./bloqueios.js";
+import { mesasBloqueadasEm, saloesBloqueadosEm } from "./bloqueios.js";
 
 export interface VerificarDisponibilidadeParams {
   unidadeId: string;
@@ -19,15 +19,29 @@ export interface MesaDisponivel {
   capacidadeMax: number;
 }
 
+export interface SalaoSimplesDisponivel {
+  id: string;
+  nome: string;
+  capacidadeTotal: number;
+  capacidadeDisponivel: number;
+}
+
 export interface DisponibilidadeResultado {
   disponivel: boolean;
   motivo?: string;
   horaInicio: string;
   horaFim: string;
   mesasDisponiveis: MesaDisponivel[];
+  saloesSimplesDisponiveis: SalaoSimplesDisponivel[];
 }
 
+// Reservas nesses status "ocupam" uma mesa (modo mapa) - inclui "pendente" pra nao
+// deixar duas pessoas reservarem a mesma mesa enquanto uma confirmacao esta em aberto.
 const STATUS_QUE_OCUPA_MESA = ["pendente", "confirmada"] as const;
+// No modo simples a capacidade e um numero agregado (nao um recurso exclusivo por
+// reserva), entao so contam reservas ja confirmadas ou ja sentadas (concluida) -
+// "pendente" nao chega a existir na pratica hoje (toda reserva nasce "confirmada").
+const STATUS_QUE_OCUPA_SALAO_SIMPLES = ["confirmada", "concluida"] as const;
 
 export async function verificarDisponibilidade(
   db: Database,
@@ -41,6 +55,7 @@ export async function verificarDisponibilidade(
     horaInicio,
     horaFim: horaInicio,
     mesasDisponiveis: [],
+    saloesSimplesDisponiveis: [],
   });
 
   const [excecao] = await db
@@ -83,67 +98,137 @@ export async function verificarDisponibilidade(
   const horaFim = somarMinutos(horaInicio, duracaoPadraoMin);
   const fimMin = inicioMin + duracaoPadraoMin;
 
-  const mesasCandidatas = await db
+  const todosSaloes = await db
     .select({
-      id: mesas.id,
-      nome: mesas.nome,
-      salaoId: mesas.salaoId,
-      capacidadeMin: mesas.capacidadeMin,
-      capacidadeMax: mesas.capacidadeMax,
+      id: saloes.id,
+      nome: saloes.nome,
+      modoConfiguracao: saloes.modoConfiguracao,
+      capacidadeTotal: saloes.capacidadeTotal,
     })
-    .from(mesas)
-    .innerJoin(saloes, eq(mesas.salaoId, saloes.id))
+    .from(saloes)
     .where(eq(saloes.unidadeId, unidadeId));
 
-  const mesasCompativeis = mesasCandidatas.filter(
-    (m) => numPessoas >= m.capacidadeMin && numPessoas <= m.capacidadeMax,
+  if (todosSaloes.length === 0) {
+    return semDisponibilidade("Nenhum salao cadastrado para esta unidade.");
+  }
+
+  const saloesMapaIds = todosSaloes.filter((s) => s.modoConfiguracao === "mapa").map((s) => s.id);
+  const saloesSimplesCandidatos = todosSaloes.filter(
+    (s) => s.modoConfiguracao === "simples" && (s.capacidadeTotal ?? 0) > 0,
   );
 
-  if (mesasCompativeis.length === 0) {
-    return semDisponibilidade("Nenhuma mesa com capacidade compativel para este numero de pessoas.");
-  }
+  // --- Modo "mapa": mesas com capacidade compativel, sem bloqueio e sem sobreposicao ---
+  let mesasDisponiveis: MesaDisponivel[] = [];
+  if (saloesMapaIds.length > 0) {
+    const mesasCandidatas = await db
+      .select({
+        id: mesas.id,
+        nome: mesas.nome,
+        salaoId: mesas.salaoId,
+        capacidadeMin: mesas.capacidadeMin,
+        capacidadeMax: mesas.capacidadeMax,
+      })
+      .from(mesas)
+      .where(inArray(mesas.salaoId, saloesMapaIds));
 
-  const salaoIdPorMesa = new Map(mesasCompativeis.map((m) => [m.id, m.salaoId]));
-  const mesasBloqueadas = await mesasBloqueadasEm(db, {
-    unidadeId,
-    data,
-    mesaIds: mesasCompativeis.map((m) => m.id),
-    salaoIdPorMesa,
-  });
-  const mesasNaoBloqueadas = mesasCompativeis.filter((m) => !mesasBloqueadas.has(m.id));
-
-  if (mesasNaoBloqueadas.length === 0) {
-    return semDisponibilidade("Mesas compativeis estao bloqueadas neste periodo (manutencao, evento, etc).");
-  }
-
-  const mesaIds = mesasNaoBloqueadas.map((m) => m.id);
-  const reservasDoDia = await db
-    .select({ mesaId: reservas.mesaId, horaInicio: reservas.horaInicio, horaFim: reservas.horaFim })
-    .from(reservas)
-    .where(
-      and(
-        eq(reservas.unidadeId, unidadeId),
-        eq(reservas.data, data),
-        inArray(reservas.mesaId, mesaIds),
-        inArray(reservas.status, [...STATUS_QUE_OCUPA_MESA]),
-      ),
+    const mesasCompativeis = mesasCandidatas.filter(
+      (m) => numPessoas >= m.capacidadeMin && numPessoas <= m.capacidadeMax,
     );
 
-  const ocupacaoPorMesa = new Map<string, { inicio: number; fim: number }[]>();
-  for (const r of reservasDoDia) {
-    const lista = ocupacaoPorMesa.get(r.mesaId) ?? [];
-    lista.push({ inicio: paraMinutos(r.horaInicio) - bufferMin, fim: paraMinutos(r.horaFim) + bufferMin });
-    ocupacaoPorMesa.set(r.mesaId, lista);
+    if (mesasCompativeis.length > 0) {
+      const salaoIdPorMesa = new Map(mesasCompativeis.map((m) => [m.id, m.salaoId]));
+      const mesasBloqueadas = await mesasBloqueadasEm(db, {
+        unidadeId,
+        data,
+        mesaIds: mesasCompativeis.map((m) => m.id),
+        salaoIdPorMesa,
+      });
+      const mesasNaoBloqueadas = mesasCompativeis.filter((m) => !mesasBloqueadas.has(m.id));
+
+      if (mesasNaoBloqueadas.length > 0) {
+        const mesaIds = mesasNaoBloqueadas.map((m) => m.id);
+        const reservasDoDia = await db
+          .select({ mesaId: reservas.mesaId, horaInicio: reservas.horaInicio, horaFim: reservas.horaFim })
+          .from(reservas)
+          .where(
+            and(
+              eq(reservas.unidadeId, unidadeId),
+              eq(reservas.data, data),
+              inArray(reservas.mesaId, mesaIds),
+              inArray(reservas.status, [...STATUS_QUE_OCUPA_MESA]),
+            ),
+          );
+
+        const ocupacaoPorMesa = new Map<string, { inicio: number; fim: number }[]>();
+        for (const r of reservasDoDia) {
+          if (!r.mesaId) continue;
+          const lista = ocupacaoPorMesa.get(r.mesaId) ?? [];
+          lista.push({ inicio: paraMinutos(r.horaInicio) - bufferMin, fim: paraMinutos(r.horaFim) + bufferMin });
+          ocupacaoPorMesa.set(r.mesaId, lista);
+        }
+
+        mesasDisponiveis = mesasNaoBloqueadas.filter((mesa) => {
+          const ocupacoes = ocupacaoPorMesa.get(mesa.id) ?? [];
+          return !ocupacoes.some((o) => intervalosSeSobrepoem(inicioMin, fimMin, o.inicio, o.fim));
+        });
+      }
+    }
   }
 
-  const mesasDisponiveis = mesasNaoBloqueadas.filter((mesa) => {
-    const ocupacoes = ocupacaoPorMesa.get(mesa.id) ?? [];
-    return !ocupacoes.some((o) => intervalosSeSobrepoem(inicioMin, fimMin, o.inicio, o.fim));
-  });
+  // --- Modo "simples": saloes com capacidade total agregada suficiente no horario ---
+  let saloesSimplesDisponiveis: SalaoSimplesDisponivel[] = [];
+  if (saloesSimplesCandidatos.length > 0) {
+    const salaoIds = saloesSimplesCandidatos.map((s) => s.id);
+    const salaoesBloqueados = await saloesBloqueadosEm(db, { unidadeId, data, salaoIds });
+    const saloesLivres = saloesSimplesCandidatos.filter((s) => !salaoesBloqueados.has(s.id));
 
-  if (mesasDisponiveis.length === 0) {
-    return semDisponibilidade("Todas as mesas compativeis ja estao reservadas neste horario.");
+    if (saloesLivres.length > 0) {
+      const saloesLivresIds = saloesLivres.map((s) => s.id);
+      const reservasDoDia = await db
+        .select({
+          salaoId: reservas.salaoId,
+          horaInicio: reservas.horaInicio,
+          horaFim: reservas.horaFim,
+          numPessoas: reservas.numPessoas,
+        })
+        .from(reservas)
+        .where(
+          and(
+            eq(reservas.unidadeId, unidadeId),
+            eq(reservas.data, data),
+            inArray(reservas.salaoId, saloesLivresIds),
+            inArray(reservas.status, [...STATUS_QUE_OCUPA_SALAO_SIMPLES]),
+          ),
+        );
+
+      const ocupacaoPorSalao = new Map<string, number>();
+      for (const r of reservasDoDia) {
+        if (!r.salaoId) continue;
+        const sobrepoe = intervalosSeSobrepoem(
+          inicioMin,
+          fimMin,
+          paraMinutos(r.horaInicio) - bufferMin,
+          paraMinutos(r.horaFim) + bufferMin,
+        );
+        if (sobrepoe) {
+          ocupacaoPorSalao.set(r.salaoId, (ocupacaoPorSalao.get(r.salaoId) ?? 0) + r.numPessoas);
+        }
+      }
+
+      saloesSimplesDisponiveis = saloesLivres
+        .map((s) => ({
+          id: s.id,
+          nome: s.nome,
+          capacidadeTotal: s.capacidadeTotal!,
+          capacidadeDisponivel: s.capacidadeTotal! - (ocupacaoPorSalao.get(s.id) ?? 0),
+        }))
+        .filter((s) => s.capacidadeDisponivel >= numPessoas);
+    }
   }
 
-  return { disponivel: true, horaInicio, horaFim, mesasDisponiveis };
+  if (mesasDisponiveis.length === 0 && saloesSimplesDisponiveis.length === 0) {
+    return semDisponibilidade("Sem capacidade disponivel (mesas ou salao) para esse horario e numero de pessoas.");
+  }
+
+  return { disponivel: true, horaInicio, horaFim, mesasDisponiveis, saloesSimplesDisponiveis };
 }

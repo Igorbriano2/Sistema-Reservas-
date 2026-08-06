@@ -50,6 +50,13 @@
       "when": 1786040786050,
       "tag": "0006_mute_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786046553489,
+      "tag": "0007_fat_lenny_balinger",
+      "breakpoints": true
     }
   ]
 }

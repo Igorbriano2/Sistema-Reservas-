@@ -5,7 +5,12 @@ import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from ".
 import { ConflitoDeHorarioError, RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
 import { codigoDoErroPostgres } from "./pg-error.js";
 import { verificarDisponibilidade } from "./availability.js";
-import { bloqueioAtivoPara } from "./bloqueios.js";
+import { bloqueioAtivoPara, bloqueioDeSalaoAtivoPara } from "./bloqueios.js";
+
+// Reservas nesses status contam para a capacidade agregada de um salao em modo
+// "simples" (ver criarReservaSimples/atualizarReservaComCondicoes) - mesmo conjunto
+// usado em verificarDisponibilidade para o mesmo modo.
+const STATUS_QUE_OCUPA_SALAO_SIMPLES = ["confirmada", "concluida"] as const;
 
 const STATUS_ATIVOS = ["pendente", "confirmada"] as const;
 // So uma reserva ainda ativa (nao cancelada/ja concluida/ja no_show) pode ser marcada
@@ -80,7 +85,9 @@ async function validarSemConflito(
 
 export interface CriarReservaParams {
   unidadeId: string;
-  mesaId: string;
+  // Exatamente um dos dois: mesaId (salao em modo "mapa") ou salaoId (modo "simples").
+  mesaId?: string;
+  salaoId?: string;
   data: string;
   horaInicio: string;
   horaFim?: string;
@@ -93,6 +100,19 @@ export interface CriarReservaParams {
 }
 
 export async function criarReserva(db: Database, params: CriarReservaParams): Promise<Reserva> {
+  if (!!params.mesaId === !!params.salaoId) {
+    throw new RequisicaoInvalidaError("Informe exatamente um dos dois: mesaId ou salaoId");
+  }
+  if (params.salaoId) {
+    return criarReservaSimples(db, { ...params, salaoId: params.salaoId });
+  }
+  return criarReservaComMesa(db, { ...params, mesaId: params.mesaId! });
+}
+
+async function criarReservaComMesa(
+  db: Database,
+  params: CriarReservaParams & { mesaId: string },
+): Promise<Reserva> {
   return db.transaction(async (tx) => {
     // Lock na linha da mesa: serializa criacoes concorrentes na MESMA mesa, evitando
     // que duas requisicoes simultaneas leiam "sem conflito" antes de qualquer uma inserir.
@@ -176,11 +196,135 @@ export async function criarReserva(db: Database, params: CriarReservaParams): Pr
   });
 }
 
+async function criarReservaSimples(
+  db: Database,
+  params: CriarReservaParams & { salaoId: string },
+): Promise<Reserva> {
+  return db.transaction(async (tx) => {
+    // Lock na linha do salao: serializa criacoes concorrentes no MESMO salao (modo
+    // simples), mesmo racional do lock de mesa em criarReservaComMesa - nao ha
+    // constraint EXCLUDE do banco pra capacidade agregada, entao esse lock e a
+    // unica linha de defesa contra corrida (duas requisicoes somando capacidade
+    // "livre" ao mesmo tempo e ambas passando).
+    const [salaoTrancado] = await tx
+      .select({
+        id: saloes.id,
+        unidadeId: saloes.unidadeId,
+        modoConfiguracao: saloes.modoConfiguracao,
+        capacidadeTotal: saloes.capacidadeTotal,
+      })
+      .from(saloes)
+      .where(eq(saloes.id, params.salaoId))
+      .for("update");
+
+    if (!salaoTrancado) {
+      throw new RecursoNaoEncontradoError("Salao nao encontrado");
+    }
+    if (salaoTrancado.unidadeId !== params.unidadeId) {
+      throw new RecursoNaoEncontradoError("Salao nao encontrado nesta unidade");
+    }
+    if (salaoTrancado.modoConfiguracao !== "simples") {
+      throw new RequisicaoInvalidaError("Este salao nao esta no modo simples (sem selecao de mesa)");
+    }
+    if (!salaoTrancado.capacidadeTotal || salaoTrancado.capacidadeTotal <= 0) {
+      throw new RequisicaoInvalidaError("Capacidade total do salao ainda nao foi configurada");
+    }
+    if (params.numPessoas > salaoTrancado.capacidadeTotal) {
+      throw new RequisicaoInvalidaError(
+        `Numero de pessoas maior que a capacidade total do salao (${salaoTrancado.capacidadeTotal})`,
+      );
+    }
+
+    const bloqueio = await bloqueioDeSalaoAtivoPara(tx, {
+      unidadeId: params.unidadeId,
+      salaoId: params.salaoId,
+      data: params.data,
+    });
+    if (bloqueio) {
+      throw new ConflitoDeHorarioError(`Salao bloqueado nesta data (motivo: ${bloqueio.motivo})`);
+    }
+
+    const { horaFim, bufferMin } = await resolverJanela(tx, params.unidadeId, params.data, params.horaInicio, params.horaFim);
+
+    await validarCapacidadeSalaoSimples(tx, {
+      salaoId: params.salaoId,
+      capacidadeTotal: salaoTrancado.capacidadeTotal,
+      data: params.data,
+      horaInicio: params.horaInicio,
+      horaFim,
+      bufferMin,
+      numPessoasNova: params.numPessoas,
+    });
+
+    const [reserva] = await tx
+      .insert(reservas)
+      .values({
+        unidadeId: params.unidadeId,
+        salaoId: params.salaoId,
+        igSenderId: params.igSenderId,
+        clienteNome: params.clienteNome,
+        clienteTelefone: params.clienteTelefone,
+        numPessoas: params.numPessoas,
+        data: params.data,
+        horaInicio: params.horaInicio,
+        horaFim,
+        observacoes: params.observacoes,
+        canalOrigem: params.canalOrigem,
+      })
+      .returning();
+    return reserva;
+  });
+}
+
+// Soma num_pessoas de todas as reservas ativas do salao (modo simples) que se
+// sobrepoem ao horario informado e rejeita se estourar a capacidade total.
+// ignorarReservaId exclui a propria reserva ao reavaliar uma edicao.
+async function validarCapacidadeSalaoSimples(
+  tx: Queryable,
+  params: {
+    salaoId: string;
+    capacidadeTotal: number;
+    data: string;
+    horaInicio: string;
+    horaFim: string;
+    bufferMin: number;
+    numPessoasNova: number;
+    ignorarReservaId?: string;
+  },
+): Promise<void> {
+  const condicoes = [
+    eq(reservas.salaoId, params.salaoId),
+    eq(reservas.data, params.data),
+    inArray(reservas.status, [...STATUS_QUE_OCUPA_SALAO_SIMPLES]),
+  ];
+  if (params.ignorarReservaId) {
+    condicoes.push(ne(reservas.id, params.ignorarReservaId));
+  }
+
+  const existentes = await tx
+    .select({ horaInicio: reservas.horaInicio, horaFim: reservas.horaFim, numPessoas: reservas.numPessoas })
+    .from(reservas)
+    .where(and(...condicoes));
+
+  const inicioMin = paraMinutos(params.horaInicio) - params.bufferMin;
+  const fimMin = paraMinutos(params.horaFim) + params.bufferMin;
+  const pessoasNoHorario = existentes
+    .filter((r) => intervalosSeSobrepoem(inicioMin, fimMin, paraMinutos(r.horaInicio) - params.bufferMin, paraMinutos(r.horaFim) + params.bufferMin))
+    .reduce((soma, r) => soma + r.numPessoas, 0);
+
+  if (pessoasNoHorario + params.numPessoasNova > params.capacidadeTotal) {
+    throw new ConflitoDeHorarioError(
+      `Capacidade do salao esgotada nesse horario (${pessoasNoHorario}/${params.capacidadeTotal} ja reservados)`,
+    );
+  }
+}
+
 export interface AtualizarReservaParams {
   clienteNome?: string;
   clienteTelefone?: string;
   numPessoas?: number;
   mesaId?: string;
+  salaoId?: string;
   data?: string;
   horaInicio?: string;
   horaFim?: string;
@@ -217,53 +361,131 @@ async function atualizarReservaComCondicoes(
       );
     }
 
-    const mesaId = patch.mesaId ?? atual.mesaId;
+    if (patch.mesaId && patch.salaoId) {
+      throw new RequisicaoInvalidaError("Informe no maximo um dos dois: mesaId ou salaoId");
+    }
+
+    // Se o patch nao explicita mesaId nem salaoId, mantem o "tipo" atual da reserva
+    // (mapa ou simples) - trocar de tipo exige informar o novo alvo explicitamente.
+    const usaSalao = patch.salaoId !== undefined ? true : patch.mesaId !== undefined ? false : atual.salaoId !== null;
+
     const data = patch.data ?? atual.data;
     const horaInicio = patch.horaInicio ?? atual.horaInicio;
-    const mudouHorarioOuMesa = mesaId !== atual.mesaId || data !== atual.data || horaInicio !== atual.horaInicio || !!patch.horaFim;
-
+    const numPessoas = patch.numPessoas ?? atual.numPessoas;
     let horaFim = patch.horaFim ?? atual.horaFim;
+    let mesaId: string | null;
+    let salaoId: string | null;
 
-    if (mudouHorarioOuMesa) {
-      const [mesa] = await tx
-        .select({ salaoId: mesas.salaoId, capacidadeMin: mesas.capacidadeMin, capacidadeMax: mesas.capacidadeMax })
-        .from(mesas)
-        .where(eq(mesas.id, mesaId))
-        .for("update");
-      if (!mesa) {
-        throw new RecursoNaoEncontradoError("Mesa nao encontrada");
-      }
-      const [salao] = await tx.select({ unidadeId: saloes.unidadeId }).from(saloes).where(eq(saloes.id, mesa.salaoId)).limit(1);
-      if (!salao || salao.unidadeId !== unidadeId) {
-        throw new RecursoNaoEncontradoError("Mesa nao encontrada nesta unidade");
+    if (usaSalao) {
+      salaoId = patch.salaoId ?? atual.salaoId;
+      mesaId = null;
+      if (!salaoId) {
+        throw new RequisicaoInvalidaError("Informe salaoId");
       }
 
-      const numPessoas = patch.numPessoas ?? atual.numPessoas;
-      if (numPessoas < mesa.capacidadeMin || numPessoas > mesa.capacidadeMax) {
-        throw new RequisicaoInvalidaError(
-          `Numero de pessoas fora da capacidade da mesa (${mesa.capacidadeMin}-${mesa.capacidadeMax})`,
-        );
+      const mudouAlgo =
+        salaoId !== atual.salaoId || data !== atual.data || horaInicio !== atual.horaInicio || numPessoas !== atual.numPessoas || !!patch.horaFim;
+
+      if (mudouAlgo) {
+        const [salao] = await tx
+          .select({
+            id: saloes.id,
+            unidadeId: saloes.unidadeId,
+            modoConfiguracao: saloes.modoConfiguracao,
+            capacidadeTotal: saloes.capacidadeTotal,
+          })
+          .from(saloes)
+          .where(eq(saloes.id, salaoId))
+          .for("update");
+        if (!salao) {
+          throw new RecursoNaoEncontradoError("Salao nao encontrado");
+        }
+        if (salao.unidadeId !== unidadeId) {
+          throw new RecursoNaoEncontradoError("Salao nao encontrado nesta unidade");
+        }
+        if (salao.modoConfiguracao !== "simples") {
+          throw new RequisicaoInvalidaError("Este salao nao esta no modo simples (sem selecao de mesa)");
+        }
+        if (!salao.capacidadeTotal || salao.capacidadeTotal <= 0) {
+          throw new RequisicaoInvalidaError("Capacidade total do salao ainda nao foi configurada");
+        }
+        if (numPessoas > salao.capacidadeTotal) {
+          throw new RequisicaoInvalidaError(
+            `Numero de pessoas maior que a capacidade total do salao (${salao.capacidadeTotal})`,
+          );
+        }
+
+        const bloqueio = await bloqueioDeSalaoAtivoPara(tx, { unidadeId, salaoId, data });
+        if (bloqueio) {
+          throw new ConflitoDeHorarioError(`Salao bloqueado nesta data (motivo: ${bloqueio.motivo})`);
+        }
+
+        if (!patch.horaFim) {
+          const janela = await resolverJanela(tx, unidadeId, data, horaInicio);
+          horaFim = janela.horaFim;
+        }
+        const { bufferMin } = await resolverJanela(tx, unidadeId, data, horaInicio);
+
+        await validarCapacidadeSalaoSimples(tx, {
+          salaoId,
+          capacidadeTotal: salao.capacidadeTotal,
+          data,
+          horaInicio,
+          horaFim,
+          bufferMin,
+          numPessoasNova: numPessoas,
+          ignorarReservaId: atual.id,
+        });
+      }
+    } else {
+      mesaId = patch.mesaId ?? atual.mesaId;
+      salaoId = null;
+      if (!mesaId) {
+        throw new RequisicaoInvalidaError("Informe mesaId");
       }
 
-      const bloqueio = await bloqueioAtivoPara(tx, { unidadeId, mesaId, salaoId: mesa.salaoId, data });
-      if (bloqueio) {
-        throw new ConflitoDeHorarioError(`Mesa bloqueada nesta data (motivo: ${bloqueio.motivo})`);
-      }
+      const mudouHorarioOuMesa = mesaId !== atual.mesaId || data !== atual.data || horaInicio !== atual.horaInicio || !!patch.horaFim;
 
-      if (!patch.horaFim) {
-        const janela = await resolverJanela(tx, unidadeId, data, horaInicio);
-        horaFim = janela.horaFim;
-      }
+      if (mudouHorarioOuMesa) {
+        const [mesa] = await tx
+          .select({ salaoId: mesas.salaoId, capacidadeMin: mesas.capacidadeMin, capacidadeMax: mesas.capacidadeMax })
+          .from(mesas)
+          .where(eq(mesas.id, mesaId))
+          .for("update");
+        if (!mesa) {
+          throw new RecursoNaoEncontradoError("Mesa nao encontrada");
+        }
+        const [salao] = await tx.select({ unidadeId: saloes.unidadeId }).from(saloes).where(eq(saloes.id, mesa.salaoId)).limit(1);
+        if (!salao || salao.unidadeId !== unidadeId) {
+          throw new RecursoNaoEncontradoError("Mesa nao encontrada nesta unidade");
+        }
 
-      const { bufferMin } = await resolverJanela(tx, unidadeId, data, horaInicio);
-      await validarSemConflito(tx, {
-        mesaId,
-        data,
-        horaInicio,
-        horaFim,
-        bufferMin,
-        ignorarReservaId: atual.id,
-      });
+        if (numPessoas < mesa.capacidadeMin || numPessoas > mesa.capacidadeMax) {
+          throw new RequisicaoInvalidaError(
+            `Numero de pessoas fora da capacidade da mesa (${mesa.capacidadeMin}-${mesa.capacidadeMax})`,
+          );
+        }
+
+        const bloqueio = await bloqueioAtivoPara(tx, { unidadeId, mesaId, salaoId: mesa.salaoId, data });
+        if (bloqueio) {
+          throw new ConflitoDeHorarioError(`Mesa bloqueada nesta data (motivo: ${bloqueio.motivo})`);
+        }
+
+        if (!patch.horaFim) {
+          const janela = await resolverJanela(tx, unidadeId, data, horaInicio);
+          horaFim = janela.horaFim;
+        }
+
+        const { bufferMin } = await resolverJanela(tx, unidadeId, data, horaInicio);
+        await validarSemConflito(tx, {
+          mesaId,
+          data,
+          horaInicio,
+          horaFim,
+          bufferMin,
+          ignorarReservaId: atual.id,
+        });
+      }
     }
 
     try {
@@ -274,6 +496,7 @@ async function atualizarReservaComCondicoes(
           clienteTelefone: patch.clienteTelefone,
           numPessoas: patch.numPessoas,
           mesaId,
+          salaoId,
           data,
           horaInicio,
           horaFim,
@@ -377,11 +600,12 @@ export interface CriarReservaComMesaAutomaticaParams {
 }
 
 // Usada pela pagina publica de reserva (/reservar/:token): o cliente so escolhe
-// data/horario/pessoas, sem selecionar mesa (modo simples do MVP - mapa de salao com
-// escolha manual de mesa fica para depois). Reaproveita verificarDisponibilidade pra
-// achar as mesas com capacidade compativel e livres, e escolhe a de menor capacidade
-// maxima que ainda comporta o grupo (evita ocupar uma mesa grande com um grupo pequeno).
-// A criacao em si passa por criarReserva, entao ganha o mesmo lock/checagem de conflito.
+// data/horario/pessoas, sem selecionar mesa/salao. Reaproveita verificarDisponibilidade
+// pra achar as opcoes com capacidade compativel e livres - prefere uma mesa (modo mapa)
+// com a menor capacidade maxima que ainda comporta o grupo (evita ocupar uma mesa grande
+// com um grupo pequeno); se nao houver mesa mas houver salao em modo simples com
+// capacidade sobrando, usa o de menor capacidade total suficiente. A criacao em si passa
+// por criarReserva, entao ganha o mesmo lock/checagem de conflito.
 export async function criarReservaComMesaAutomatica(
   db: Database,
   params: CriarReservaComMesaAutomaticaParams,
@@ -393,15 +617,23 @@ export async function criarReservaComMesaAutomatica(
     numPessoas: params.numPessoas,
   });
 
-  if (!disponibilidade.disponivel || disponibilidade.mesasDisponiveis.length === 0) {
-    throw new ConflitoDeHorarioError(disponibilidade.motivo ?? "Nao ha mesas disponiveis para esse horario");
+  if (!disponibilidade.disponivel) {
+    throw new ConflitoDeHorarioError(disponibilidade.motivo ?? "Nao ha disponibilidade para esse horario");
   }
 
   const mesaEscolhida = [...disponibilidade.mesasDisponiveis].sort((a, b) => a.capacidadeMax - b.capacidadeMax)[0];
+  const salaoEscolhido = [...disponibilidade.saloesSimplesDisponiveis].sort(
+    (a, b) => a.capacidadeTotal - b.capacidadeTotal,
+  )[0];
+
+  if (!mesaEscolhida && !salaoEscolhido) {
+    throw new ConflitoDeHorarioError("Nao ha mesas ou salao disponivel para esse horario");
+  }
 
   return criarReserva(db, {
     unidadeId: params.unidadeId,
-    mesaId: mesaEscolhida.id,
+    mesaId: mesaEscolhida?.id,
+    salaoId: mesaEscolhida ? undefined : salaoEscolhido?.id,
     data: params.data,
     horaInicio: params.horaInicio,
     numPessoas: params.numPessoas,

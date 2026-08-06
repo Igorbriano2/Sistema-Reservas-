@@ -6,10 +6,11 @@ import {
   criarReserva,
   listarMesas,
   listarReservas,
+  listarSaloes,
   atualizarReserva,
   type DadosNovaReserva,
 } from "../api/resources.js";
-import type { Mesa, Reserva } from "../types.js";
+import type { Mesa, Reserva, Salao } from "../types.js";
 
 function hojeLocal(): string {
   const agora = new Date();
@@ -36,8 +37,11 @@ const ABA_LABEL: Record<FiltroStatus, string> = { todas: "Todas", ...STATUS_LABE
 // tambem valida isso - aqui e so pra nao nem mostrar o botao quando nao se aplica).
 const STATUS_ATIVOS = new Set<Reserva["status"]>(["pendente", "confirmada"]);
 
+// "local" identifica onde a reserva vai (mesa especifica, modo mapa, ou o salao
+// inteiro, modo simples): "mesa:<id>" ou "salao:<id>" - um unico seletor cobre os
+// dois casos sem duplicar UI, ja que uma unidade pode ter saloes nos dois modos.
 interface FormState {
-  mesaId: string;
+  local: string;
   horaInicio: string;
   numPessoas: string;
   clienteNome: string;
@@ -46,7 +50,7 @@ interface FormState {
 }
 
 const FORM_VAZIO: FormState = {
-  mesaId: "",
+  local: "",
   horaInicio: "",
   numPessoas: "2",
   clienteNome: "",
@@ -54,12 +58,19 @@ const FORM_VAZIO: FormState = {
   observacoes: "",
 };
 
+function paraLocalDaReserva(reserva: Reserva): string {
+  if (reserva.mesaId) return `mesa:${reserva.mesaId}`;
+  if (reserva.salaoId) return `salao:${reserva.salaoId}`;
+  return "";
+}
+
 export function ReservationsPage() {
   const { unidade } = useAuth();
   const [data, setData] = useState(hojeLocal());
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todas");
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [saloes, setSaloes] = useState<Salao[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -70,19 +81,48 @@ export function ReservationsPage() {
   const [erroForm, setErroForm] = useState<string | null>(null);
 
   const mesasPorId = useMemo(() => new Map(mesas.map((m) => [m.id, m])), [mesas]);
+  const saloesPorId = useMemo(() => new Map(saloes.map((s) => [s.id, s])), [saloes]);
   const reservasFiltradas = useMemo(
     () => (filtroStatus === "todas" ? reservas : reservas.filter((r) => r.status === filtroStatus)),
     [reservas, filtroStatus],
   );
+  // Opcoes do seletor "Local": mesas dos saloes em modo mapa + saloes inteiros em
+  // modo simples - mesmo componente reaproveitado independente do mix de modos.
+  const opcoesLocal = useMemo(() => {
+    const opcoesMesas = mesas
+      .filter((m) => saloesPorId.get(m.salaoId)?.modoConfiguracao === "mapa")
+      .map((m) => ({
+        value: `mesa:${m.id}`,
+        label: `${m.nome} (${m.capacidadeMin}-${m.capacidadeMax} pessoas)`,
+      }));
+    const opcoesSaloes = saloes
+      .filter((s) => s.modoConfiguracao === "simples")
+      .map((s) => ({
+        value: `salao:${s.id}`,
+        label: `${s.nome} (salão - capacidade total ${s.capacidadeTotal ?? "nao configurada"})`,
+      }));
+    return [...opcoesMesas, ...opcoesSaloes];
+  }, [mesas, saloes, saloesPorId]);
+
+  function nomeDoLocal(reserva: Reserva): string {
+    if (reserva.mesaId) return mesasPorId.get(reserva.mesaId)?.nome ?? "-";
+    if (reserva.salaoId) return saloesPorId.get(reserva.salaoId)?.nome ?? "-";
+    return "-";
+  }
 
   async function carregar() {
     if (!unidade) return;
     setCarregando(true);
     setErro(null);
     try {
-      const [listaReservas, listaMesas] = await Promise.all([listarReservas(unidade.id, data), listarMesas(unidade.id)]);
+      const [listaReservas, listaMesas, listaSaloes] = await Promise.all([
+        listarReservas(unidade.id, data),
+        listarMesas(unidade.id),
+        listarSaloes(unidade.id),
+      ]);
       setReservas(listaReservas);
       setMesas(listaMesas);
+      setSaloes(listaSaloes);
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Nao foi possivel carregar as reservas.");
     } finally {
@@ -105,7 +145,7 @@ export function ReservationsPage() {
   function abrirEdicao(reserva: Reserva) {
     setEditando(reserva);
     setForm({
-      mesaId: reserva.mesaId,
+      local: paraLocalDaReserva(reserva),
       horaInicio: reserva.horaInicio.slice(0, 5),
       numPessoas: String(reserva.numPessoas),
       clienteNome: reserva.clienteNome,
@@ -122,9 +162,13 @@ export function ReservationsPage() {
     setSalvando(true);
     setErroForm(null);
     try {
+      const [tipo, alvoId] = form.local.split(":");
+      const mesaId = tipo === "mesa" ? alvoId : undefined;
+      const salaoId = tipo === "salao" ? alvoId : undefined;
       if (editando) {
         await atualizarReserva(unidade.id, editando.id, {
-          mesaId: form.mesaId,
+          mesaId,
+          salaoId,
           horaInicio: form.horaInicio,
           numPessoas: Number(form.numPessoas),
           clienteNome: form.clienteNome,
@@ -133,7 +177,8 @@ export function ReservationsPage() {
         });
       } else {
         const dados: DadosNovaReserva = {
-          mesaId: form.mesaId,
+          mesaId,
+          salaoId,
           data,
           horaInicio: form.horaInicio,
           numPessoas: Number(form.numPessoas),
@@ -202,14 +247,14 @@ export function ReservationsPage() {
           <h3 style={{ marginTop: 0 }}>{editando ? "Editar reserva" : "Nova reserva"}</h3>
           <div className="linha-form">
             <label>
-              Mesa
-              <select value={form.mesaId} onChange={(e) => setForm({ ...form, mesaId: e.target.value })} required>
+              Local
+              <select value={form.local} onChange={(e) => setForm({ ...form, local: e.target.value })} required>
                 <option value="" disabled>
                   Selecione
                 </option>
-                {mesas.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nome} ({m.capacidadeMin}-{m.capacidadeMax} pessoas)
+                {opcoesLocal.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
                   </option>
                 ))}
               </select>
@@ -289,7 +334,7 @@ export function ReservationsPage() {
                 <th>Hora</th>
                 <th>Cliente</th>
                 <th>Pessoas</th>
-                <th>Mesa</th>
+                <th>Local</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -303,7 +348,7 @@ export function ReservationsPage() {
                     {reserva.clienteTelefone && <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>{reserva.clienteTelefone}</div>}
                   </td>
                   <td>{reserva.numPessoas}</td>
-                  <td>{mesasPorId.get(reserva.mesaId)?.nome ?? "-"}</td>
+                  <td>{nomeDoLocal(reserva)}</td>
                   <td>
                     <span className={`badge badge-${reserva.status}`}>{STATUS_LABEL[reserva.status]}</span>
                   </td>

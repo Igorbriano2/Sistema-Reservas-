@@ -93,8 +93,12 @@ export async function gerarRelatorio(db: Database, params: RelatorioParams): Pro
   const totalNaoCompareceu = reservasDoPeriodo.filter((r) => r.status === "no_show").length;
   const totalReservas = reservasDoPeriodo.length;
 
+  // Reservas do modo "simples" nao tem mesa_id (sao contra um salao inteiro) - ficam
+  // de fora deste ranking especifico por mesa, mas continuam contando nas metricas
+  // gerais (ocupacao/nao comparecimento) acima.
   const contagemPorMesa = new Map<string, number>();
   for (const r of reservasDoPeriodo) {
+    if (!r.mesaId) continue;
     contagemPorMesa.set(r.mesaId, (contagemPorMesa.get(r.mesaId) ?? 0) + 1);
   }
   const nomePorMesa = new Map(todasMesas.map((m) => [m.id, m.nome]));

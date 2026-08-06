@@ -28,7 +28,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
     const salao = await request(app)
       .post(`/admin/unidades/${unidade.id}/saloes`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ nome: "Salao Principal" });
+      .send({ nome: "Salao Principal", modoConfiguracao: "mapa" });
     expect(salao.status).toBe(201);
 
     const mesa = await request(app)

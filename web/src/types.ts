@@ -28,10 +28,14 @@ export interface Unidade {
   timezone: string;
 }
 
+export type ModoConfiguracaoSalao = "simples" | "mapa";
+
 export interface Salao {
   id: string;
   unidadeId: string;
   nome: string;
+  modoConfiguracao: ModoConfiguracaoSalao;
+  capacidadeTotal: number | null;
 }
 
 export type MesaFormato = "redonda" | "quadrada" | "retangular";
@@ -63,7 +67,9 @@ export type CanalOrigem = "instagram" | "manual";
 export interface Reserva {
   id: string;
   unidadeId: string;
-  mesaId: string;
+  // Exatamente um dos dois: mesaId (salao modo "mapa") ou salaoId (modo "simples").
+  mesaId: string | null;
+  salaoId: string | null;
   igSenderId: string | null;
   clienteNome: string;
   clienteTelefone: string | null;

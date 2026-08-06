@@ -3,8 +3,32 @@ import { agenteConfig, conversas, instagramConnections, mesas, regrasHorario, sa
 import { encrypt } from "../../src/lib/crypto.js";
 import { criarReserva } from "../../src/lib/reservations.js";
 
-export async function criarSalao(unidadeId: string, nome = "Salao Principal") {
-  const [salao] = await db.insert(saloes).values({ unidadeId, nome }).returning();
+// Default "mapa" (nao "simples", que e o default da propria tabela): a maioria dos
+// testes existentes cadastra mesas manualmente e espera o comportamento classico de
+// mesa-por-mesa, entao o fixture fixa isso explicitamente pra nao depender do default
+// do schema (que e pensado para o fluxo real de um dono novo, nao para os testes).
+export async function criarSalao(
+  unidadeId: string,
+  nome = "Salao Principal",
+  overrides: Partial<{ modoConfiguracao: "simples" | "mapa"; capacidadeTotal: number }> = {},
+) {
+  const [salao] = await db
+    .insert(saloes)
+    .values({
+      unidadeId,
+      nome,
+      modoConfiguracao: overrides.modoConfiguracao ?? "mapa",
+      capacidadeTotal: overrides.capacidadeTotal,
+    })
+    .returning();
+  return salao;
+}
+
+export async function criarSalaoSimples(unidadeId: string, capacidadeTotal: number, nome = "Salao Simples") {
+  const [salao] = await db
+    .insert(saloes)
+    .values({ unidadeId, nome, modoConfiguracao: "simples", capacidadeTotal })
+    .returning();
   return salao;
 }
 

@@ -20,20 +20,24 @@ const listarQuerySchema = z.object({
   dataFim: dataSchema.optional(),
 });
 
-const criarReservaSchema = z.object({
-  mesaId: z.string().uuid(),
-  data: dataSchema,
-  horaInicio: horaSchema,
-  horaFim: horaSchema.optional(),
-  numPessoas: z.number().int().positive(),
-  clienteNome: z.string().min(1),
-  clienteTelefone: z.string().optional(),
-  observacoes: z.string().optional(),
-});
+const criarReservaSchema = z
+  .object({
+    mesaId: z.string().uuid().optional(),
+    salaoId: z.string().uuid().optional(),
+    data: dataSchema,
+    horaInicio: horaSchema,
+    horaFim: horaSchema.optional(),
+    numPessoas: z.number().int().positive(),
+    clienteNome: z.string().min(1),
+    clienteTelefone: z.string().optional(),
+    observacoes: z.string().optional(),
+  })
+  .refine((d) => !!d.mesaId !== !!d.salaoId, "Informe exatamente um dos dois: mesaId ou salaoId");
 
 const atualizarReservaSchema = z
   .object({
     mesaId: z.string().uuid().optional(),
+    salaoId: z.string().uuid().optional(),
     data: dataSchema.optional(),
     horaInicio: horaSchema.optional(),
     horaFim: horaSchema.optional(),
@@ -43,7 +47,8 @@ const atualizarReservaSchema = z
     observacoes: z.string().optional(),
     status: z.enum(reservaStatusEnum.enumValues).optional(),
   })
-  .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar");
+  .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar")
+  .refine((d) => !(d.mesaId && d.salaoId), "Informe no maximo um dos dois: mesaId ou salaoId");
 
 reservationsRouter.get(
   "/",

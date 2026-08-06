@@ -13,6 +13,7 @@ import {
 import { sql } from "drizzle-orm";
 import { unidades } from "./unidades.js";
 import { mesas } from "./mesas.js";
+import { saloes } from "./saloes.js";
 
 export const reservaStatusEnum = pgEnum("reserva_status", [
   "pendente",
@@ -31,9 +32,12 @@ export const reservas = pgTable(
     unidadeId: uuid("unidade_id")
       .notNull()
       .references(() => unidades.id, { onDelete: "cascade" }),
-    mesaId: uuid("mesa_id")
-      .notNull()
-      .references(() => mesas.id, { onDelete: "restrict" }),
+    // Exatamente um dos dois (mesa_id, salao_id) e preenchido, nunca os dois nem
+    // nenhum (ver reservas_alvo_unico_check): mesa_id no modo "mapa" (mesa
+    // especifica), salao_id no modo "simples" (sem mesa, so soma capacidade do
+    // salao inteiro).
+    mesaId: uuid("mesa_id").references(() => mesas.id, { onDelete: "restrict" }),
+    salaoId: uuid("salao_id").references(() => saloes.id, { onDelete: "restrict" }),
     // Nulo quando canal_origem = "manual" (reserva criada pelo admin, sem thread do Instagram).
     igSenderId: text("ig_sender_id"),
     clienteNome: text("cliente_nome").notNull(),
@@ -53,8 +57,13 @@ export const reservas = pgTable(
     // Acelera find_my_reservations / check_reservation_status (sempre filtrados por ig_sender_id).
     index("reservas_ig_sender_id_idx").on(table.igSenderId),
     index("reservas_unidade_data_idx").on(table.unidadeId, table.data),
+    index("reservas_salao_id_idx").on(table.salaoId),
     check("reservas_num_pessoas_check", sql`${table.numPessoas} > 0`),
     check("reservas_horario_check", sql`${table.horaFim} > ${table.horaInicio}`),
+    check(
+      "reservas_alvo_unico_check",
+      sql`(${table.mesaId} IS NOT NULL AND ${table.salaoId} IS NULL) OR (${table.mesaId} IS NULL AND ${table.salaoId} IS NOT NULL)`,
+    ),
   ],
 );
 

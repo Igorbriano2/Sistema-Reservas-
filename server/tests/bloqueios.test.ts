@@ -25,7 +25,7 @@ async function criarSalaoEMesa(app: ReturnType<typeof createApp>, unidadeId: str
   const salao = await request(app)
     .post(`/admin/unidades/${unidadeId}/saloes`)
     .set("Authorization", `Bearer ${token}`)
-    .send({ nome: "Salao Principal" });
+    .send({ nome: "Salao Principal", modoConfiguracao: "mapa" });
   const mesa = await request(app)
     .post(`/admin/unidades/${unidadeId}/mesas`)
     .set("Authorization", `Bearer ${token}`)
