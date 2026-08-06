@@ -442,14 +442,137 @@
   max-width: 700px;
 }
 
-/* Preco -------------------------------------------------------------------- */
+/* Video de vendas ------------------------------------------------------- */
 
-.lp-preco-grade {
+.lp-video-card {
+  aspect-ratio: 16 / 9;
+  max-width: 720px;
+  margin: 0 auto;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated-hover) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.lp-video-play {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  padding-left: 4px;
+}
+
+/* Tecnologia / funcionalidades (secao neutra clara) ---------------------- */
+
+.lp-secao-neutra {
+  background: var(--neutro-claro);
+  color: var(--texto-em-neutro);
+  border-bottom-color: var(--borda-em-neutro);
+}
+
+.lp-secao-neutra h2 {
+  color: var(--texto-em-neutro);
+}
+
+.lp-selo-neutro {
+  border-color: var(--borda-em-neutro);
+  color: var(--texto-em-neutro-secundario);
+}
+
+.lp-grade-tech {
   display: grid;
-  grid-template-columns: minmax(240px, 340px) minmax(280px, 1fr);
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.1rem;
+}
+
+.lp-card-tech {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+.lp-card-tech h3 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  color: var(--text-primary);
+}
+
+.lp-card-tech p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.lp-badge-tech {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.85rem;
+}
+
+.lp-badge-disponivel {
+  background: rgba(185, 122, 79, 0.16);
+  color: var(--accent);
+}
+
+.lp-badge-em-breve {
+  background: var(--neutro-claro);
+  color: var(--texto-em-neutro-secundario);
+}
+
+/* Sobre o fundador ------------------------------------------------------- */
+
+.lp-fundador {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(280px, 1fr);
+  gap: 2.5rem;
   align-items: start;
 }
+
+.lp-fundador-foto-placeholder {
+  aspect-ratio: 4 / 5;
+  border-radius: 16px;
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, rgba(185, 122, 79, 0.18) 100%);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lp-fundador-foto-placeholder span {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.6rem;
+  color: var(--accent);
+}
+
+.lp-fundador-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.lp-fundador-texto p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Preco -------------------------------------------------------------------- */
 
 .lp-card-preco {
   background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 55%, rgba(185, 122, 79, 0.1) 100%);
@@ -458,6 +581,23 @@
   padding: 2rem;
   box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.08);
   will-change: transform;
+}
+
+.lp-card-preco-solo {
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.lp-btn-preco {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.5rem;
+  text-align: center;
+  text-decoration: none;
 }
 
 .lp-preco-etiqueta {
@@ -584,7 +724,15 @@
   }
 
   .lp-como-funciona,
-  .lp-preco-grade {
+  .lp-fundador {
     grid-template-columns: 1fr;
+  }
+
+  .lp-fundador-foto-placeholder {
+    max-width: 200px;
+  }
+
+  .lp-card-preco-solo {
+    max-width: none;
   }
 }

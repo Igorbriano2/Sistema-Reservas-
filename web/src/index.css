@@ -11,6 +11,14 @@
   --text-secondary: rgba(199, 211, 184, 0.62);
   --text-on-accent: #16130f;
 
+  /* Neutro branco/creme - usado com moderação para dar ritmo visual (seções
+     alternadas) sem descaracterizar a identidade escura principal. */
+  --neutro-claro: #f4efe4;
+  --neutro-claro-hover: #ece5d4;
+  --texto-em-neutro: #1c2117;
+  --texto-em-neutro-secundario: rgba(28, 33, 23, 0.64);
+  --borda-em-neutro: rgba(28, 33, 23, 0.12);
+
   --status-pendente: #cfa457;
   --status-pendente-bg: rgba(207, 164, 87, 0.14);
   --status-cancelada: #9c6b5c;

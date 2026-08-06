@@ -4,7 +4,7 @@ import "../landing.css";
 import { Marca } from "../components/Marca.js";
 import { ComoFuncionaMidia } from "../components/landing/ComoFuncionaMidia.js";
 import { TrustSection } from "../components/landing/TrustSection.js";
-import { WaitlistForm } from "../components/landing/WaitlistForm.js";
+import { FounderSection } from "../components/landing/FounderSection.js";
 
 function prefereMovimentoReduzido(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -62,6 +62,25 @@ const ITENS_VALOR = [
   "Agrupamento inteligente de mensagens — o agente espera o cliente terminar de digitar antes de responder, como uma pessoa de verdade faria",
 ];
 
+interface Funcionalidade {
+  titulo: string;
+  texto: string;
+  status: "disponivel" | "em-breve";
+}
+
+const FUNCIONALIDADES: Funcionalidade[] = [
+  { titulo: "Agente de IA no Instagram", texto: "Responde, tira dúvida e manda o link de reserva 24 horas por dia, no tom de voz do seu restaurante.", status: "disponivel" },
+  { titulo: "Painel administrativo", texto: "Reservas do dia, mesas, horários e equipe — tudo em um painel só, sem planilha.", status: "disponivel" },
+  { titulo: "Link de reserva próprio", texto: "O cliente confirma dentro do seu próprio sistema, nunca em um app de terceiro.", status: "disponivel" },
+  { titulo: "Mapa de mesas ou modo simples", texto: "Controle mesa por mesa, ou só a capacidade total do salão — você escolhe o que faz sentido pro seu espaço.", status: "disponivel" },
+  { titulo: "Bloqueios e relatórios", texto: "Bloqueie mesas por manutenção ou evento, e acompanhe ocupação e no-show com dados reais.", status: "disponivel" },
+  { titulo: "Editor visual do salão", texto: "Arraste e organize suas mesas num mapa visual, e deixe o cliente escolher a própria mesa na reserva.", status: "em-breve" },
+  { titulo: "Pixels de marketing", texto: "Meça o retorno das suas campanhas com Google Tag e Facebook Pixel direto na página de reserva.", status: "em-breve" },
+  { titulo: "App do painel (PWA)", texto: "Instale o painel no celular e acompanhe as reservas do dia com notificação em tempo real.", status: "em-breve" },
+  { titulo: "WhatsApp Business", texto: "Peça feedback, lembre aniversários e reative clientes que sumiram, direto pelo WhatsApp do restaurante.", status: "em-breve" },
+  { titulo: "Conexão automática do Instagram", texto: "Conecte sua conta em um clique, sem depender da equipe pra configurar nada manualmente.", status: "em-breve" },
+];
+
 const FAQ = [
   {
     pergunta: "Não entendo nada de tecnologia, vou conseguir usar?",
@@ -89,7 +108,6 @@ const FAQ = [
 
 export function LandingPage() {
   const spotlightRef = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLDivElement>(null);
   const [passoAtivo, setPassoAtivo] = useState(0);
 
   useEffect(() => {
@@ -132,10 +150,6 @@ export function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  function irParaFormulario() {
-    formRef.current?.scrollIntoView({ behavior: prefereMovimentoReduzido() ? "auto" : "smooth", block: "center" });
-  }
-
   return (
     <div className="lp">
       <div className="spotlight" ref={spotlightRef} aria-hidden="true" />
@@ -158,9 +172,9 @@ export function LandingPage() {
               direto no Instagram Direct — enquanto você cuida do salão.
             </p>
             <div className="lp-cta-grupo">
-              <button className="btn lp-btn-magnetico" onMouseMove={aplicarIma} onMouseLeave={removerIma} onClick={irParaFormulario}>
+              <Link to="/assinar" className="btn lp-btn-magnetico" onMouseMove={aplicarIma} onMouseLeave={removerIma}>
                 Quero automatizar minhas reservas
-              </button>
+              </Link>
               <a href="#como-funciona" className="lp-link-secundario">
                 Ver como funciona
               </a>
@@ -237,6 +251,19 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* 4.1 Video de vendas --------------------------------------------------- */}
+        <section className="lp-secao">
+          <div className="lp-container lp-reveal">
+            <h2>Veja o Quero Reservar funcionando de verdade</h2>
+            <div className="lp-video-card">
+              <span className="lp-video-play" aria-hidden="true">
+                ▶
+              </span>
+              <p className="texto-secundario">Vídeo em breve</p>
+            </div>
+          </div>
+        </section>
+
         {/* 5. Stack de valor --------------------------------------------------- */}
         <section className="lp-secao">
           <div className="lp-container">
@@ -254,30 +281,47 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* 5.1 Tecnologia / funcionalidades (atuais + roadmap) ------------------ */}
+        <section className="lp-secao lp-secao-neutra">
+          <div className="lp-container">
+            <span className="lp-selo lp-selo-neutro lp-reveal">Por dentro da plataforma</span>
+            <h2 className="lp-reveal">Tudo o que já está no ar — e o que estamos construindo agora</h2>
+            <div className="lp-grade-tech lp-reveal">
+              {FUNCIONALIDADES.map((item) => (
+                <div key={item.titulo} className="lp-card-tech">
+                  <span className={`lp-badge-tech ${item.status === "disponivel" ? "lp-badge-disponivel" : "lp-badge-em-breve"}`}>
+                    {item.status === "disponivel" ? "Disponível agora" : "Em breve"}
+                  </span>
+                  <h3>{item.titulo}</h3>
+                  <p>{item.texto}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* 6. Por que confiar (isolado) ------------------------------------- */}
         <TrustSection />
+
+        {/* 6.1 Sobre o fundador (isolado) ------------------------------------- */}
+        <FounderSection />
 
         {/* 7. Preco ----------------------------------------------------------- */}
         <section className="lp-secao" id="preco">
           <div className="lp-container">
             <h2 className="lp-reveal">Um plano. Sem letra miúda.</h2>
-            <div className="lp-preco-grade lp-reveal">
-              <div className="lp-card-preco lp-tilt" onMouseMove={aplicarTilt} onMouseLeave={removerTilt}>
-                <span className="lp-preco-etiqueta">Plano único</span>
-                <strong className="lp-preco-valor">
-                  R$ 697<span>/mês</span>
-                </strong>
-                <p className="texto-secundario">
-                  Tudo incluso: agente de IA, painel completo, equipe ilimitada, suporte na configuração inicial.
-                </p>
-                <Link to="/assinar" className="btn lp-btn-magnetico" style={{ textAlign: "center" }}>
-                  Assinar agora — 7 dias grátis
-                </Link>
-                <p className="texto-secundario" style={{ fontSize: "0.8rem", marginTop: "0.5rem" }}>
-                  Prefere ser avisado antes? Preencha o formulário ao lado.
-                </p>
-              </div>
-              <WaitlistForm ref={formRef} />
+            <div className="lp-card-preco lp-tilt lp-reveal lp-card-preco-solo" onMouseMove={aplicarTilt} onMouseLeave={removerTilt}>
+              <span className="lp-preco-etiqueta">Plano único</span>
+              <strong className="lp-preco-valor">
+                R$ 697<span>/mês</span>
+              </strong>
+              <p className="texto-secundario">
+                Tudo incluso: agente de IA, painel completo, equipe ilimitada, suporte na configuração inicial. 7 dias
+                grátis pra testar, sem cobrança se você cancelar antes.
+              </p>
+              <Link to="/assinar" className="btn lp-btn-magnetico lp-btn-preco">
+                Assinar agora — 7 dias grátis
+              </Link>
             </div>
           </div>
         </section>
@@ -301,9 +345,9 @@ export function LandingPage() {
         <section className="lp-secao lp-cta-final">
           <div className="lp-container lp-reveal">
             <h2>Seu próximo cliente já está no seu Instagram. A pergunta é só: alguém vai responder a tempo?</h2>
-            <button className="btn lp-btn-magnetico" onMouseMove={aplicarIma} onMouseLeave={removerIma} onClick={irParaFormulario}>
+            <Link to="/assinar" className="btn lp-btn-magnetico" onMouseMove={aplicarIma} onMouseLeave={removerIma}>
               Quero automatizar minhas reservas
-            </button>
+            </Link>
           </div>
         </section>
       </main>
