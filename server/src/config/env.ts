@@ -31,6 +31,10 @@ const envSchema = z.object({
   // Se nao definido, cai para JWT_SECRET (os tokens carregam um campo "purpose" para
   // nao serem confundidos com tokens de sessao do admin mesmo compartilhando segredo).
   RESERVATION_LINK_SECRET: z.string().optional(),
+  // Segredo dedicado para o login do painel da plataforma (voce, nao os restaurantes).
+  // Se nao definido, cai para JWT_SECRET (mesmo esquema do RESERVATION_LINK_SECRET
+  // acima - um campo "purpose" no token evita cruzamento mesmo com segredo compartilhado).
+  PLATAFORMA_JWT_SECRET: z.string().optional(),
   // Tempo de espera (ms) apos a ultima mensagem de uma rajada antes de acionar o agente,
   // agrupando mensagens seguidas do mesmo cliente numa unica resposta.
   AGENT_DEBOUNCE_MS: z.coerce.number().int().positive().default(6000),

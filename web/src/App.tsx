@@ -11,6 +11,11 @@ import { ReportsPage } from "./pages/ReportsPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
+import { PlataformaAuthProvider, usePlataformaAuth } from "./plataforma/PlataformaAuthContext.js";
+import { PlataformaLoginPage } from "./plataforma/PlataformaLoginPage.js";
+import { PlataformaLayout } from "./plataforma/PlataformaLayout.js";
+import { ClientesPage } from "./plataforma/ClientesPage.js";
+import { LeadsPage } from "./plataforma/LeadsPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { usuario, carregando } = useAuth();
@@ -34,10 +39,25 @@ function RequireOwner({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequirePlataformaAuth({ children }: { children: React.ReactNode }) {
+  const { admin } = usePlataformaAuth();
+  if (!admin) {
+    return <Navigate to="/painel/login" replace />;
+  }
+  return <>{children}</>;
+}
+
+// Se o site for acessado por um subdominio dedicado ao painel da plataforma (ex:
+// painel.queroreservar.com), a raiz "/" desse dominio deve cair direto no painel em
+// vez da landing page - mesmo build/deploy, so muda o que a raiz do dominio mostra.
+function destinoDaRaiz(): string {
+  return window.location.hostname.startsWith("painel.") ? "/painel" : "/";
+}
+
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={window.location.hostname.startsWith("painel.") ? <Navigate to="/painel" replace /> : <LandingPage />} />
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/reservar/:token" element={<PublicReservationPage />} />
       <Route
@@ -99,7 +119,20 @@ function AppRoutes() {
           }
         />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/painel/login" element={<PlataformaLoginPage />} />
+      <Route
+        path="/painel"
+        element={
+          <RequirePlataformaAuth>
+            <PlataformaLayout />
+          </RequirePlataformaAuth>
+        }
+      >
+        <Route index element={<Navigate to="/painel/clientes" replace />} />
+        <Route path="clientes" element={<ClientesPage />} />
+        <Route path="leads" element={<LeadsPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to={destinoDaRaiz()} replace />} />
     </Routes>
   );
 }
@@ -108,7 +141,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <PlataformaAuthProvider>
+          <AppRoutes />
+        </PlataformaAuthProvider>
       </AuthProvider>
     </BrowserRouter>
   );

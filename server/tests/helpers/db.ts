@@ -5,8 +5,11 @@ import { hashPassword } from "../../src/lib/password.js";
 
 export async function truncateAll(): Promise<void> {
   // CASCADE arrasta todas as tabelas dependentes (unidades, usuarios, mesas,
-  // reservas, conversas, etc.), entao truncar empresas basta para limpar tudo.
-  await db.execute(sql`TRUNCATE TABLE empresas RESTART IDENTITY CASCADE`);
+  // reservas, conversas, etc.), entao truncar empresas basta para limpar quase tudo.
+  // plataforma_admins e waitlist_leads ficam de fora da cascata de proposito (nao tem
+  // FK pra empresas - sao independentes de qualquer restaurante), entao precisam ser
+  // truncadas explicitamente aqui tambem.
+  await db.execute(sql`TRUNCATE TABLE empresas, plataforma_admins, waitlist_leads RESTART IDENTITY CASCADE`);
 }
 
 export async function closeDb(): Promise<void> {

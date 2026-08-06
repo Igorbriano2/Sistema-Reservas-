@@ -83,8 +83,21 @@ const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/usuarios", label: "Usuarios", ownerOnly: true, icone: <IconeUsuarios /> },
 ];
 
+const MODO_TESTE_ATIVO_KEY = "modo_teste_ativo";
+
+// Sai do modo teste: limpa o token de restaurante (chaves "token"/"usuario", as
+// mesmas que o AuthContext usa) e a flag, sem tocar no "plataforma_token" - a sessao
+// do painel da plataforma continua valida do outro lado.
+function sairDoModoTeste() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("usuario");
+  localStorage.removeItem(MODO_TESTE_ATIVO_KEY);
+  window.location.href = "/painel/clientes";
+}
+
 export function Layout() {
   const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout } = useAuth();
+  const emModoTeste = localStorage.getItem(MODO_TESTE_ATIVO_KEY) === "true";
 
   return (
     <div className="layout">
@@ -100,6 +113,14 @@ export function Layout() {
         </nav>
       </aside>
       <div className="area-principal">
+        {emModoTeste && (
+          <div className="faixa-modo-teste">
+            Modo teste — você está vendo o painel como um restaurante veria, com dados de demonstração.
+            <button className="btn btn-secundario" onClick={sairDoModoTeste}>
+              Voltar ao meu painel
+            </button>
+          </div>
+        )}
         <header className="topo">
           <span className="texto-secundario">{unidade?.nome ?? ""}</span>
           {unidades.length > 1 && (

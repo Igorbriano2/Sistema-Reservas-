@@ -19,8 +19,11 @@
 #      antes do novo release receber trafego - garante que a migration roda uma
 #      unica vez mesmo com varias instancias do servico.
 #   4. Depois do primeiro deploy, rode localmente (uma vez, fora do App Platform):
-#        SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=... DATABASE_URL=<supabase> \
-#          npm --prefix server run db:seed
+#        SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=... \
+#        SEED_PLATAFORMA_EMAIL=... SEED_PLATAFORMA_PASSWORD=... \
+#        DATABASE_URL=<supabase> npm --prefix server run db:seed
+#      (as duas variaveis SEED_PLATAFORMA_* sao opcionais - so criam o primeiro
+#      login do painel da plataforma, em /painel, se preenchidas)
 #      e, para conectar o Instagram:
 #        INSTAGRAM_BUSINESS_ACCOUNT_ID=... INSTAGRAM_ACCESS_TOKEN=... \
 #        TOKEN_ENCRYPTION_KEY=... DATABASE_URL=<supabase> \
@@ -102,3 +105,7 @@ services:
         type: SECRET
       - key: AGENT_DEBOUNCE_MS
         value: "6000"
+      # Segredo do login do painel da plataforma (/painel) - separado do JWT_SECRET
+      # de proposito (ver PLATAFORMA_JWT_SECRET em env.ts). Gere com: openssl rand -hex 32
+      - key: PLATAFORMA_JWT_SECRET
+        type: SECRET
