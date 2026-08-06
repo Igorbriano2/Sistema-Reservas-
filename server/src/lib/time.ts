@@ -31,3 +31,16 @@ export function intervalosSeSobrepoem(
 export function diaDaSemana(dataISO: string): number {
   return new Date(`${dataISO}T00:00:00Z`).getUTCDay();
 }
+
+// Lista, em ordem, cada data (YYYY-MM-DD) entre dataInicio e dataFim, incluindo as
+// duas pontas. Usado pelos relatorios pra somar capacidade dia a dia.
+export function enumerarDatas(dataInicio: string, dataFim: string): string[] {
+  const datas: string[] = [];
+  let atual = new Date(`${dataInicio}T00:00:00Z`);
+  const fim = new Date(`${dataFim}T00:00:00Z`);
+  while (atual <= fim) {
+    datas.push(atual.toISOString().slice(0, 10));
+    atual = new Date(atual.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return datas;
+}

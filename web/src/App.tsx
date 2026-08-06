@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/DashboardPage.js";
 import { ReservationsPage } from "./pages/ReservationsPage.js";
 import { TablesPage } from "./pages/TablesPage.js";
 import { BlocksPage } from "./pages/BlocksPage.js";
+import { ReportsPage } from "./pages/ReportsPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
@@ -70,6 +71,14 @@ function AppRoutes() {
           element={
             <RequireOwner>
               <BlocksPage />
+            </RequireOwner>
+          }
+        />
+        <Route
+          path="relatorios"
+          element={
+            <RequireOwner>
+              <ReportsPage />
             </RequireOwner>
           }
         />

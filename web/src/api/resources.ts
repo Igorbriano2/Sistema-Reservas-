@@ -1,5 +1,16 @@
 import { api } from "./client.js";
-import type { AgenteConfig, Bloqueio, Mesa, MesaFormato, PapelUsuario, Reserva, Salao, Unidade, Usuario } from "../types.js";
+import type {
+  AgenteConfig,
+  Bloqueio,
+  Mesa,
+  MesaFormato,
+  PapelUsuario,
+  Relatorio,
+  Reserva,
+  Salao,
+  Unidade,
+  Usuario,
+} from "../types.js";
 
 export function login(email: string, senha: string) {
   return api.post<{ token: string; usuario: Usuario }>("/auth/login", { email, senha });
@@ -59,6 +70,10 @@ export function criarBloqueio(unidadeId: string, dados: DadosNovoBloqueio) {
 
 export function removerBloqueio(unidadeId: string, bloqueioId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/bloqueios/${bloqueioId}`);
+}
+
+export function gerarRelatorio(unidadeId: string, dataInicio: string, dataFim: string) {
+  return api.get<Relatorio>(`/admin/unidades/${unidadeId}/relatorios?dataInicio=${dataInicio}&dataFim=${dataFim}`);
 }
 
 export function listarReservas(unidadeId: string, data: string) {

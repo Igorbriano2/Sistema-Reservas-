@@ -76,3 +76,10 @@ export interface Reserva {
   canalOrigem: CanalOrigem;
   criadoEm: string;
 }
+
+export interface Relatorio {
+  periodo: { dataInicio: string; dataFim: string };
+  ocupacao: { capacidadeSlots: number; reservasOcupando: number; taxa: number | null };
+  naoComparecimento: { totalReservas: number; totalNaoCompareceu: number; taxa: number | null };
+  mesasMaisPedidas: Array<{ mesaId: string; mesaNome: string; totalReservas: number }>;
+}
