@@ -1,6 +1,7 @@
 import { Navigate, Route, BrowserRouter, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
 import { Layout } from "./components/Layout.js";
+import { LandingPage } from "./pages/LandingPage.js";
 import { LoginPage } from "./pages/LoginPage.js";
 import { DashboardPage } from "./pages/DashboardPage.js";
 import { ReservationsPage } from "./pages/ReservationsPage.js";
@@ -16,7 +17,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     return <p style={{ padding: "2rem" }}>Carregando...</p>;
   }
   if (!usuario) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
   return <>{children}</>;
 }
@@ -26,7 +27,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function RequireOwner({ children }: { children: React.ReactNode }) {
   const { isOwner } = useAuth();
   if (!isOwner) {
-    return <Navigate to="/reservas" replace />;
+    return <Navigate to="/admin/reservas" replace />;
   }
   return <>{children}</>;
 }
@@ -34,27 +35,29 @@ function RequireOwner({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/reservar/:token" element={<PublicReservationPage />} />
       <Route
+        path="/admin"
         element={
           <RequireAuth>
             <Layout />
           </RequireAuth>
         }
       >
-        <Route path="/" element={<Navigate to="/reservas" replace />} />
+        <Route index element={<Navigate to="/admin/reservas" replace />} />
         <Route
-          path="/dashboard"
+          path="dashboard"
           element={
             <RequireOwner>
               <DashboardPage />
             </RequireOwner>
           }
         />
-        <Route path="/reservas" element={<ReservationsPage />} />
+        <Route path="reservas" element={<ReservationsPage />} />
         <Route
-          path="/mesas"
+          path="mesas"
           element={
             <RequireOwner>
               <TablesPage />
@@ -62,7 +65,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/agente"
+          path="agente"
           element={
             <RequireOwner>
               <AgentConfigPage />
@@ -70,7 +73,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/usuarios"
+          path="usuarios"
           element={
             <RequireOwner>
               <UsersPage />

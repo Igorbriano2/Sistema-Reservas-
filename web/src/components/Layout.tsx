@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
+import { Marca } from "./Marca.js";
 
 interface ItemDeNav {
   to: string;
@@ -55,11 +56,11 @@ function IconeUsuarios() {
 }
 
 const ITENS_NAV: ItemDeNav[] = [
-  { to: "/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
-  { to: "/reservas", label: "Reservas", icone: <IconeReservas /> },
-  { to: "/mesas", label: "Mesas", ownerOnly: true, icone: <IconeMesas /> },
-  { to: "/agente", label: "Agente de IA", ownerOnly: true, icone: <IconeAgente /> },
-  { to: "/usuarios", label: "Usuarios", ownerOnly: true, icone: <IconeUsuarios /> },
+  { to: "/admin/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
+  { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
+  { to: "/admin/mesas", label: "Mesas", ownerOnly: true, icone: <IconeMesas /> },
+  { to: "/admin/agente", label: "Agente de IA", ownerOnly: true, icone: <IconeAgente /> },
+  { to: "/admin/usuarios", label: "Usuarios", ownerOnly: true, icone: <IconeUsuarios /> },
 ];
 
 export function Layout() {
@@ -68,9 +69,7 @@ export function Layout() {
   return (
     <div className="layout">
       <aside className="barra-lateral">
-        <span className="marca">
-          Quero<span className="marca-ponto">Reservar</span>
-        </span>
+        <Marca />
         <nav>
           {ITENS_NAV.filter((item) => !item.ownerOnly || isOwner).map((item) => (
             <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "ativo" : "")}>
@@ -108,9 +107,7 @@ export function Layout() {
           <Outlet />
         </main>
         <footer className="rodape">
-          <span className="marca">
-            Quero<span className="marca-ponto">Reservar</span>
-          </span>
+          <Marca />
           <div>Painel administrativo</div>
         </footer>
       </div>

@@ -143,3 +143,16 @@ export interface ReservaPublicaCriada {
 export function criarReservaPublica(token: string, dados: DadosReservaPublica) {
   return api.post<ReservaPublicaCriada>(`/public/reservation-link/${token}/reservations`, dados);
 }
+
+// Formulario de contato/lista de espera da landing page (secao de preco) - ainda
+// nao ha checkout, entao isso so registra o interesse pra contato manual depois.
+export interface DadosWaitlist {
+  nome: string;
+  email: string;
+  whatsapp: string;
+  nomeRestaurante: string;
+}
+
+export function enviarInteresseWaitlist(dados: DadosWaitlist) {
+  return api.post<{ id: string }>("/public/waitlist", dados);
+}

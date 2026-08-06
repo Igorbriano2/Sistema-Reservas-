@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
+import { Marca } from "../components/Marca.js";
 
 export function LoginPage() {
   const { usuario, login } = useAuth();
@@ -11,7 +12,7 @@ export function LoginPage() {
   const [enviando, setEnviando] = useState(false);
 
   if (usuario) {
-    return <Navigate to="/reservas" replace />;
+    return <Navigate to="/admin/reservas" replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -30,9 +31,7 @@ export function LoginPage() {
   return (
     <div className="tela-login">
       <form className="form-login" onSubmit={handleSubmit}>
-        <span className="marca">
-          Quero<span className="marca-ponto">Reservar</span>
-        </span>
+        <Marca tamanho="grande" />
         <h1 style={{ margin: 0, fontSize: "1.25rem" }}>Entrar</h1>
         <label>
           Email

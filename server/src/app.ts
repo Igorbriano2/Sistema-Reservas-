@@ -6,6 +6,7 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { adminRouter } from "./modules/admin/index.js";
 import { webhookRouter } from "./modules/agent/webhook.routes.js";
 import { reservationLinkRouter } from "./modules/public/reservation-link.routes.js";
+import { waitlistRouter } from "./modules/public/waitlist.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
 export function createApp() {
@@ -33,6 +34,7 @@ export function createApp() {
   app.use("/admin", adminRouter);
   app.use("/agent/webhook", webhookRouter);
   app.use("/public/reservation-link", reservationLinkRouter);
+  app.use("/public/waitlist", waitlistRouter);
 
   app.use(errorHandler);
 

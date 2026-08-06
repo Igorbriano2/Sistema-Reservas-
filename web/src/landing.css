@@ -1,0 +1,590 @@
+/* Landing page "Quero Reservar" - usa os tokens globais definidos em index.css
+   (cores, fontes, easing) e so acrescenta o layout/estilo especifico da pagina de
+   marketing, prefixado com "lp-" pra nao colidir com as classes do painel admin. */
+
+.lp {
+  position: relative;
+  overflow-x: clip;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.spotlight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 640px;
+  height: 640px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(185, 122, 79, 0.16), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight {
+    display: none;
+  }
+}
+
+.lp-container {
+  position: relative;
+  z-index: 1;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.lp-secao {
+  padding: 5rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.lp-secao:last-of-type {
+  border-bottom: none;
+}
+
+.lp-secao h2 {
+  font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+  line-height: 1.25;
+  margin: 0 0 1.5rem;
+  max-width: 720px;
+}
+
+/* Revelação ao rolar ------------------------------------------------------ */
+
+.lp-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 600ms var(--ease-padrao), transform 600ms var(--ease-padrao);
+}
+
+.lp-reveal.visivel {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Topo ---------------------------------------------------------------- */
+
+.lp-topo {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 0;
+}
+
+.lp-link-entrar {
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: color var(--duracao-micro) var(--ease-padrao);
+}
+
+.lp-link-entrar:hover {
+  color: var(--text-primary);
+}
+
+/* Hero ------------------------------------------------------------------ */
+
+.lp-hero {
+  padding-top: 6rem;
+  padding-bottom: 6rem;
+  text-align: center;
+}
+
+.lp-hero .lp-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lp-selo {
+  display: inline-block;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.lp-hero h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.1rem, 5.5vw, 3.6rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin: 0 0 1.5rem;
+  max-width: 780px;
+}
+
+.lp-texto-grande {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 640px;
+}
+
+.lp-hero .lp-texto-grande {
+  margin: 0 auto 2.25rem;
+}
+
+.lp-cta-grupo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lp-link-secundario {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 2px;
+  transition: color var(--duracao-micro) var(--ease-padrao), border-color var(--duracao-micro) var(--ease-padrao);
+}
+
+.lp-link-secundario:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.lp-btn-magnetico {
+  padding: 0.85rem 1.75rem;
+  font-size: 1rem;
+  transition: transform 120ms var(--ease-padrao), box-shadow var(--duracao-micro) var(--ease-padrao),
+    background var(--duracao-micro) var(--ease-padrao);
+}
+
+/* Cards (problema, tilt) -------------------------------------------------- */
+
+.lp-grade-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+.lp-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 1.75rem;
+  transition: transform 120ms var(--ease-padrao), box-shadow var(--duracao-micro) var(--ease-padrao);
+  will-change: transform;
+}
+
+.lp-card:hover {
+  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.16), 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.lp-card h3 {
+  font-size: 1.05rem;
+  margin: 0 0 0.65rem;
+}
+
+.lp-card p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-tilt {
+    transform: none !important;
+  }
+}
+
+/* Virada ------------------------------------------------------------------ */
+
+.lp-virada {
+  background: var(--bg-elevated);
+}
+
+.lp-virada h2 {
+  max-width: 760px;
+}
+
+.lp-virada .lp-texto-grande {
+  max-width: 720px;
+  margin-bottom: 1rem;
+}
+
+/* Como funciona -------------------------------------------------------- */
+
+.lp-como-funciona {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 1fr);
+  gap: 2.5rem;
+  align-items: center;
+}
+
+.lp-passos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lp-passo {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  color: var(--text-secondary);
+  transition: border-color var(--duracao-micro) var(--ease-padrao), background var(--duracao-micro) var(--ease-padrao);
+}
+
+.lp-passo strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  margin-bottom: 0.25rem;
+}
+
+.lp-passo-texto {
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.lp-passo-numero {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: border-color var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao),
+    background var(--duracao-micro) var(--ease-padrao);
+}
+
+.lp-passo:hover {
+  border-color: var(--text-secondary);
+}
+
+.lp-passo.ativo {
+  border-color: var(--accent);
+  background: rgba(185, 122, 79, 0.08);
+}
+
+.lp-passo.ativo .lp-passo-numero {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+/* Midia "como funciona" (etiqueta cf-) ------------------------------------ */
+
+.cf-midia {
+  display: flex;
+  justify-content: center;
+}
+
+.cf-tela {
+  width: 100%;
+  max-width: 340px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 1.1rem;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+}
+
+.cf-topo-tela {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.cf-ponto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-subtle);
+}
+
+.cf-titulo-tela {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.cf-bolhas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.cf-bolha {
+  padding: 0.6rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 400ms var(--ease-padrao), transform 400ms var(--ease-padrao);
+}
+
+.cf-bolha.visivel {
+  opacity: 1;
+  transform: none;
+}
+
+.cf-bolha-cliente {
+  align-self: flex-end;
+  background: var(--bg-elevated-hover);
+  border: 1px solid var(--border-subtle);
+  border-bottom-right-radius: 4px;
+  max-width: 85%;
+}
+
+.cf-bolha-agente {
+  align-self: flex-start;
+  background: rgba(185, 122, 79, 0.14);
+  border: 1px solid rgba(185, 122, 79, 0.3);
+  border-bottom-left-radius: 4px;
+  max-width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cf-link {
+  color: var(--accent);
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.cf-bolha-confirmacao {
+  align-self: center;
+  background: transparent;
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.cf-etiqueta-mini {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Stack de valor ------------------------------------------------------- */
+
+.lp-lista-valor {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem 2rem;
+}
+
+.lp-lista-valor li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.lp-check {
+  flex-shrink: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: rgba(185, 122, 79, 0.16);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-top: 0.15rem;
+}
+
+/* Por que confiar -------------------------------------------------------- */
+
+.lp-confianca {
+  background: var(--bg-elevated);
+}
+
+.lp-confianca h2 {
+  max-width: 700px;
+}
+
+/* Preco -------------------------------------------------------------------- */
+
+.lp-preco-grade {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(280px, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.lp-card-preco {
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 55%, rgba(185, 122, 79, 0.1) 100%);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.08);
+  will-change: transform;
+}
+
+.lp-preco-etiqueta {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.lp-preco-valor {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.6rem;
+  margin-bottom: 1rem;
+}
+
+.lp-preco-valor span {
+  font-family: var(--font-texto);
+  font-weight: 500;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.lp-form-espera {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.lp-form-confirmado {
+  justify-content: center;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.lp-form-confirmado h3 {
+  margin: 0;
+}
+
+/* FAQ ------------------------------------------------------------------ */
+
+.lp-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.lp-faq-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.lp-faq-item summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.lp-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.lp-faq-item summary::after {
+  content: "+";
+  float: right;
+  color: var(--accent);
+  font-size: 1.2rem;
+  transition: transform var(--duracao-micro) var(--ease-padrao);
+}
+
+.lp-faq-item[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.lp-faq-item p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0.75rem 0 0;
+}
+
+/* CTA final ------------------------------------------------------------- */
+
+.lp-cta-final {
+  text-align: center;
+  border-bottom: none;
+}
+
+.lp-cta-final h2 {
+  margin: 0 auto 2rem;
+  max-width: 700px;
+}
+
+/* Rodape ------------------------------------------------------------------ */
+
+.lp-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+}
+
+.lp-rodape a {
+  text-decoration: none;
+}
+
+/* Responsivo --------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .lp-secao {
+    padding: 3.5rem 0;
+  }
+
+  .lp-hero {
+    padding-top: 3.5rem;
+  }
+
+  .lp-como-funciona,
+  .lp-preco-grade {
+    grid-template-columns: 1fr;
+  }
+}

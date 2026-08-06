@@ -19,6 +19,11 @@ static_sites:
     source_dir: web
     build_command: npm ci && npm run build
     output_dir: dist
+    # Sem isso, abrir uma URL de rota do React direto (ex: o link /reservar/:token
+    # que o agente manda no Instagram, ou /admin/dashboard) da 404 no host estatico -
+    # ele so serve arquivos que existem de verdade em dist/. Com o catchall, qualquer
+    # caminho sem arquivo correspondente cai no index.html e o React Router assume.
+    catchall_document: index.html
     routes:
       - path: /
     envs:

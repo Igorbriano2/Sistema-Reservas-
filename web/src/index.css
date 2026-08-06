@@ -1,31 +1,42 @@
 :root {
-  /* Quero Reservar - design system (tech-noir premium) */
-  --bg-base: #08090a;
-  --bg-elevated: #121412;
-  --bg-elevated-hover: #171a17;
-  --border-subtle: #1f231f;
-  --accent: #00e68a;
-  --accent-deep: #0f5c3e;
-  --accent-glow: rgba(0, 230, 138, 0.35);
-  --text-primary: #f2f5f3;
-  --text-secondary: #9aa69e;
-  --text-on-accent: #052016;
+  /* Quero Reservar - design system (identidade "etiqueta de reserva") */
+  --bg-base: #0a0f0a; /* Pinho escuro */
+  --bg-elevated: #16241a; /* Pinho */
+  --bg-elevated-hover: #1d2e21;
+  --border-subtle: rgba(199, 211, 184, 0.14); /* Salvia em baixa opacidade */
+  --accent: #b97a4f; /* Terracota */
+  --accent-deep: #8c5c3a;
+  --accent-glow: rgba(185, 122, 79, 0.35);
+  --text-primary: #c7d3b8; /* Salvia */
+  --text-secondary: rgba(199, 211, 184, 0.62);
+  --text-on-accent: #16130f;
 
-  --status-pendente: #d9a94a;
-  --status-pendente-bg: rgba(217, 169, 74, 0.14);
-  --status-cancelada: #a8776f;
-  --status-cancelada-bg: rgba(168, 119, 111, 0.14);
-  --status-concluida: #6f9ab8;
-  --status-concluida-bg: rgba(111, 154, 184, 0.14);
-  --status-no-show: #83897f;
-  --status-no-show-bg: rgba(131, 137, 127, 0.14);
+  --status-pendente: #cfa457;
+  --status-pendente-bg: rgba(207, 164, 87, 0.14);
+  --status-cancelada: #9c6b5c;
+  --status-cancelada-bg: rgba(156, 107, 92, 0.16);
+  --status-concluida: #7f9c9a;
+  --status-concluida-bg: rgba(127, 156, 154, 0.16);
+  --status-no-show: #7c8574;
+  --status-no-show-bg: rgba(124, 133, 116, 0.16);
 
   --ease-padrao: cubic-bezier(0.16, 1, 0.3, 1);
   --duracao-micro: 150ms;
   --duracao-painel: 350ms;
 
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  --font-texto: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  --font-display: "Bodoni Moda", Georgia, "Times New Roman", serif;
+
+  font-family: var(--font-texto);
   color-scheme: dark;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 * {
@@ -62,16 +73,40 @@ button {
 
 .marca {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  align-items: center;
+  gap: 0.45rem;
   color: var(--text-primary);
   text-decoration: none;
 }
 
-.marca-ponto {
+.marca-etiqueta {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
   color: var(--accent);
+}
+
+.marca-texto {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.marca-texto em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--accent);
+}
+
+.marca-grande .marca-etiqueta {
+  width: 30px;
+  height: 30px;
+}
+
+.marca-grande .marca-texto {
+  font-size: 1.7rem;
 }
 
 /* Botoes -------------------------------------------------------------- */
@@ -89,7 +124,7 @@ button {
 }
 
 .btn:hover:not(:disabled) {
-  background: #1fffa8;
+  background: #cf9163;
   box-shadow: 0 0 0 4px var(--accent-glow);
 }
 
@@ -215,7 +250,7 @@ label {
 }
 
 .barra-lateral nav a.ativo {
-  background: rgba(0, 230, 138, 0.1);
+  background: rgba(185, 122, 79, 0.14);
   color: var(--accent);
 }
 
@@ -287,13 +322,13 @@ label {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 60%, rgba(0, 230, 138, 0.06) 100%);
-  box-shadow: 0 0 0 1px rgba(0, 230, 138, 0.05);
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 60%, rgba(185, 122, 79, 0.08) 100%);
+  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.06);
   transition: box-shadow var(--duracao-micro) var(--ease-padrao), transform var(--duracao-micro) var(--ease-padrao);
 }
 
 .cartao-metrica:hover {
-  box-shadow: 0 0 0 1px rgba(0, 230, 138, 0.18), 0 0 24px rgba(0, 230, 138, 0.08);
+  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.22), 0 0 24px rgba(185, 122, 79, 0.1);
   transform: translateY(-1px);
 }
 
@@ -374,7 +409,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: rgba(0, 230, 138, 0.04);
+  background: rgba(185, 122, 79, 0.06);
 }
 
 .badge {
@@ -388,7 +423,7 @@ tbody tr:hover {
 }
 
 .badge-confirmada {
-  background: rgba(0, 230, 138, 0.14);
+  background: rgba(185, 122, 79, 0.16);
   color: var(--accent);
 }
 
@@ -437,7 +472,7 @@ tbody tr:hover {
 }
 
 .aba-status.ativa {
-  background: rgba(0, 230, 138, 0.1);
+  background: rgba(185, 122, 79, 0.14);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -477,7 +512,7 @@ tbody tr:hover {
   justify-content: center;
   padding: 1.5rem;
   position: relative;
-  background: radial-gradient(600px circle at 50% 20%, rgba(0, 230, 138, 0.08), transparent 60%);
+  background: radial-gradient(600px circle at 50% 20%, rgba(185, 122, 79, 0.1), transparent 60%);
 }
 
 .form-login {
@@ -489,7 +524,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  box-shadow: 0 0 0 1px rgba(0, 230, 138, 0.06), 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.08), 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: entrada-login var(--duracao-painel) var(--ease-padrao) both;
 }
 

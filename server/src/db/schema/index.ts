@@ -10,3 +10,4 @@ export * from "./reservas.js";
 export * from "./conversas.js";
 export * from "./mensagens.js";
 export * from "./agente-config.js";
+export * from "./waitlist-leads.js";

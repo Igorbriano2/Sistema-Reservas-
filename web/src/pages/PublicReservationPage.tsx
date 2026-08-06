@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { ApiError } from "../api/client.js";
 import { criarReservaPublica, obterInfoDoLinkDeReserva, type ReservaPublicaCriada } from "../api/resources.js";
+import { Marca } from "../components/Marca.js";
 
 type Estado = "carregando" | "valido" | "invalido";
 
@@ -66,9 +67,7 @@ export function PublicReservationPage() {
     return (
       <div className="tela-login">
         <div className="form-login">
-          <span className="marca">
-            Quero<span className="marca-ponto">Reservar</span>
-          </span>
+          <Marca tamanho="grande" />
           <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Link expirado</h1>
           <p className="texto-secundario" style={{ fontSize: "0.9rem" }}>
             Este link de reserva expirou ou e invalido. Volte na conversa do Instagram e peca um novo link ao
@@ -83,9 +82,7 @@ export function PublicReservationPage() {
     return (
       <div className="tela-login">
         <div className="form-login">
-          <span className="marca">
-            Quero<span className="marca-ponto">Reservar</span>
-          </span>
+          <Marca tamanho="grande" />
           <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reserva confirmada!</h1>
           <p style={{ fontSize: "0.9rem" }}>
             {confirmada.data.split("-").reverse().join("/")} as {confirmada.horaInicio.slice(0, 5)}, para{" "}
@@ -102,9 +99,7 @@ export function PublicReservationPage() {
   return (
     <div className="tela-login">
       <form className="form-login" onSubmit={handleSubmit} style={{ width: 360 }}>
-        <span className="marca">
-          Quero<span className="marca-ponto">Reservar</span>
-        </span>
+        <Marca tamanho="grande" />
         <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reservar em {unidadeNome}</h1>
         <label>
           Data
