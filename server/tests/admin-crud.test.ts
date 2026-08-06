@@ -116,6 +116,72 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
     expect(cancelar.body.status).toBe("cancelada");
   });
 
+  it("marca reserva confirmada como sentada (concluida) ou como nao compareceu", async () => {
+    const { unidade, token } = await setup();
+    const salao = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao Principal" });
+    const mesa = await request(app)
+      .post(`/admin/unidades/${unidade.id}/mesas`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ salaoId: salao.body.id, nome: "Mesa 1", capacidadeMin: 2, capacidadeMax: 4 });
+
+    async function novaReserva(horaInicio: string) {
+      return request(app)
+        .post(`/admin/unidades/${unidade.id}/reservations`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ mesaId: mesa.body.id, data: "2026-09-15", horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+    }
+
+    const reserva1 = await novaReserva("19:00");
+    const sentada = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${reserva1.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "concluida" });
+    expect(sentada.status).toBe(200);
+    expect(sentada.body.status).toBe("concluida");
+
+    const reserva2 = await novaReserva("20:00");
+    const naoCompareceu = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${reserva2.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "no_show" });
+    expect(naoCompareceu.status).toBe(200);
+    expect(naoCompareceu.body.status).toBe("no_show");
+  });
+
+  it("rejeita marcar como sentada ou nao compareceu uma reserva que ja esta cancelada", async () => {
+    const { unidade, token } = await setup();
+    const salao = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao Principal" });
+    const mesa = await request(app)
+      .post(`/admin/unidades/${unidade.id}/mesas`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ salaoId: salao.body.id, nome: "Mesa 1", capacidadeMin: 2, capacidadeMax: 4 });
+    const reserva = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ mesaId: mesa.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+    await request(app)
+      .delete(`/admin/unidades/${unidade.id}/reservations/${reserva.body.id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    const tentativaSentada = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${reserva.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "concluida" });
+    expect(tentativaSentada.status).toBe(400);
+
+    const tentativaNoShow = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${reserva.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "no_show" });
+    expect(tentativaNoShow.status).toBe(400);
+  });
+
   it("lista reservas por periodo (dataInicio/dataFim), usado pelo dashboard gerencial", async () => {
     const { unidade, token } = await setup();
     const salao = await request(app)

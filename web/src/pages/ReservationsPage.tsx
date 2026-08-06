@@ -32,6 +32,10 @@ type FiltroStatus = "todas" | Reserva["status"];
 const ABAS_STATUS: FiltroStatus[] = ["todas", "confirmada", "pendente", "cancelada", "concluida", "no_show"];
 const ABA_LABEL: Record<FiltroStatus, string> = { todas: "Todas", ...STATUS_LABEL };
 
+// So reservas ainda ativas podem virar "sentada" ou "nao compareceu" (o backend
+// tambem valida isso - aqui e so pra nao nem mostrar o botao quando nao se aplica).
+const STATUS_ATIVOS = new Set<Reserva["status"]>(["pendente", "confirmada"]);
+
 interface FormState {
   mesaId: string;
   horaInicio: string;
@@ -156,6 +160,16 @@ export function ReservationsPage() {
       await carregar();
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Nao foi possivel cancelar a reserva.");
+    }
+  }
+
+  async function marcarStatus(reserva: Reserva, status: "concluida" | "no_show") {
+    if (!unidade) return;
+    try {
+      await atualizarReserva(unidade.id, reserva.id, { status });
+      await carregar();
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Nao foi possivel atualizar o status da reserva.");
     }
   }
 
@@ -295,6 +309,16 @@ export function ReservationsPage() {
                   </td>
                   <td>
                     <div className="acoes">
+                      {STATUS_ATIVOS.has(reserva.status) && (
+                        <>
+                          <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "concluida")}>
+                            Marcar como sentada
+                          </button>
+                          <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "no_show")}>
+                            Nao compareceu
+                          </button>
+                        </>
+                      )}
                       {reserva.status !== "cancelada" && (
                         <>
                           <button className="btn btn-secundario" onClick={() => abrirEdicao(reserva)}>

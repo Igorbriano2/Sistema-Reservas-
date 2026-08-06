@@ -7,6 +7,16 @@ import { codigoDoErroPostgres } from "./pg-error.js";
 import { verificarDisponibilidade } from "./availability.js";
 
 const STATUS_ATIVOS = ["pendente", "confirmada"] as const;
+// So uma reserva ainda ativa (nao cancelada/ja concluida/ja no_show) pode ser marcada
+// como "sentada" (concluida) ou "nao compareceu" - evita, por exemplo, marcar como
+// sentada uma reserva ja cancelada.
+const STATUS_LABEL: Record<string, string> = {
+  pendente: "pendente",
+  confirmada: "confirmada",
+  cancelada: "cancelada",
+  concluida: "sentada",
+  no_show: "nao compareceu",
+};
 // Codigo do Postgres para violacao de EXCLUDE constraint (reservas_sem_sobreposicao).
 const PG_EXCLUSION_VIOLATION = "23P01";
 
@@ -185,6 +195,15 @@ async function atualizarReservaComCondicoes(
 
     if (!atual) {
       throw new RecursoNaoEncontradoError("Reserva nao encontrada");
+    }
+
+    if (
+      (patch.status === "concluida" || patch.status === "no_show") &&
+      !(STATUS_ATIVOS as readonly string[]).includes(atual.status)
+    ) {
+      throw new RequisicaoInvalidaError(
+        `Nao e possivel marcar como ${STATUS_LABEL[patch.status]} uma reserva com status "${STATUS_LABEL[atual.status]}"`,
+      );
     }
 
     const mesaId = patch.mesaId ?? atual.mesaId;
