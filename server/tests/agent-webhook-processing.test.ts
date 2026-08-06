@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
 import type Anthropic from "@anthropic-ai/sdk";
 import { db } from "../src/db/client.js";
@@ -23,6 +23,7 @@ vi.mock("../src/lib/anthropic-client.js", () => ({
 const { enviarMensagemInstagram } = await import("../src/lib/instagram-api.js");
 const { getAnthropicClient } = await import("../src/lib/anthropic-client.js");
 const { processarEventoDoInstagram } = await import("../src/modules/agent/process-event.js");
+const { _cancelarTodosOsAgendamentosParaTeste } = await import("../src/modules/agent/debounce.js");
 
 function respostaDeTexto(texto: string): Anthropic.Message {
   return {
@@ -37,6 +38,13 @@ function respostaDeTexto(texto: string): Anthropic.Message {
   };
 }
 
+// O turno do agente e disparado com atraso (debounce - ver AGENT_DEBOUNCE_MS nos
+// testes, configurado bem curto). Os testes que precisam que o turno ja tenha
+// rodado esperam por este tempo real antes de checar o resultado.
+function aguardarTurnoAgendado(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 150));
+}
+
 beforeEach(async () => {
   await truncateAll();
   vi.mocked(enviarMensagemInstagram).mockReset().mockResolvedValue("mid-resposta-agente");
@@ -44,6 +52,11 @@ beforeEach(async () => {
   vi.mocked(getAnthropicClient)
     .mockReset()
     .mockReturnValue({ messages: { create: criarMock } } as unknown as ReturnType<typeof getAnthropicClient>);
+});
+
+afterEach(() => {
+  // Evita que um turno agendado e nao esperado por um teste vaze e dispare durante o proximo.
+  _cancelarTodosOsAgendamentosParaTeste();
 });
 
 afterAll(async () => {
@@ -69,6 +82,7 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
       recipient: { id: "ig-conta-restaurante" },
       message: { mid: "mid-cliente-1", text: "Oi, quero reservar uma mesa" },
     });
+    await aguardarTurnoAgendado();
 
     const [conversa] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
     expect(conversa).toBeDefined();
@@ -98,6 +112,7 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
 
     await processarEventoDoInstagram(db, evento);
     await processarEventoDoInstagram(db, evento);
+    await aguardarTurnoAgendado();
 
     const todas = await db.select().from(mensagens);
     expect(todas.filter((m) => m.papel === "user")).toHaveLength(1);
@@ -145,6 +160,9 @@ describe("processarEventoDoInstagram - echo (mensagens enviadas PELA conta do re
       recipient: { id: "ig-conta-restaurante" },
       message: { mid: "mid-cliente-1", text: "quero uma mesa" },
     });
+    // espera o turno agendado disparar e mandar a resposta (com mid "mid-resposta-agente")
+    // ANTES do echo dela chegar - senao o echo nao acha nada pra "casar" e pausaria a toa.
+    await aguardarTurnoAgendado();
 
     await processarEventoDoInstagram(db, {
       sender: { id: "ig-conta-restaurante" },

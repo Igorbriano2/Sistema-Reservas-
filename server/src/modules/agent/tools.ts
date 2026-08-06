@@ -8,35 +8,29 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
   {
     name: "check_availability",
     description:
-      "Verifica se ha mesa disponivel para uma data, horario e numero de pessoas especificos. " +
-      "Use antes de tentar criar uma reserva para saber quais mesas oferecer ao cliente.",
+      "Consulta SOMENTE INFORMATIVA de disponibilidade para uma data, horario e numero de pessoas. " +
+      "Use para responder perguntas do tipo 'tem mesa disponivel as 20h?' ou 'voces tem horario livre " +
+      "amanha?'. Isso NUNCA cria, reserva ou bloqueia nada - e so pra informar o cliente. Para o cliente " +
+      "efetivamente reservar, use a tool get_reservation_link.",
     input_schema: {
       type: "object",
       properties: {
         data: { type: "string", description: "Data no formato YYYY-MM-DD" },
         hora: { type: "string", description: "Horario no formato HH:MM (24h)" },
-        num_pessoas: { type: "integer", minimum: 1, description: "Numero de pessoas na reserva" },
+        num_pessoas: { type: "integer", minimum: 1, description: "Numero de pessoas" },
       },
       required: ["data", "hora", "num_pessoas"],
     },
   },
   {
-    name: "create_reservation",
+    name: "get_reservation_link",
     description:
-      "Cria uma nova reserva para o cliente que esta conversando. Use check_availability antes " +
-      "para escolher um mesa_id valido e disponivel. Peca nome do cliente antes de chamar esta tool.",
-    input_schema: {
-      type: "object",
-      properties: {
-        data: { type: "string", description: "Data no formato YYYY-MM-DD" },
-        hora: { type: "string", description: "Horario no formato HH:MM (24h)" },
-        num_pessoas: { type: "integer", minimum: 1 },
-        mesa_id: { type: "string", description: "ID da mesa (obtido via check_availability)" },
-        nome: { type: "string", description: "Nome do cliente para a reserva" },
-        telefone: { type: "string", description: "Telefone de contato do cliente (opcional)" },
-      },
-      required: ["data", "hora", "num_pessoas", "mesa_id", "nome"],
-    },
+      "Gera um link pessoal e temporario (valido por 60 minutos) para o cliente fazer uma reserva " +
+      "nova preenchendo os proprios dados numa pagina web. Use sempre que o cliente quiser reservar - " +
+      "esta tool e o UNICO jeito de iniciar uma reserva nova; o agente nunca cria a reserva diretamente " +
+      "na conversa. Depois de gerar o link, explique brevemente que e so clicar e preencher data, " +
+      "horario e numero de pessoas.",
+    input_schema: { type: "object", properties: {} },
   },
   {
     name: "find_my_reservations",

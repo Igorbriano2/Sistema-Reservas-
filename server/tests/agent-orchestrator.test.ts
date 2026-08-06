@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.js";
 import { conversas } from "../src/db/schema/index.js";
 import { executarTurnoDoAgente, type MessagesCreateFn } from "../src/modules/agent/orchestrator.js";
+import { executarTool } from "../src/modules/agent/tool-executor.js";
 import type { AgentContext } from "../src/modules/agent/context.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
 import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
@@ -71,8 +72,8 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
     expect(criarMensagem).toHaveBeenCalledTimes(1);
   });
 
-  it("executa check_availability e depois create_reservation de verdade contra o Postgres antes de responder", async () => {
-    const { empresa, unidade, mesa } = await setupUnidadeCompleta();
+  it("executa check_availability (so informativo) e depois get_reservation_link de verdade, sem nunca criar reserva", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
     const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
     const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
 
@@ -81,16 +82,8 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
       .mockResolvedValueOnce(
         respostaDeToolUse("tool_1", "check_availability", { data: "2026-11-01", hora: "19:00", num_pessoas: 2 }),
       )
-      .mockResolvedValueOnce(
-        respostaDeToolUse("tool_2", "create_reservation", {
-          data: "2026-11-01",
-          hora: "19:00",
-          num_pessoas: 2,
-          mesa_id: mesa.id,
-          nome: "Cliente Teste",
-        }),
-      )
-      .mockResolvedValueOnce(respostaDeTexto("Sua reserva foi confirmada para 01/11 as 19h!"));
+      .mockResolvedValueOnce(respostaDeToolUse("tool_2", "get_reservation_link", {}))
+      .mockResolvedValueOnce(respostaDeTexto("Temos horario livre! Aqui esta seu link para reservar: (link)"));
 
     const texto = await executarTurnoDoAgente({
       db,
@@ -101,7 +94,7 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
       criarMensagem,
     });
 
-    expect(texto).toBe("Sua reserva foi confirmada para 01/11 as 19h!");
+    expect(texto).toBe("Temos horario livre! Aqui esta seu link para reservar: (link)");
     expect(criarMensagem).toHaveBeenCalledTimes(3);
 
     // A segunda chamada deve conter o tool_result da primeira (disponibilidade) como contexto.
@@ -109,6 +102,13 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
     const ultimaMensagem = segundaChamada.messages.at(-1)!;
     expect(ultimaMensagem.role).toBe("user");
     expect(JSON.stringify(ultimaMensagem.content)).toContain("disponivel");
+
+    // A terceira chamada deve conter o link gerado pela segunda tool.
+    const terceiraChamada = (criarMensagem as ReturnType<typeof vi.fn>).mock.calls[2][0] as Anthropic.MessageCreateParamsNonStreaming;
+    expect(JSON.stringify(terceiraChamada.messages.at(-1))).toContain("/reservar/");
+
+    const reservas = await executarTool(db, ctx, "find_my_reservations", {});
+    expect((reservas.output as { reservas: unknown[] }).reservas).toHaveLength(0);
   });
 
   it("interrompe apos o limite de iteracoes e escalona para humano em vez de entrar em loop infinito", async () => {

@@ -3,13 +3,10 @@ import { z, ZodError } from "zod";
 import type { Database } from "../../db/client.js";
 import { conversas } from "../../db/schema/index.js";
 import { verificarDisponibilidade } from "../../lib/availability.js";
-import {
-  atualizarReservaDoCliente,
-  buscarReservasDoCliente,
-  cancelarReservaDoCliente,
-  criarReserva,
-} from "../../lib/reservations.js";
+import { atualizarReservaDoCliente, buscarReservasDoCliente, cancelarReservaDoCliente } from "../../lib/reservations.js";
 import { AppError } from "../../lib/errors.js";
+import { env } from "../../config/env.js";
+import { gerarTokenDeReserva } from "../../lib/reservation-link.js";
 import type { AgentContext } from "./context.js";
 
 export interface ToolResultado {
@@ -35,6 +32,8 @@ async function checkAvailability(db: Database, ctx: AgentContext, input: unknown
     .object({ data: dataSchema, hora: horaSchema, num_pessoas: z.number().int().positive() })
     .parse(input);
 
+  // Tool puramente informativa: nunca cria, reserva ou bloqueia nada. So diz se ha
+  // (ou nao) capacidade compativel disponivel para esse horario.
   const resultado = await verificarDisponibilidade(db, { unidadeId: ctx.unidadeId, data, hora, numPessoas: num_pessoas });
 
   return {
@@ -43,48 +42,20 @@ async function checkAvailability(db: Database, ctx: AgentContext, input: unknown
       motivo: resultado.motivo,
       hora_inicio: resultado.horaInicio,
       hora_fim: resultado.horaFim,
-      mesas: resultado.mesasDisponiveis.map((m) => ({
-        mesa_id: m.id,
-        nome: m.nome,
-        capacidade_min: m.capacidadeMin,
-        capacidade_max: m.capacidadeMax,
-      })),
+      mesas_disponiveis: resultado.mesasDisponiveis.length,
     },
   };
 }
 
-async function createReservation(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
-  const dados = z
-    .object({
-      data: dataSchema,
-      hora: horaSchema,
-      num_pessoas: z.number().int().positive(),
-      mesa_id: z.string().uuid("mesa_id invalido"),
-      nome: z.string().min(1),
-      telefone: z.string().optional(),
-    })
-    .parse(input);
-
-  const reserva = await criarReserva(db, {
-    unidadeId: ctx.unidadeId,
-    igSenderId: ctx.igSenderId,
-    mesaId: dados.mesa_id,
-    data: dados.data,
-    horaInicio: dados.hora,
-    numPessoas: dados.num_pessoas,
-    clienteNome: dados.nome,
-    clienteTelefone: dados.telefone,
-    canalOrigem: "instagram",
-  });
-
+async function getReservationLink(ctx: AgentContext): Promise<ToolResultado> {
+  if (!env.WEB_APP_URL) {
+    return { output: { erro: "Link de reserva nao configurado nesta unidade" }, isError: true };
+  }
+  const token = gerarTokenDeReserva({ unidadeId: ctx.unidadeId, igSenderId: ctx.igSenderId });
   return {
     output: {
-      reservation_id: reserva.id,
-      data: reserva.data,
-      hora_inicio: reserva.horaInicio,
-      hora_fim: reserva.horaFim,
-      num_pessoas: reserva.numPessoas,
-      status: reserva.status,
+      link: `${env.WEB_APP_URL}/reservar/${token}`,
+      valido_por_minutos: 60,
     },
   };
 }
@@ -180,8 +151,8 @@ export async function executarTool(
     switch (nomeDaTool) {
       case "check_availability":
         return await checkAvailability(db, ctx, input);
-      case "create_reservation":
-        return await createReservation(db, ctx, input);
+      case "get_reservation_link":
+        return await getReservationLink(ctx);
       case "find_my_reservations":
         return await findMyReservations(db, ctx);
       case "modify_my_reservation":

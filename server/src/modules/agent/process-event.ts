@@ -8,12 +8,12 @@ import {
   unidades,
   type Conversa,
   type InstagramConnection,
+  type PapelMensagem,
 } from "../../db/schema/index.js";
-import { env } from "../../config/env.js";
-import { decrypt } from "../../lib/crypto.js";
-import { enviarMensagemInstagram } from "../../lib/instagram-api.js";
 import { montarSystemPrompt } from "../../lib/agent-prompt.js";
+import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 import { executarTurnoDoAgente } from "./orchestrator.js";
+import { agendarTurnoDoAgente } from "./debounce.js";
 import type { AgentContext } from "./context.js";
 
 export interface InstagramMessagingEvent {
@@ -23,6 +23,10 @@ export interface InstagramMessagingEvent {
 }
 
 const HISTORICO_MAX_MENSAGENS = 20;
+// Janela de leitura ao montar o turno agrupado: precisa cobrir o historico normal MAIS
+// as mensagens da rajada ainda nao respondidas (normalmente poucas, mas sem limite fixo
+// de quantas podem chegar durante a espera do debounce).
+const JANELA_TURNO_PENDENTE = HISTORICO_MAX_MENSAGENS + 20;
 
 async function resolverUnidadeDaConexao(db: Database, conexao: InstagramConnection): Promise<string | null> {
   if (conexao.unidadeId) {
@@ -58,21 +62,81 @@ async function buscarOuCriarConversa(
   return existenteAposCorrida;
 }
 
-async function carregarHistoricoRecente(db: Database, conversaId: string) {
+interface TurnoPendente {
+  historico: Array<{ role: "user" | "assistant"; content: string }>;
+  mensagemAgrupada: string | null;
+}
+
+// Roda quando o debounce dispara: junta todas as mensagens "user" ainda nao respondidas
+// (a rajada inteira) num unico texto, e usa o restante como historico normal - assim o
+// agente ve a rajada como UM pedido so, e responde uma unica vez pra ela.
+async function carregarTurnoPendente(db: Database, conversaId: string): Promise<TurnoPendente> {
   const linhas = await db
     .select({ papel: mensagens.papel, conteudo: mensagens.conteudo })
     .from(mensagens)
     .where(eq(mensagens.conversaId, conversaId))
     .orderBy(desc(mensagens.criadoEm))
-    .limit(HISTORICO_MAX_MENSAGENS);
+    .limit(JANELA_TURNO_PENDENTE);
 
-  return linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo }));
+  const pendentes: string[] = [];
+  let i = 0;
+  for (; i < linhas.length; i++) {
+    if (linhas[i].papel !== "user") break;
+    pendentes.unshift(linhas[i].conteudo);
+  }
+
+  const historico = linhas
+    .slice(i, i + HISTORICO_MAX_MENSAGENS)
+    .reverse()
+    .map((m) => ({ role: m.papel as PapelMensagem, content: m.conteudo }));
+
+  return { historico, mensagemAgrupada: pendentes.length > 0 ? pendentes.join("\n") : null };
+}
+
+// Executado (com atraso, via debounce) depois que uma rajada de mensagens para de
+// chegar. Recarrega tudo do zero a partir do banco - nunca reaproveita estado de quando
+// o turno foi agendado - porque a conversa pode ter mudado nesse meio tempo (ex.: um
+// humano assumiu pela Meta Business Suite enquanto o agente estava "esperando").
+async function processarTurnoAgrupado(db: Database, ctx: AgentContext): Promise<void> {
+  const [conversaAtual] = await db.select().from(conversas).where(eq(conversas.id, ctx.conversaId)).limit(1);
+  if (!conversaAtual || conversaAtual.agentPaused) {
+    return;
+  }
+
+  const [config] = await db.select().from(agenteConfig).where(eq(agenteConfig.empresaId, ctx.empresaId)).limit(1);
+  const [unidade] = await db.select().from(unidades).where(eq(unidades.id, ctx.unidadeId)).limit(1);
+  if (!config || !unidade) {
+    console.error(`[webhook] agente_config ou unidade ausente para a empresa ${ctx.empresaId}`);
+    return;
+  }
+
+  const { historico, mensagemAgrupada } = await carregarTurnoPendente(db, ctx.conversaId);
+  if (!mensagemAgrupada) {
+    return; // nada pendente (nao deveria acontecer, mas evita chamar o agente a toa)
+  }
+
+  const respostaTexto = await executarTurnoDoAgente({
+    db,
+    ctx,
+    systemPrompt: montarSystemPrompt(config, unidade),
+    historico,
+    mensagemDoCliente: mensagemAgrupada,
+  });
+
+  await enviarRespostaDoAgente(db, {
+    unidadeId: ctx.unidadeId,
+    igSenderId: ctx.igSenderId,
+    conversaId: ctx.conversaId,
+    texto: respostaTexto,
+  });
 }
 
 // Processa UM evento de mensagem do webhook do Instagram: identifica a empresa/unidade
 // pela conta que recebeu a mensagem, distingue mensagem real de cliente vs. echo (que
-// pode ser o proprio agente ou um humano na Meta Business Suite), e so entao aciona
-// o agente via Claude API quando fizer sentido responder automaticamente.
+// pode ser o proprio agente ou um humano na Meta Business Suite), grava tudo no
+// historico imediatamente, e agenda (com debounce) o turno do agente quando fizer
+// sentido responder automaticamente - nunca aciona a Claude API diretamente aqui, pra
+// nao responder mensagem por mensagem numa rajada rapida.
 export async function processarEventoDoInstagram(db: Database, evento: InstagramMessagingEvent): Promise<void> {
   const mensagem = evento.message;
   // Numa mensagem normal do cliente, sender = cliente e recipient = conta do restaurante.
@@ -149,36 +213,6 @@ export async function processarEventoDoInstagram(db: Database, evento: Instagram
     return; // um humano assumiu esta conversa; nao responde automaticamente ate reativacao manual
   }
 
-  const [config] = await db.select().from(agenteConfig).where(eq(agenteConfig.empresaId, conexao.empresaId)).limit(1);
-  const [unidade] = await db.select().from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
-  if (!config || !unidade) {
-    console.error(`[webhook] agente_config ou unidade ausente para a empresa ${conexao.empresaId}`);
-    return;
-  }
-
-  const historico = await carregarHistoricoRecente(db, conversa.id);
   const ctx: AgentContext = { empresaId: conexao.empresaId, unidadeId, igSenderId, conversaId: conversa.id };
-
-  const respostaTexto = await executarTurnoDoAgente({
-    db,
-    ctx,
-    systemPrompt: montarSystemPrompt(config, unidade),
-    historico,
-    mensagemDoCliente: mensagem.text,
-  });
-
-  if (!env.TOKEN_ENCRYPTION_KEY) {
-    console.error("[webhook] TOKEN_ENCRYPTION_KEY nao configurada - resposta gerada mas nao enviada");
-    return;
-  }
-
-  const accessToken = decrypt(conexao.accessTokenEncrypted, env.TOKEN_ENCRYPTION_KEY);
-  const igMessageId = await enviarMensagemInstagram(accessToken, igSenderId, respostaTexto);
-
-  await db.insert(mensagens).values({
-    conversaId: conversa.id,
-    papel: "assistant",
-    conteudo: respostaTexto,
-    igMessageId: igMessageId || null,
-  });
+  agendarTurnoDoAgente(conversa.id, () => processarTurnoAgrupado(db, ctx));
 }

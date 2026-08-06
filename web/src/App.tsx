@@ -6,6 +6,7 @@ import { ReservationsPage } from "./pages/ReservationsPage.js";
 import { TablesPage } from "./pages/TablesPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
+import { PublicReservationPage } from "./pages/PublicReservationPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { usuario, carregando } = useAuth();
@@ -33,6 +34,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/reservar/:token" element={<PublicReservationPage />} />
       <Route
         element={
           <RequireAuth>

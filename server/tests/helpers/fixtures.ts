@@ -1,6 +1,7 @@
 import { db } from "../../src/db/client.js";
 import { agenteConfig, conversas, instagramConnections, mesas, regrasHorario, saloes } from "../../src/db/schema/index.js";
 import { encrypt } from "../../src/lib/crypto.js";
+import { criarReserva } from "../../src/lib/reservations.js";
 
 export async function criarSalao(unidadeId: string, nome = "Salao Principal") {
   const [salao] = await db.insert(saloes).values({ unidadeId, nome }).returning();
@@ -66,6 +67,27 @@ export async function criarAgenteConfig(empresaId: string, overrides: Partial<{ 
     })
     .returning();
   return config;
+}
+
+// Cria uma reserva direto pela lib (sem passar pelo agente) - usada nos testes que
+// precisam de uma reserva pre-existente pra testar find/modify/cancel/status, ja que
+// o agente nao tem mais nenhuma tool capaz de criar reserva.
+export async function criarReservaDireta(
+  unidadeId: string,
+  mesaId: string,
+  igSenderId: string,
+  overrides: Partial<{ data: string; horaInicio: string; numPessoas: number; clienteNome: string }> = {},
+) {
+  return criarReserva(db, {
+    unidadeId,
+    mesaId,
+    igSenderId,
+    data: overrides.data ?? "2026-10-10",
+    horaInicio: overrides.horaInicio ?? "19:00",
+    numPessoas: overrides.numPessoas ?? 2,
+    clienteNome: overrides.clienteNome ?? "Cliente Teste",
+    canalOrigem: "instagram",
+  });
 }
 
 export async function criarConexaoInstagram(

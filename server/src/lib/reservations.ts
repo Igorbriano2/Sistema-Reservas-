@@ -4,6 +4,7 @@ import { mesas, regrasHorario, reservas, saloes, type Reserva } from "../db/sche
 import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from "./time.js";
 import { ConflitoDeHorarioError, RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
 import { codigoDoErroPostgres } from "./pg-error.js";
+import { verificarDisponibilidade } from "./availability.js";
 
 const STATUS_ATIVOS = ["pendente", "confirmada"] as const;
 // Codigo do Postgres para violacao de EXCLUDE constraint (reservas_sem_sobreposicao).
@@ -328,4 +329,50 @@ export async function buscarReservasDoCliente(
     .where(and(eq(reservas.unidadeId, params.unidadeId), eq(reservas.igSenderId, params.igSenderId)))
     .orderBy(desc(reservas.data), desc(reservas.horaInicio))
     .limit(params.limite ?? 20);
+}
+
+export interface CriarReservaComMesaAutomaticaParams {
+  unidadeId: string;
+  igSenderId: string;
+  data: string;
+  horaInicio: string;
+  numPessoas: number;
+  clienteNome: string;
+  clienteTelefone?: string;
+}
+
+// Usada pela pagina publica de reserva (/reservar/:token): o cliente so escolhe
+// data/horario/pessoas, sem selecionar mesa (modo simples do MVP - mapa de salao com
+// escolha manual de mesa fica para depois). Reaproveita verificarDisponibilidade pra
+// achar as mesas com capacidade compativel e livres, e escolhe a de menor capacidade
+// maxima que ainda comporta o grupo (evita ocupar uma mesa grande com um grupo pequeno).
+// A criacao em si passa por criarReserva, entao ganha o mesmo lock/checagem de conflito.
+export async function criarReservaComMesaAutomatica(
+  db: Database,
+  params: CriarReservaComMesaAutomaticaParams,
+): Promise<Reserva> {
+  const disponibilidade = await verificarDisponibilidade(db, {
+    unidadeId: params.unidadeId,
+    data: params.data,
+    hora: params.horaInicio,
+    numPessoas: params.numPessoas,
+  });
+
+  if (!disponibilidade.disponivel || disponibilidade.mesasDisponiveis.length === 0) {
+    throw new ConflitoDeHorarioError(disponibilidade.motivo ?? "Nao ha mesas disponiveis para esse horario");
+  }
+
+  const mesaEscolhida = [...disponibilidade.mesasDisponiveis].sort((a, b) => a.capacidadeMax - b.capacidadeMax)[0];
+
+  return criarReserva(db, {
+    unidadeId: params.unidadeId,
+    mesaId: mesaEscolhida.id,
+    data: params.data,
+    horaInicio: params.horaInicio,
+    numPessoas: params.numPessoas,
+    clienteNome: params.clienteNome,
+    clienteTelefone: params.clienteTelefone,
+    igSenderId: params.igSenderId,
+    canalOrigem: "instagram",
+  });
 }

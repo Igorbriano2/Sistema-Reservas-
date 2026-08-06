@@ -103,3 +103,35 @@ export function obterAgenteConfig() {
 export function atualizarAgenteConfig(dados: Partial<Omit<AgenteConfig, "empresaId">>) {
   return api.patch<AgenteConfig>("/admin/agente-config", dados);
 }
+
+// Rotas publicas (pagina /reservar/:token) - sem autenticacao, protegidas pelo proprio
+// token de curta duracao gerado pelo agente.
+export interface InfoDoLinkDeReserva {
+  unidadeNome: string;
+  timezone: string;
+}
+
+export function obterInfoDoLinkDeReserva(token: string) {
+  return api.get<InfoDoLinkDeReserva>(`/public/reservation-link/${token}`);
+}
+
+export interface DadosReservaPublica {
+  data: string;
+  horaInicio: string;
+  numPessoas: number;
+  clienteNome: string;
+  clienteTelefone?: string;
+}
+
+export interface ReservaPublicaCriada {
+  id: string;
+  data: string;
+  horaInicio: string;
+  horaFim: string;
+  numPessoas: number;
+  status: string;
+}
+
+export function criarReservaPublica(token: string, dados: DadosReservaPublica) {
+  return api.post<ReservaPublicaCriada>(`/public/reservation-link/${token}/reservations`, dados);
+}

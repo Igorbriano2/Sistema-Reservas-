@@ -93,3 +93,12 @@ services:
       - key: CORS_ORIGIN
         type: GENERAL
         value: ""
+      # Mesma URL do CORS_ORIGIN acima - usada para montar o link publico de reserva
+      # que o agente manda ao cliente ("<WEB_APP_URL>/reservar/<token>").
+      - key: WEB_APP_URL
+        type: GENERAL
+        value: ""
+      - key: RESERVATION_LINK_SECRET
+        type: SECRET
+      - key: AGENT_DEBOUNCE_MS
+        value: "6000"
