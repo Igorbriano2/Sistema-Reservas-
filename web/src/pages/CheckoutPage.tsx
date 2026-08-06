@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { Elements } from "@stripe/react-stripe-js";
 import { ApiError } from "../api/client.js";
-import { verificarEmailDisponivel } from "../api/resources.js";
+import { verificarEmailDisponivel, type AssinaturaCriada } from "../api/resources.js";
 import { formatarCpfCnpj, validarCpfOuCnpj } from "../lib/documento.js";
+import { stripePromise } from "../lib/stripe-client.js";
 import { Marca } from "../components/Marca.js";
+import { EtapaPagamento } from "../components/checkout/EtapaPagamento.js";
 
 const ETAPAS = ["Dados", "Pagamento", "Senha", "Pronto"];
 
@@ -36,6 +39,7 @@ export function CheckoutPage() {
   const [documentoVisivel, setDocumentoVisivel] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [assinatura, setAssinatura] = useState<AssinaturaCriada | null>(null);
 
   async function avancar(e: FormEvent) {
     e.preventDefault();
@@ -130,16 +134,43 @@ export function CheckoutPage() {
           </form>
         )}
 
-        {etapa === 2 && (
+        {etapa === 2 &&
+          (stripePromise ? (
+            <Elements stripe={stripePromise}>
+              <EtapaPagamento
+                dados={dados}
+                onVoltar={() => setEtapa(1)}
+                onSucesso={(resultado) => {
+                  setAssinatura(resultado);
+                  setEtapa(3);
+                }}
+              />
+            </Elements>
+          ) : (
+            <div className="checkout-form">
+              <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Pagamento indisponível</h1>
+              <p className="texto-secundario" style={{ fontSize: "0.9rem" }}>
+                O checkout não está configurado neste ambiente. Tente novamente mais tarde.
+              </p>
+              <button className="btn btn-secundario" type="button" onClick={() => setEtapa(1)}>
+                Voltar
+              </button>
+            </div>
+          ))}
+
+        {etapa === 3 && (
           <div className="checkout-form">
-            <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Dados confirmados!</h1>
+            <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Teste grátis iniciado! 🎉</h1>
             <p className="texto-secundario" style={{ fontSize: "0.9rem" }}>
-              Prazer, {dados.nome.split(" ")[0]}. A etapa de pagamento (cartao + inicio do teste gratis de 7 dias)
-              esta em construcao e chega em breve.
+              Prazer, {dados.nome.split(" ")[0]}. Seu cartão foi validado e o teste de 7 dias começou agora — sem
+              cobrança até o fim do período. A etapa de criação de senha e acesso ao painel está em construção e
+              chega em breve.
             </p>
-            <button className="btn btn-secundario" type="button" onClick={() => setEtapa(1)}>
-              Voltar e revisar dados
-            </button>
+            {assinatura && (
+              <p className="texto-secundario" style={{ fontSize: "0.75rem" }}>
+                Referência da assinatura: {assinatura.stripeSubscriptionId}
+              </p>
+            )}
           </div>
         )}
       </div>

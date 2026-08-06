@@ -38,6 +38,15 @@ const envSchema = z.object({
   // Tempo de espera (ms) apos a ultima mensagem de uma rajada antes de acionar o agente,
   // agrupando mensagens seguidas do mesmo cliente numa unica resposta.
   AGENT_DEBOUNCE_MS: z.coerce.number().int().positive().default(6000),
+  // Stripe (checkout/assinatura - ver /public/checkout). Chave secreta nunca sai do
+  // backend. STRIPE_PRICE_ID e opcional: se vazio, o backend procura (ou cria, na
+  // primeira chamada) um Price recorrente mensal de R$697 para STRIPE_PRODUCT_ID.
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_PRODUCT_ID: z.string().optional(),
+  STRIPE_PRICE_ID: z.string().optional(),
+  // Obtido so depois de registrar o endpoint de webhook no dashboard da Stripe -
+  // usado pra verificar a assinatura (Stripe-Signature) dos eventos recebidos.
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

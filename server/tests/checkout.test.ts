@@ -42,3 +42,38 @@ describe("POST /public/checkout/validar-email (assistente de assinatura - Etapa 
     expect(resposta.status).toBe(400);
   });
 });
+
+describe("POST /public/checkout/assinar (assistente de assinatura - Etapa 2)", () => {
+  const dadosValidos = {
+    nome: "Maria Silva",
+    telefone: "11912345678",
+    email: "maria-checkout@teste.com",
+    documento: "11144477735",
+    nomeEmpresa: "Restaurante da Maria",
+    paymentMethodId: "pm_fake_123",
+  };
+
+  it("rejeita e-mail ja em uso ANTES de tentar falar com a Stripe (nao cria nada)", async () => {
+    await criarEmpresaComAdmin({ emailAdmin: "ja-existe-checkout@teste.com" });
+
+    const resposta = await request(app)
+      .post("/public/checkout/assinar")
+      .send({ ...dadosValidos, email: "ja-existe-checkout@teste.com" });
+
+    expect(resposta.status).toBe(400);
+  });
+
+  it("sem STRIPE_SECRET_KEY configurada, informa servico indisponivel em vez de quebrar", async () => {
+    // Ambiente de teste nao define STRIPE_SECRET_KEY de proposito (ver setup-env.ts) -
+    // confirma que o endpoint falha de forma controlada em vez de vazar um erro 500 cru.
+    const resposta = await request(app).post("/public/checkout/assinar").send(dadosValidos);
+    expect(resposta.status).toBe(503);
+  });
+
+  it("rejeita corpo sem paymentMethodId", async () => {
+    const { paymentMethodId, ...semPaymentMethod } = dadosValidos;
+    void paymentMethodId;
+    const resposta = await request(app).post("/public/checkout/assinar").send(semPaymentMethod);
+    expect(resposta.status).toBe(400);
+  });
+});

@@ -31,3 +31,8 @@ static_sites:
       - key: VITE_API_URL
         scope: BUILD_TIME
         type: SECRET
+      # Chave PUBLICAVEL da Stripe (pk_...) - nao e secreta, mas fica como build-time
+      # var (o Vite grava o valor direto no bundle, igual VITE_API_URL acima).
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        scope: BUILD_TIME
+        type: SECRET

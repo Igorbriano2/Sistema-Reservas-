@@ -25,3 +25,9 @@ export class RequisicaoInvalidaError extends AppError {
     super(message, 400);
   }
 }
+
+export class ServicoIndisponivelError extends AppError {
+  constructor(message = "Servico indisponivel no momento") {
+    super(message, 503);
+  }
+}

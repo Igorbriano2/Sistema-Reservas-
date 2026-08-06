@@ -210,3 +210,25 @@ export function enviarInteresseWaitlist(dados: DadosWaitlist) {
 export function verificarEmailDisponivel(email: string) {
   return api.post<{ disponivel: boolean }>("/public/checkout/validar-email", { email });
 }
+
+// Etapa 2 (pagamento) - paymentMethodId vem do Stripe Elements no navegador; o numero
+// do cartao em si nunca passa pelo nosso backend.
+export interface DadosAssinatura {
+  nome: string;
+  telefone: string;
+  email: string;
+  documento: string;
+  nomeEmpresa: string;
+  paymentMethodId: string;
+}
+
+export interface AssinaturaCriada {
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+  status: string;
+  trialEnd: number | null;
+}
+
+export function criarAssinatura(dados: DadosAssinatura) {
+  return api.post<AssinaturaCriada>("/public/checkout/assinar", dados);
+}

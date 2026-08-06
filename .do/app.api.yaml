@@ -109,3 +109,16 @@ services:
       # de proposito (ver PLATAFORMA_JWT_SECRET em env.ts). Gere com: openssl rand -hex 32
       - key: PLATAFORMA_JWT_SECRET
         type: SECRET
+      # Stripe (checkout/assinatura em /assinar) - chave secreta, nunca sai do backend.
+      - key: STRIPE_SECRET_KEY
+        type: SECRET
+      - key: STRIPE_PRODUCT_ID
+        type: SECRET
+      # Opcional (auto-resolvido/criado se vazio - ver lib/stripe.ts).
+      - key: STRIPE_PRICE_ID
+        type: GENERAL
+        value: ""
+      # Preencher so depois de registrar o webhook no dashboard da Stripe.
+      - key: STRIPE_WEBHOOK_SECRET
+        type: GENERAL
+        value: ""
