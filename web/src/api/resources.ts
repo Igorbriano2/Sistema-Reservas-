@@ -45,6 +45,14 @@ export function listarReservas(unidadeId: string, data: string) {
   return api.get<Reserva[]>(`/admin/unidades/${unidadeId}/reservations?data=${data}`);
 }
 
+// Usado pelo dashboard gerencial - lista todas as reservas do periodo (inclusive) para
+// calcular metricas agregadas no proprio front, sem precisar de um endpoint dedicado.
+export function listarReservasPorPeriodo(unidadeId: string, dataInicio: string, dataFim: string) {
+  return api.get<Reserva[]>(
+    `/admin/unidades/${unidadeId}/reservations?dataInicio=${dataInicio}&dataFim=${dataFim}`,
+  );
+}
+
 export interface DadosNovaReserva {
   mesaId: string;
   data: string;

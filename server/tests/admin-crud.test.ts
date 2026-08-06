@@ -115,4 +115,32 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
     expect(cancelar.status).toBe(200);
     expect(cancelar.body.status).toBe("cancelada");
   });
+
+  it("lista reservas por periodo (dataInicio/dataFim), usado pelo dashboard gerencial", async () => {
+    const { unidade, token } = await setup();
+    const salao = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao Principal" });
+    const mesa = await request(app)
+      .post(`/admin/unidades/${unidade.id}/mesas`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ salaoId: salao.body.id, nome: "Mesa 1", capacidadeMin: 2, capacidadeMax: 4 });
+
+    for (const data of ["2026-09-10", "2026-09-15", "2026-09-30"]) {
+      await request(app)
+        .post(`/admin/unidades/${unidade.id}/reservations`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ mesaId: mesa.body.id, data, horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+    }
+
+    const resposta = await request(app)
+      .get(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${token}`)
+      .query({ dataInicio: "2026-09-11", dataFim: "2026-09-20" });
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body).toHaveLength(1);
+    expect(resposta.body[0].data).toBe("2026-09-15");
+  });
 });

@@ -2,6 +2,7 @@ import { Navigate, Route, BrowserRouter, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
 import { Layout } from "./components/Layout.js";
 import { LoginPage } from "./pages/LoginPage.js";
+import { DashboardPage } from "./pages/DashboardPage.js";
 import { ReservationsPage } from "./pages/ReservationsPage.js";
 import { TablesPage } from "./pages/TablesPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
@@ -43,6 +44,14 @@ function AppRoutes() {
         }
       >
         <Route path="/" element={<Navigate to="/reservas" replace />} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireOwner>
+              <DashboardPage />
+            </RequireOwner>
+          }
+        />
         <Route path="/reservas" element={<ReservationsPage />} />
         <Route
           path="/mesas"

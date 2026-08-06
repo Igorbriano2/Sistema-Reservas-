@@ -168,6 +168,65 @@ label {
 .layout {
   min-height: 100vh;
   display: flex;
+}
+
+.barra-lateral {
+  width: 232px;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-subtle);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.barra-lateral .marca {
+  padding: 0 0.6rem;
+}
+
+.barra-lateral nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.barra-lateral nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: background var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao);
+}
+
+.barra-lateral nav a svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.barra-lateral nav a:hover {
+  background: var(--bg-elevated-hover);
+  color: var(--text-primary);
+}
+
+.barra-lateral nav a.ativo {
+  background: rgba(0, 230, 138, 0.1);
+  color: var(--accent);
+}
+
+.barra-lateral nav a.ativo svg {
+  opacity: 1;
+}
+
+.area-principal {
+  flex: 1;
+  min-width: 0;
+  display: flex;
   flex-direction: column;
 }
 
@@ -177,30 +236,7 @@ label {
   padding: 0.85rem 1.5rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-}
-
-.topo nav {
-  display: flex;
-  gap: 1.25rem;
-  align-items: center;
-}
-
-.topo nav a {
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  transition: color var(--duracao-micro) var(--ease-padrao);
-}
-
-.topo nav a:hover {
-  color: var(--text-primary);
-}
-
-.topo nav a.ativo {
-  color: var(--accent);
 }
 
 .topo select {
@@ -210,7 +246,7 @@ label {
 .conteudo {
   flex: 1;
   padding: 1.5rem;
-  max-width: 1000px;
+  max-width: 1100px;
   width: 100%;
   margin: 0 auto;
 }
@@ -235,6 +271,81 @@ label {
   border-radius: 12px;
   padding: 1.25rem;
   margin-bottom: 1.25rem;
+}
+
+/* Cards de resumo (dashboard) - unico lugar do painel, alem do login, com glow. */
+
+.grade-metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.cartao-metrica {
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 60%, rgba(0, 230, 138, 0.06) 100%);
+  box-shadow: 0 0 0 1px rgba(0, 230, 138, 0.05);
+  transition: box-shadow var(--duracao-micro) var(--ease-padrao), transform var(--duracao-micro) var(--ease-padrao);
+}
+
+.cartao-metrica:hover {
+  box-shadow: 0 0 0 1px rgba(0, 230, 138, 0.18), 0 0 24px rgba(0, 230, 138, 0.08);
+  transform: translateY(-1px);
+}
+
+.cartao-metrica strong {
+  font-size: 1.9rem;
+  letter-spacing: -0.01em;
+}
+
+.barra-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.linha-status {
+  display: grid;
+  grid-template-columns: 140px 1fr 2.5rem;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.trilha-status {
+  background: var(--bg-elevated-hover);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.preenchimento-status {
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--duracao-painel) var(--ease-padrao);
+}
+
+.preenchimento-confirmada {
+  background: var(--accent);
+}
+
+.preenchimento-pendente {
+  background: var(--status-pendente);
+}
+
+.preenchimento-cancelada {
+  background: var(--status-cancelada);
+}
+
+.preenchimento-concluida {
+  background: var(--status-concluida);
+}
+
+.preenchimento-no_show {
+  background: var(--status-no-show);
 }
 
 table {
@@ -299,6 +410,36 @@ tbody tr:hover {
 .badge-no_show {
   background: var(--status-no-show-bg);
   color: var(--status-no-show);
+}
+
+.abas-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.aba-status {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: border-color var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao),
+    background var(--duracao-micro) var(--ease-padrao);
+}
+
+.aba-status:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.aba-status.ativa {
+  background: rgba(0, 230, 138, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .linha-form {

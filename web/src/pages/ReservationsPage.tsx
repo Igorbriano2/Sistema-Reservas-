@@ -27,6 +27,11 @@ const STATUS_LABEL: Record<Reserva["status"], string> = {
   no_show: "Nao compareceu",
 };
 
+type FiltroStatus = "todas" | Reserva["status"];
+
+const ABAS_STATUS: FiltroStatus[] = ["todas", "confirmada", "pendente", "cancelada", "concluida", "no_show"];
+const ABA_LABEL: Record<FiltroStatus, string> = { todas: "Todas", ...STATUS_LABEL };
+
 interface FormState {
   mesaId: string;
   horaInicio: string;
@@ -48,6 +53,7 @@ const FORM_VAZIO: FormState = {
 export function ReservationsPage() {
   const { unidade } = useAuth();
   const [data, setData] = useState(hojeLocal());
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todas");
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -60,6 +66,10 @@ export function ReservationsPage() {
   const [erroForm, setErroForm] = useState<string | null>(null);
 
   const mesasPorId = useMemo(() => new Map(mesas.map((m) => [m.id, m])), [mesas]);
+  const reservasFiltradas = useMemo(
+    () => (filtroStatus === "todas" ? reservas : reservas.filter((r) => r.status === filtroStatus)),
+    [reservas, filtroStatus],
+  );
 
   async function carregar() {
     if (!unidade) return;
@@ -237,10 +247,27 @@ export function ReservationsPage() {
       )}
 
       <div className="cartao">
+        <div className="abas-status">
+          {ABAS_STATUS.map((status) => (
+            <button
+              key={status}
+              type="button"
+              className={`aba-status ${filtroStatus === status ? "ativa" : ""}`}
+              onClick={() => setFiltroStatus(status)}
+            >
+              {ABA_LABEL[status]}
+              {status !== "todas" && (
+                <span className="texto-secundario"> ({reservas.filter((r) => r.status === status).length})</span>
+              )}
+            </button>
+          ))}
+        </div>
         {carregando ? (
           <p>Carregando...</p>
         ) : reservas.length === 0 ? (
-          <p>Nenhuma reserva para esta data.</p>
+          <p className="texto-secundario">Nenhuma reserva para esta data.</p>
+        ) : reservasFiltradas.length === 0 ? (
+          <p className="texto-secundario">Nenhuma reserva com esse status.</p>
         ) : (
           <table>
             <thead>
@@ -254,7 +281,7 @@ export function ReservationsPage() {
               </tr>
             </thead>
             <tbody>
-              {reservas.map((reserva) => (
+              {reservasFiltradas.map((reserva) => (
                 <tr key={reserva.id}>
                   <td>{reserva.horaInicio.slice(0, 5)}</td>
                   <td>

@@ -1,35 +1,88 @@
+import type { ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
+
+interface ItemDeNav {
+  to: string;
+  label: string;
+  ownerOnly?: boolean;
+  icone: ReactNode;
+}
+
+function IconeDashboard() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M4 20V10M12 20V4M20 20v-7" />
+    </svg>
+  );
+}
+
+function IconeReservas() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M3.5 9.5h17M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+function IconeMesas() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+      <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13" y="3.5" width="7.5" height="7.5" rx="1.5" />
+      <rect x="3.5" y="13" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13" y="13" width="7.5" height="7.5" rx="1.5" />
+    </svg>
+  );
+}
+
+function IconeAgente() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+      <path d="M4 5.5h16v10H9l-4 3.5v-3.5H4z" />
+    </svg>
+  );
+}
+
+function IconeUsuarios() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.2c1.7.4 3 2 3 3.8s-1.3 3.4-3 3.8M22 20c0-2.8-1.9-5.1-4.5-5.8" />
+    </svg>
+  );
+}
+
+const ITENS_NAV: ItemDeNav[] = [
+  { to: "/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
+  { to: "/reservas", label: "Reservas", icone: <IconeReservas /> },
+  { to: "/mesas", label: "Mesas", ownerOnly: true, icone: <IconeMesas /> },
+  { to: "/agente", label: "Agente de IA", ownerOnly: true, icone: <IconeAgente /> },
+  { to: "/usuarios", label: "Usuarios", ownerOnly: true, icone: <IconeUsuarios /> },
+];
 
 export function Layout() {
   const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout } = useAuth();
 
   return (
     <div className="layout">
-      <header className="topo">
+      <aside className="barra-lateral">
+        <span className="marca">
+          Quero<span className="marca-ponto">Reservar</span>
+        </span>
         <nav>
-          <span className="marca">
-            Quero<span className="marca-ponto">Reservar</span>
-          </span>
-          <span className="texto-secundario">{unidade?.nome ?? ""}</span>
-          <NavLink to="/reservas" className={({ isActive }) => (isActive ? "ativo" : "")}>
-            Reservas do dia
-          </NavLink>
-          {isOwner && (
-            <>
-              <NavLink to="/mesas" className={({ isActive }) => (isActive ? "ativo" : "")}>
-                Mesas
-              </NavLink>
-              <NavLink to="/agente" className={({ isActive }) => (isActive ? "ativo" : "")}>
-                Agente de IA
-              </NavLink>
-              <NavLink to="/usuarios" className={({ isActive }) => (isActive ? "ativo" : "")}>
-                Usuarios
-              </NavLink>
-            </>
-          )}
+          {ITENS_NAV.filter((item) => !item.ownerOnly || isOwner).map((item) => (
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "ativo" : "")}>
+              {item.icone}
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
-        <nav>
+      </aside>
+      <div className="area-principal">
+        <header className="topo">
+          <span className="texto-secundario">{unidade?.nome ?? ""}</span>
           {unidades.length > 1 && (
             <select
               value={unidade?.id ?? ""}
@@ -45,21 +98,22 @@ export function Layout() {
               ))}
             </select>
           )}
+          <span style={{ flex: 1 }} />
           <span>{usuario?.nome}</span>
           <button className="btn btn-secundario" onClick={logout}>
             Sair
           </button>
-        </nav>
-      </header>
-      <main className="conteudo">
-        <Outlet />
-      </main>
-      <footer className="rodape">
-        <span className="marca">
-          Quero<span className="marca-ponto">Reservar</span>
-        </span>
-        <div>Painel administrativo</div>
-      </footer>
+        </header>
+        <main className="conteudo">
+          <Outlet />
+        </main>
+        <footer className="rodape">
+          <span className="marca">
+            Quero<span className="marca-ponto">Reservar</span>
+          </span>
+          <div>Painel administrativo</div>
+        </footer>
+      </div>
     </div>
   );
 }

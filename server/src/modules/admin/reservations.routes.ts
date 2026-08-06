@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import { reservaStatusEnum, reservas } from "../../db/schema/index.js";
@@ -12,7 +12,13 @@ export const reservationsRouter = Router({ mergeParams: true });
 const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, "Use o formato HH:MM");
 const dataSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use o formato YYYY-MM-DD");
 
-const listarQuerySchema = z.object({ data: dataSchema.optional() });
+// "data" filtra um dia exato (usado pelo painel operacional); "dataInicio"/"dataFim"
+// filtram um periodo (usado pelo dashboard gerencial) - mutuamente exclusivos.
+const listarQuerySchema = z.object({
+  data: dataSchema.optional(),
+  dataInicio: dataSchema.optional(),
+  dataFim: dataSchema.optional(),
+});
 
 const criarReservaSchema = z.object({
   mesaId: z.string().uuid(),
@@ -49,6 +55,12 @@ reservationsRouter.get(
     const condicoes = [eq(reservas.unidadeId, req.unidadeId!)];
     if (parsed.data.data) {
       condicoes.push(eq(reservas.data, parsed.data.data));
+    }
+    if (parsed.data.dataInicio) {
+      condicoes.push(gte(reservas.data, parsed.data.dataInicio));
+    }
+    if (parsed.data.dataFim) {
+      condicoes.push(lte(reservas.data, parsed.data.dataFim));
     }
     const lista = await db
       .select()
