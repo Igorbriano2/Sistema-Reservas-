@@ -270,6 +270,12 @@ export function LandingPage() {
                 <p className="texto-secundario">
                   Tudo incluso: agente de IA, painel completo, equipe ilimitada, suporte na configuração inicial.
                 </p>
+                <Link to="/assinar" className="btn lp-btn-magnetico" style={{ textAlign: "center" }}>
+                  Assinar agora — 7 dias grátis
+                </Link>
+                <p className="texto-secundario" style={{ fontSize: "0.8rem", marginTop: "0.5rem" }}>
+                  Prefere ser avisado antes? Preencha o formulário ao lado.
+                </p>
               </div>
               <WaitlistForm ref={formRef} />
             </div>

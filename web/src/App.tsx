@@ -11,6 +11,7 @@ import { ReportsPage } from "./pages/ReportsPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
+import { CheckoutPage } from "./pages/CheckoutPage.js";
 import { PlataformaAuthProvider, usePlataformaAuth } from "./plataforma/PlataformaAuthContext.js";
 import { PlataformaLoginPage } from "./plataforma/PlataformaLoginPage.js";
 import { PlataformaLayout } from "./plataforma/PlataformaLayout.js";
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/" element={window.location.hostname.startsWith("painel.") ? <Navigate to="/painel" replace /> : <LandingPage />} />
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/reservar/:token" element={<PublicReservationPage />} />
+      <Route path="/assinar" element={<CheckoutPage />} />
       <Route
         path="/admin"
         element={

@@ -205,3 +205,8 @@ export interface DadosWaitlist {
 export function enviarInteresseWaitlist(dados: DadosWaitlist) {
   return api.post<{ id: string }>("/public/waitlist", dados);
 }
+
+// Assistente de assinatura (/assinar) - Etapa 1 (dados cadastrais).
+export function verificarEmailDisponivel(email: string) {
+  return api.post<{ disponivel: boolean }>("/public/checkout/validar-email", { email });
+}
