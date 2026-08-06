@@ -46,6 +46,17 @@ export interface Mesa {
   combinavelCom: string[];
 }
 
+export interface Bloqueio {
+  id: string;
+  unidadeId: string;
+  mesaId: string | null;
+  salaoId: string | null;
+  dataInicio: string;
+  dataFim: string;
+  motivo: string;
+  criadoEm: string;
+}
+
 export type ReservaStatus = "pendente" | "confirmada" | "cancelada" | "concluida" | "no_show";
 export type CanalOrigem = "instagram" | "manual";
 

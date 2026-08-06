@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../db/client.js";
 import { excecoesHorario, mesas, regrasHorario, reservas, saloes } from "../db/schema/index.js";
 import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from "./time.js";
+import { mesasBloqueadasEm } from "./bloqueios.js";
 
 export interface VerificarDisponibilidadeParams {
   unidadeId: string;
@@ -102,7 +103,20 @@ export async function verificarDisponibilidade(
     return semDisponibilidade("Nenhuma mesa com capacidade compativel para este numero de pessoas.");
   }
 
-  const mesaIds = mesasCompativeis.map((m) => m.id);
+  const salaoIdPorMesa = new Map(mesasCompativeis.map((m) => [m.id, m.salaoId]));
+  const mesasBloqueadas = await mesasBloqueadasEm(db, {
+    unidadeId,
+    data,
+    mesaIds: mesasCompativeis.map((m) => m.id),
+    salaoIdPorMesa,
+  });
+  const mesasNaoBloqueadas = mesasCompativeis.filter((m) => !mesasBloqueadas.has(m.id));
+
+  if (mesasNaoBloqueadas.length === 0) {
+    return semDisponibilidade("Mesas compativeis estao bloqueadas neste periodo (manutencao, evento, etc).");
+  }
+
+  const mesaIds = mesasNaoBloqueadas.map((m) => m.id);
   const reservasDoDia = await db
     .select({ mesaId: reservas.mesaId, horaInicio: reservas.horaInicio, horaFim: reservas.horaFim })
     .from(reservas)
@@ -122,7 +136,7 @@ export async function verificarDisponibilidade(
     ocupacaoPorMesa.set(r.mesaId, lista);
   }
 
-  const mesasDisponiveis = mesasCompativeis.filter((mesa) => {
+  const mesasDisponiveis = mesasNaoBloqueadas.filter((mesa) => {
     const ocupacoes = ocupacaoPorMesa.get(mesa.id) ?? [];
     return !ocupacoes.some((o) => intervalosSeSobrepoem(inicioMin, fimMin, o.inicio, o.fim));
   });

@@ -6,6 +6,7 @@ import { LoginPage } from "./pages/LoginPage.js";
 import { DashboardPage } from "./pages/DashboardPage.js";
 import { ReservationsPage } from "./pages/ReservationsPage.js";
 import { TablesPage } from "./pages/TablesPage.js";
+import { BlocksPage } from "./pages/BlocksPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
@@ -61,6 +62,14 @@ function AppRoutes() {
           element={
             <RequireOwner>
               <TablesPage />
+            </RequireOwner>
+          }
+        />
+        <Route
+          path="bloqueios"
+          element={
+            <RequireOwner>
+              <BlocksPage />
             </RequireOwner>
           }
         />

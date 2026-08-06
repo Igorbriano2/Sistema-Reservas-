@@ -38,6 +38,15 @@ function IconeMesas() {
   );
 }
 
+function IconeBloqueios() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="10.5" width="14" height="9" rx="2" />
+      <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+    </svg>
+  );
+}
+
 function IconeAgente() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
@@ -59,6 +68,7 @@ const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
   { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
   { to: "/admin/mesas", label: "Mesas", ownerOnly: true, icone: <IconeMesas /> },
+  { to: "/admin/bloqueios", label: "Bloqueios", ownerOnly: true, icone: <IconeBloqueios /> },
   { to: "/admin/agente", label: "Agente de IA", ownerOnly: true, icone: <IconeAgente /> },
   { to: "/admin/usuarios", label: "Usuarios", ownerOnly: true, icone: <IconeUsuarios /> },
 ];

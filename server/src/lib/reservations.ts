@@ -5,6 +5,7 @@ import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from ".
 import { ConflitoDeHorarioError, RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
 import { codigoDoErroPostgres } from "./pg-error.js";
 import { verificarDisponibilidade } from "./availability.js";
+import { bloqueioAtivoPara } from "./bloqueios.js";
 
 const STATUS_ATIVOS = ["pendente", "confirmada"] as const;
 // So uma reserva ainda ativa (nao cancelada/ja concluida/ja no_show) pode ser marcada
@@ -126,6 +127,16 @@ export async function criarReserva(db: Database, params: CriarReservaParams): Pr
       );
     }
 
+    const bloqueio = await bloqueioAtivoPara(tx, {
+      unidadeId: params.unidadeId,
+      mesaId: params.mesaId,
+      salaoId: mesaTrancada.salaoId,
+      data: params.data,
+    });
+    if (bloqueio) {
+      throw new ConflitoDeHorarioError(`Mesa bloqueada nesta data (motivo: ${bloqueio.motivo})`);
+    }
+
     const { horaFim, bufferMin } = await resolverJanela(tx, params.unidadeId, params.data, params.horaInicio, params.horaFim);
 
     await validarSemConflito(tx, {
@@ -232,6 +243,11 @@ async function atualizarReservaComCondicoes(
         throw new RequisicaoInvalidaError(
           `Numero de pessoas fora da capacidade da mesa (${mesa.capacidadeMin}-${mesa.capacidadeMax})`,
         );
+      }
+
+      const bloqueio = await bloqueioAtivoPara(tx, { unidadeId, mesaId, salaoId: mesa.salaoId, data });
+      if (bloqueio) {
+        throw new ConflitoDeHorarioError(`Mesa bloqueada nesta data (motivo: ${bloqueio.motivo})`);
       }
 
       if (!patch.horaFim) {

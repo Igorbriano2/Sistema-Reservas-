@@ -1,5 +1,5 @@
 import { api } from "./client.js";
-import type { AgenteConfig, Mesa, MesaFormato, PapelUsuario, Reserva, Salao, Unidade, Usuario } from "../types.js";
+import type { AgenteConfig, Bloqueio, Mesa, MesaFormato, PapelUsuario, Reserva, Salao, Unidade, Usuario } from "../types.js";
 
 export function login(email: string, senha: string) {
   return api.post<{ token: string; usuario: Usuario }>("/auth/login", { email, senha });
@@ -39,6 +39,26 @@ export function atualizarMesa(unidadeId: string, mesaId: string, dados: Partial<
 
 export function excluirMesa(unidadeId: string, mesaId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/mesas/${mesaId}`);
+}
+
+export function listarBloqueios(unidadeId: string) {
+  return api.get<Bloqueio[]>(`/admin/unidades/${unidadeId}/bloqueios`);
+}
+
+export interface DadosNovoBloqueio {
+  mesaId?: string;
+  salaoId?: string;
+  dataInicio: string;
+  dataFim: string;
+  motivo: string;
+}
+
+export function criarBloqueio(unidadeId: string, dados: DadosNovoBloqueio) {
+  return api.post<Bloqueio>(`/admin/unidades/${unidadeId}/bloqueios`, dados);
+}
+
+export function removerBloqueio(unidadeId: string, bloqueioId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/bloqueios/${bloqueioId}`);
 }
 
 export function listarReservas(unidadeId: string, data: string) {
