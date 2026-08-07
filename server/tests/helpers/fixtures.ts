@@ -62,7 +62,15 @@ export async function criarMesa(
 // Regra de horario cobrindo todos os dias da semana, das 11:00 as 23:00.
 export async function criarRegraHorarioTodosOsDias(
   unidadeId: string,
-  overrides: Partial<{ duracaoPadraoMin: number; bufferMin: number; horaAbertura: string; horaFechamento: string }> = {},
+  overrides: Partial<{
+    duracaoPadraoMin: number;
+    bufferMin: number;
+    horaAbertura: string;
+    horaFechamento: string;
+    nome: string;
+    antecedenciaMinMin: number;
+    descontoPercentual: number;
+  }> = {},
 ) {
   const regras = [];
   for (let dia = 0; dia <= 6; dia++) {
@@ -71,10 +79,13 @@ export async function criarRegraHorarioTodosOsDias(
       .values({
         unidadeId,
         diaSemana: dia,
+        nome: overrides.nome,
         horaAbertura: overrides.horaAbertura ?? "11:00",
         horaFechamento: overrides.horaFechamento ?? "23:00",
         duracaoPadraoMin: overrides.duracaoPadraoMin ?? 90,
         bufferMin: overrides.bufferMin ?? 0,
+        antecedenciaMinMin: overrides.antecedenciaMinMin ?? 0,
+        descontoPercentual: overrides.descontoPercentual,
       })
       .returning();
     regras.push(regra);

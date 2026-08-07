@@ -56,6 +56,10 @@ async function checkAvailability(db: Database, ctx: AgentContext, input: unknown
       mesas_disponiveis: resultado.mesasDisponiveis.length,
       // Saloes em modo "simples" (sem mesas individuais) com capacidade sobrando.
       saloes_disponiveis: resultado.saloesSimplesDisponiveis.length,
+      // Turno (doc 19), quando o horario cai num turno nomeado/com desconto -
+      // use pra mencionar o nome do turno ou um desconto ativo ao cliente.
+      turno_nome: resultado.turno?.nome ?? null,
+      turno_desconto_percentual: resultado.turno?.descontoPercentual ?? null,
     },
   };
 }

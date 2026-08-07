@@ -102,6 +102,15 @@ function IconeUnidades() {
   );
 }
 
+function IconeHorarios() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="13" r="7.5" />
+      <path d="M12 9v4l2.5 2M9 2.5h6" />
+    </svg>
+  );
+}
+
 function IconeCardapio() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -124,6 +133,7 @@ const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
   { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
   { to: "/admin/mesas", label: "Mesas", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeMesas /> },
+  { to: "/admin/horarios", label: "Horários", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeHorarios /> },
   { to: "/admin/cardapio", label: "Cardápio", permissao: { valor: "editar_cardapio", escopo: "unidade" }, icone: <IconeCardapio /> },
   { to: "/admin/bloqueios", label: "Bloqueios", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeBloqueios /> },
   { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },

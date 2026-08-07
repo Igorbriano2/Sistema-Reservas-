@@ -148,6 +148,13 @@
       "when": 1786126235051,
       "tag": "0020_cultured_william_stryker",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786127663554,
+      "tag": "0021_brainy_supreme_intelligence",
+      "breakpoints": true
     }
   ]
 }

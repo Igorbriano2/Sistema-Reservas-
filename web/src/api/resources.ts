@@ -11,6 +11,7 @@ import type {
   ModoConfiguracaoSalao,
   PapelUsuario,
   Permissao,
+  RegraHorario,
   Relatorio,
   Reserva,
   Salao,
@@ -184,6 +185,34 @@ export function inscreverPush(unidadeId: string, dados: DadosInscricaoPush) {
 
 export function desinscreverPush(unidadeId: string, endpoint: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/push?endpoint=${encodeURIComponent(endpoint)}`);
+}
+
+// Turnos/horarios de funcionamento (doc 19).
+export function listarRegrasHorario(unidadeId: string) {
+  return api.get<RegraHorario[]>(`/admin/unidades/${unidadeId}/regras-horario`);
+}
+
+export interface DadosRegraHorario {
+  diaSemana: number;
+  nome?: string;
+  horaAbertura: string;
+  horaFechamento: string;
+  duracaoPadraoMin?: number;
+  bufferMin?: number;
+  antecedenciaMinMin?: number;
+  descontoPercentual?: number;
+}
+
+export function criarRegraHorario(unidadeId: string, dados: DadosRegraHorario) {
+  return api.post<RegraHorario>(`/admin/unidades/${unidadeId}/regras-horario`, dados);
+}
+
+export function atualizarRegraHorario(unidadeId: string, regraId: string, dados: Partial<DadosRegraHorario>) {
+  return api.patch<RegraHorario>(`/admin/unidades/${unidadeId}/regras-horario/${regraId}`, dados);
+}
+
+export function excluirRegraHorario(unidadeId: string, regraId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/regras-horario/${regraId}`);
 }
 
 export function listarBloqueios(unidadeId: string) {

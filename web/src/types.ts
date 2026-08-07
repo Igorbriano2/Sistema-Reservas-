@@ -149,6 +149,22 @@ export interface SalaoElemento {
   capacidade: number | null;
 }
 
+// Turno de funcionamento (doc 19) - varias linhas no mesmo dia da semana permitem
+// turnos multiplos (ex: almoco e jantar), cada um com sua propria antecedencia
+// minima e desconto informativo.
+export interface RegraHorario {
+  id: string;
+  unidadeId: string;
+  diaSemana: number; // 0 = domingo ... 6 = sabado
+  nome: string | null;
+  horaAbertura: string;
+  horaFechamento: string;
+  duracaoPadraoMin: number;
+  bufferMin: number;
+  antecedenciaMinMin: number;
+  descontoPercentual: number | null;
+}
+
 export interface Bloqueio {
   id: string;
   unidadeId: string;

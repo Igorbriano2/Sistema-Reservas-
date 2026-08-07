@@ -12,10 +12,15 @@ const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, "Use
 
 const criarRegraSchema = z.object({
   diaSemana: z.number().int().min(0).max(6),
+  // Nome do turno (doc 19) - ex: "Almoco", "Jantar". Opcional, so pra organizar
+  // quando ha mais de um bloco de horario no mesmo dia.
+  nome: z.string().trim().min(1).max(60).optional(),
   horaAbertura: horaSchema,
   horaFechamento: horaSchema,
   duracaoPadraoMin: z.number().int().positive().optional(),
   bufferMin: z.number().int().min(0).optional(),
+  antecedenciaMinMin: z.number().int().min(0).optional(),
+  descontoPercentual: z.number().int().min(0).max(100).optional(),
 });
 
 const atualizarRegraSchema = criarRegraSchema

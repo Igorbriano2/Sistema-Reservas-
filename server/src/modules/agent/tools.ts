@@ -11,7 +11,9 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
       "Consulta SOMENTE INFORMATIVA de disponibilidade para uma data, horario e numero de pessoas. " +
       "Use para responder perguntas do tipo 'tem mesa disponivel as 20h?' ou 'voces tem horario livre " +
       "amanha?'. Isso NUNCA cria, reserva ou bloqueia nada - e so pra informar o cliente. Para o cliente " +
-      "efetivamente reservar, use a tool get_reservation_link.",
+      "efetivamente reservar, use a tool get_reservation_link. A resposta pode incluir turno_nome e " +
+      "turno_desconto_percentual quando o horario cai num turno com nome ou desconto configurado - mencione " +
+      "isso ao cliente quando fizer sentido (ex: happy hour).",
     input_schema: {
       type: "object",
       properties: {

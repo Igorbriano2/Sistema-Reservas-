@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../db/client.js";
-import { excecoesHorario, mesas, regrasHorario, reservas, saloes } from "../db/schema/index.js";
-import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from "./time.js";
+import { excecoesHorario, mesas, regrasHorario, reservas, saloes, unidades } from "../db/schema/index.js";
+import { diaDaSemana, intervalosSeSobrepoem, minutosAteReserva, paraMinutos, somarMinutos } from "./time.js";
 import { mesasBloqueadasEm, saloesBloqueadosEm } from "./bloqueios.js";
 
 export interface VerificarDisponibilidadeParams {
@@ -33,6 +33,9 @@ export interface DisponibilidadeResultado {
   horaFim: string;
   mesasDisponiveis: MesaDisponivel[];
   saloesSimplesDisponiveis: SalaoSimplesDisponivel[];
+  // Turno (doc 19) que cobre esse horario, quando encontrado - nome e desconto sao
+  // so informativos (o desconto nao afeta cobranca, nao ha reserva paga no MVP).
+  turno?: { nome: string | null; descontoPercentual: number | null };
 }
 
 // Reservas nesses status "ocupam" uma mesa (modo mapa) - inclui "pendente" pra nao
@@ -97,6 +100,24 @@ export async function verificarDisponibilidade(
   const bufferMin = janela.regra?.bufferMin ?? 0;
   const horaFim = somarMinutos(horaInicio, duracaoPadraoMin);
   const fimMin = inicioMin + duracaoPadraoMin;
+
+  // Antecedencia minima do turno (doc 19) - so busca o fuso da unidade quando
+  // precisa (regra padrao e 0, sem restricao).
+  const antecedenciaMinMin = janela.regra?.antecedenciaMinMin ?? 0;
+  if (antecedenciaMinMin > 0) {
+    const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
+    const minutosDisponiveis = minutosAteReserva(data, horaInicio, unidadeRow?.timezone ?? "America/Sao_Paulo");
+    if (minutosDisponiveis < antecedenciaMinMin) {
+      const horas = Math.floor(antecedenciaMinMin / 60);
+      const minutos = antecedenciaMinMin % 60;
+      const descricaoAntecedencia = [horas > 0 && `${horas}h`, minutos > 0 && `${minutos}min`].filter(Boolean).join(" ");
+      return semDisponibilidade(`Reservas neste horario precisam ser feitas com pelo menos ${descricaoAntecedencia} de antecedencia.`);
+    }
+  }
+
+  const turno = janela.regra
+    ? { nome: janela.regra.nome, descontoPercentual: janela.regra.descontoPercentual }
+    : undefined;
 
   const todosSaloes = await db
     .select({
@@ -230,5 +251,5 @@ export async function verificarDisponibilidade(
     return semDisponibilidade("Sem capacidade disponivel (mesas ou salao) para esse horario e numero de pessoas.");
   }
 
-  return { disponivel: true, horaInicio, horaFim, mesasDisponiveis, saloesSimplesDisponiveis };
+  return { disponivel: true, horaInicio, horaFim, mesasDisponiveis, saloesSimplesDisponiveis, turno };
 }

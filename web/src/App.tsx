@@ -12,6 +12,7 @@ import { ReportsPage } from "./pages/ReportsPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { UnidadesPage } from "./pages/UnidadesPage.js";
 import { MenuPage } from "./pages/MenuPage.js";
+import { SchedulePage } from "./pages/SchedulePage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
@@ -124,6 +125,14 @@ function AppRoutes() {
           element={
             <RequirePermissaoNaUnidade permissao="editar_salao">
               <BlocksPage />
+            </RequirePermissaoNaUnidade>
+          }
+        />
+        <Route
+          path="horarios"
+          element={
+            <RequirePermissaoNaUnidade permissao="editar_salao">
+              <SchedulePage />
             </RequirePermissaoNaUnidade>
           }
         />
