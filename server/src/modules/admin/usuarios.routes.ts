@@ -14,7 +14,7 @@ export const usuariosRouter = Router();
 // criar gerente/funcionario (ver doc 17) - reservas do dia (ver/criar/editar/
 // cancelar, marcar sentada/no-show) sao sempre liberadas pra quem tem acesso a
 // unidade, sem precisar marcar nada aqui.
-const PERMISSOES_VALIDAS = ["editar_salao", "ver_relatorios", "editar_agente", "criar_usuarios"] as const;
+const PERMISSOES_VALIDAS = ["editar_salao", "ver_relatorios", "editar_agente", "criar_usuarios", "editar_cardapio"] as const;
 
 const criarUsuarioSchema = z.object({
   nome: z.string().min(1),

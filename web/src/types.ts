@@ -18,6 +18,7 @@ export const PERMISSOES_DISPONIVEIS = [
   { valor: "ver_relatorios", rotulo: "Ver relatórios" },
   { valor: "editar_agente", rotulo: "Editar configurações do agente" },
   { valor: "criar_usuarios", rotulo: "Criar e gerenciar usuários" },
+  { valor: "editar_cardapio", rotulo: "Editar cardápio" },
 ] as const;
 
 export type Permissao = (typeof PERMISSOES_DISPONIVEIS)[number]["valor"];
@@ -179,6 +180,29 @@ export interface Reserva {
   observacoes: string | null;
   canalOrigem: CanalOrigem;
   criadoEm: string;
+}
+
+export interface CardapioItem {
+  id: string;
+  categoriaId: string;
+  nome: string;
+  descricao: string | null;
+  precoCentavos: number;
+  imagemUrl: string | null;
+  porcaoServePessoas: number | null;
+  somenteMaiorIdade: boolean;
+  tags: string[] | null;
+  ordem: number;
+  ativo: boolean;
+}
+
+export interface CardapioCategoria {
+  id: string;
+  unidadeId: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+  itens: CardapioItem[];
 }
 
 export interface Relatorio {

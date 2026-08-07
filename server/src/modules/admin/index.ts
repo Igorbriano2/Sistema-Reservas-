@@ -19,6 +19,7 @@ import { whatsappRouter } from "./whatsapp.routes.js";
 import { instagramRouter } from "./instagram.routes.js";
 import { usuariosRouter } from "./usuarios.routes.js";
 import { assinaturaRouter } from "./assinatura.routes.js";
+import { cardapioRouter } from "./cardapio.routes.js";
 
 export const adminRouter = Router();
 
@@ -61,6 +62,7 @@ unidadeRouter.use("/salao-elementos", requirePermissaoUnidade("editar_salao"), s
 unidadeRouter.use("/regras-horario", requirePermissaoUnidade("editar_salao"), regrasHorarioRouter);
 unidadeRouter.use("/bloqueios", requirePermissaoUnidade("editar_salao"), bloqueiosRouter);
 unidadeRouter.use("/relatorios", requirePermissaoUnidade("ver_relatorios"), relatoriosRouter);
+unidadeRouter.use("/cardapio", requirePermissaoUnidade("editar_cardapio"), cardapioRouter);
 unidadeRouter.use("/availability", requireAcessoUnidade, availabilityRouter);
 unidadeRouter.use("/reservations", requireAcessoUnidade, reservationsRouter);
 unidadeRouter.use("/conversas", requireRole("owner"), conversasRouter);

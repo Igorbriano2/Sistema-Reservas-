@@ -141,6 +141,13 @@
       "when": 1786122709914,
       "tag": "0019_wise_lyja",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786126235051,
+      "tag": "0020_cultured_william_stryker",
+      "breakpoints": true
     }
   ]
 }

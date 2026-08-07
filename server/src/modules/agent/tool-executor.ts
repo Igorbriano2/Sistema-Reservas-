@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { z, ZodError } from "zod";
 import type { Database } from "../../db/client.js";
-import { conversas, unidades } from "../../db/schema/index.js";
+import { cardapioCategorias, cardapioItens, conversas, unidades } from "../../db/schema/index.js";
 import { verificarDisponibilidade } from "../../lib/availability.js";
 import { atualizarReservaDoCliente, buscarReservasDoCliente, cancelarReservaDoCliente } from "../../lib/reservations.js";
 import { AppError, RequisicaoInvalidaError } from "../../lib/errors.js";
@@ -157,6 +157,51 @@ async function cancelMyReservation(db: Database, ctx: AgentContext, input: unkno
   return { output: formatarReserva(reserva) };
 }
 
+async function getMenu(db: Database, ctx: AgentContext): Promise<ToolResultado> {
+  const unidadeId = unidadeResolvida(ctx);
+
+  const categoriasAtivas = await db
+    .select({ id: cardapioCategorias.id, nome: cardapioCategorias.nome, ordem: cardapioCategorias.ordem })
+    .from(cardapioCategorias)
+    .where(and(eq(cardapioCategorias.unidadeId, unidadeId), eq(cardapioCategorias.ativo, true)));
+
+  if (categoriasAtivas.length === 0) {
+    return { output: { cardapio_disponivel: false } };
+  }
+
+  const itens = await db
+    .select({
+      categoriaId: cardapioItens.categoriaId,
+      nome: cardapioItens.nome,
+      descricao: cardapioItens.descricao,
+      precoCentavos: cardapioItens.precoCentavos,
+      porcaoServePessoas: cardapioItens.porcaoServePessoas,
+      somenteMaiorIdade: cardapioItens.somenteMaiorIdade,
+      tags: cardapioItens.tags,
+    })
+    .from(cardapioItens)
+    .innerJoin(cardapioCategorias, eq(cardapioItens.categoriaId, cardapioCategorias.id))
+    .where(and(eq(cardapioCategorias.unidadeId, unidadeId), eq(cardapioItens.ativo, true)));
+
+  const categorias = categoriasAtivas
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((categoria) => ({
+      categoria: categoria.nome,
+      itens: itens
+        .filter((item) => item.categoriaId === categoria.id)
+        .map((item) => ({
+          nome: item.nome,
+          descricao: item.descricao,
+          preco: `R$ ${(item.precoCentavos / 100).toFixed(2).replace(".", ",")}`,
+          serve_ate_pessoas: item.porcaoServePessoas,
+          somente_maior_idade: item.somenteMaiorIdade,
+          tags: item.tags ?? [],
+        })),
+    }));
+
+  return { output: { cardapio_disponivel: true, categorias } };
+}
+
 // Doc 17, parte 4: so chamada quando ctx.unidadeId ainda e nulo (conexao
 // compartilhada, unidade ainda nao resolvida). Valida que o id escolhido pertence
 // MESMO a empresa da conversa antes de gravar - o modelo recebe a lista de unidades
@@ -206,6 +251,8 @@ export async function executarTool(
         return await cancelMyReservation(db, ctx, input);
       case "check_reservation_status":
         return await checkReservationStatus(db, ctx);
+      case "get_menu":
+        return await getMenu(db, ctx);
       case "escalate_to_human":
         return await escalateToHuman(db, ctx, input);
       case "resolver_unidade_da_conversa":

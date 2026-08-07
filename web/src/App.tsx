@@ -11,9 +11,11 @@ import { BlocksPage } from "./pages/BlocksPage.js";
 import { ReportsPage } from "./pages/ReportsPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { UnidadesPage } from "./pages/UnidadesPage.js";
+import { MenuPage } from "./pages/MenuPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
+import { PublicMenuPage } from "./pages/PublicMenuPage.js";
 import { CheckoutPage } from "./pages/CheckoutPage.js";
 import { AssinaturaBloqueadaPage } from "./pages/AssinaturaBloqueadaPage.js";
 import { PlataformaAuthProvider, usePlataformaAuth } from "./plataforma/PlataformaAuthContext.js";
@@ -88,6 +90,7 @@ function AppRoutes() {
       <Route path="/" element={window.location.hostname.startsWith("painel.") ? <Navigate to="/painel" replace /> : <LandingPage />} />
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/reservar/:token" element={<PublicReservationPage />} />
+      <Route path="/cardapio/:unidadeId" element={<PublicMenuPage />} />
       <Route path="/assinar" element={<CheckoutPage />} />
       <Route
         path="/admin"
@@ -121,6 +124,14 @@ function AppRoutes() {
           element={
             <RequirePermissaoNaUnidade permissao="editar_salao">
               <BlocksPage />
+            </RequirePermissaoNaUnidade>
+          }
+        />
+        <Route
+          path="cardapio"
+          element={
+            <RequirePermissaoNaUnidade permissao="editar_cardapio">
+              <MenuPage />
             </RequirePermissaoNaUnidade>
           }
         />

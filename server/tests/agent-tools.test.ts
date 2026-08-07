@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.js";
-import { conversas } from "../src/db/schema/index.js";
+import { cardapioCategorias, cardapioItens, conversas } from "../src/db/schema/index.js";
 import { AGENT_TOOLS } from "../src/modules/agent/tools.js";
 import { executarTool } from "../src/modules/agent/tool-executor.js";
 import { decodificarTokenDeReserva } from "../src/lib/reservation-link.js";
@@ -204,6 +204,52 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
 
     const comReserva = await executarTool(db, ctxA, "check_reservation_status", {});
     expect((comReserva.output as { tem_reserva_ativa: boolean }).tem_reserva_ativa).toBe(true);
+  });
+});
+
+describe("Tools do agente - get_menu (doc 18)", () => {
+  it("retorna cardapio_disponivel=false quando a unidade nao tem nenhuma categoria ativa", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "get_menu", {});
+    expect(resultado.isError).toBeUndefined();
+    expect((resultado.output as { cardapio_disponivel: boolean }).cardapio_disponivel).toBe(false);
+  });
+
+  it("retorna so categorias/itens ativos, com preco formatado", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const [entradas] = await db.insert(cardapioCategorias).values({ unidadeId: unidade.id, nome: "Entradas" }).returning();
+    const [desativada] = await db
+      .insert(cardapioCategorias)
+      .values({ unidadeId: unidade.id, nome: "Fora do ar", ativo: false })
+      .returning();
+    await db.insert(cardapioItens).values({ categoriaId: entradas.id, nome: "Bruschetta", precoCentavos: 2590, somenteMaiorIdade: false });
+    await db.insert(cardapioItens).values({ categoriaId: entradas.id, nome: "Item pausado", precoCentavos: 1000, ativo: false });
+    await db.insert(cardapioItens).values({ categoriaId: desativada.id, nome: "Item de categoria pausada", precoCentavos: 500 });
+
+    const resultado = await executarTool(db, ctx, "get_menu", {});
+    const output = resultado.output as { cardapio_disponivel: boolean; categorias: Array<{ categoria: string; itens: Array<{ nome: string; preco: string }> }> };
+
+    expect(output.cardapio_disponivel).toBe(true);
+    expect(output.categorias).toHaveLength(1);
+    expect(output.categorias[0].categoria).toBe("Entradas");
+    expect(output.categorias[0].itens).toHaveLength(1);
+    expect(output.categorias[0].itens[0].nome).toBe("Bruschetta");
+    expect(output.categorias[0].itens[0].preco).toBe("R$ 25,90");
+  });
+
+  it("nao funciona antes da unidade da conversa ser resolvida", async () => {
+    const { empresa } = await setupUnidadeCompleta();
+    const conversa = await criarConversaPendente(empresa.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: null, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "get_menu", {});
+    expect(resultado.isError).toBe(true);
   });
 });
 

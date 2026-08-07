@@ -102,6 +102,15 @@ function IconeUnidades() {
   );
 }
 
+function IconeCardapio() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3v18M6 3c-1.5 0-2.5 1.5-2.5 4s1 4 2.5 4M6 3v7" />
+      <path d="M18 3v18M18 3a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3" />
+    </svg>
+  );
+}
+
 function IconeChevron() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -115,6 +124,7 @@ const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
   { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
   { to: "/admin/mesas", label: "Mesas", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeMesas /> },
+  { to: "/admin/cardapio", label: "Cardápio", permissao: { valor: "editar_cardapio", escopo: "unidade" }, icone: <IconeCardapio /> },
   { to: "/admin/bloqueios", label: "Bloqueios", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeBloqueios /> },
   { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },
   { to: "/admin/agente", label: "Agente de IA", permissao: { valor: "editar_agente", escopo: "empresa" }, icone: <IconeAgente /> },

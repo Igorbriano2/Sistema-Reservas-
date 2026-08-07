@@ -10,6 +10,7 @@ import { whatsappWebhookRouter } from "./modules/whatsapp/webhook.routes.js";
 import { reservationLinkRouter } from "./modules/public/reservation-link.routes.js";
 import { waitlistRouter } from "./modules/public/waitlist.routes.js";
 import { checkoutRouter } from "./modules/public/checkout.routes.js";
+import { cardapioPublicRouter } from "./modules/public/cardapio.routes.js";
 import { plataformaRouter } from "./modules/plataforma/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
@@ -42,6 +43,7 @@ export function createApp() {
   app.use("/public/reservation-link", reservationLinkRouter);
   app.use("/public/waitlist", waitlistRouter);
   app.use("/public/checkout", checkoutRouter);
+  app.use("/public/cardapio", cardapioPublicRouter);
   app.use("/plataforma", plataformaRouter);
 
   app.use(errorHandler);

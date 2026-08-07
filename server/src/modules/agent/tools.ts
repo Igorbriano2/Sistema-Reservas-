@@ -77,6 +77,15 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "get_menu",
+    description:
+      "Consulta o cardapio digital desta unidade (categorias e itens ativos, com preco, descricao, " +
+      "porcao e se e so pra maiores de 18 anos). Use para responder perguntas sobre pratos, bebidas, " +
+      "precos ou opcoes do cardapio (ex: 'o que voces tem de sobremesa?', 'tem opcao vegana?', 'quanto " +
+      "custa a picanha?'). Nao inclui itens/categorias desativados pelo restaurante.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "escalate_to_human",
     description:
       "Encaminha a conversa para um atendente humano e pausa as respostas automaticas. Use quando " +

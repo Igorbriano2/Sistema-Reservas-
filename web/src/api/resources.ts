@@ -2,6 +2,8 @@ import { API_URL, api } from "./client.js";
 import type {
   AgenteConfig,
   Bloqueio,
+  CardapioCategoria,
+  CardapioItem,
   Feedback,
   InstagramConnection,
   Mesa,
@@ -115,6 +117,54 @@ export function atualizarElementoSalao(unidadeId: string, elementoId: string, da
 
 export function excluirElementoSalao(unidadeId: string, elementoId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/salao-elementos/${elementoId}`);
+}
+
+// Cardapio digital (doc 18) - categorias ja vem com os itens aninhados.
+export function listarCardapio(unidadeId: string) {
+  return api.get<CardapioCategoria[]>(`/admin/unidades/${unidadeId}/cardapio`);
+}
+
+export interface DadosCategoriaCardapio {
+  nome: string;
+  ordem?: number;
+  ativo?: boolean;
+}
+
+export function criarCategoriaCardapio(unidadeId: string, dados: DadosCategoriaCardapio) {
+  return api.post<CardapioCategoria>(`/admin/unidades/${unidadeId}/cardapio/categorias`, dados);
+}
+
+export function atualizarCategoriaCardapio(unidadeId: string, categoriaId: string, dados: Partial<DadosCategoriaCardapio>) {
+  return api.patch<CardapioCategoria>(`/admin/unidades/${unidadeId}/cardapio/categorias/${categoriaId}`, dados);
+}
+
+export function excluirCategoriaCardapio(unidadeId: string, categoriaId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/cardapio/categorias/${categoriaId}`);
+}
+
+export interface DadosItemCardapio {
+  categoriaId: string;
+  nome: string;
+  descricao?: string;
+  precoCentavos: number;
+  imagemUrl?: string;
+  porcaoServePessoas?: number;
+  somenteMaiorIdade?: boolean;
+  tags?: string[];
+  ordem?: number;
+  ativo?: boolean;
+}
+
+export function criarItemCardapio(unidadeId: string, dados: DadosItemCardapio) {
+  return api.post<CardapioItem>(`/admin/unidades/${unidadeId}/cardapio/itens`, dados);
+}
+
+export function atualizarItemCardapio(unidadeId: string, itemId: string, dados: Partial<DadosItemCardapio>) {
+  return api.patch<CardapioItem>(`/admin/unidades/${unidadeId}/cardapio/itens/${itemId}`, dados);
+}
+
+export function excluirItemCardapio(unidadeId: string, itemId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/cardapio/itens/${itemId}`);
 }
 
 // Notificacoes push (doc 15) - inscricao do proprio dispositivo/navegador pra
@@ -356,6 +406,30 @@ export interface RespostaMesasDisponiveis {
 export function listarMesasDisponiveisPublico(token: string, data: string, horaInicio: string, numPessoas: number) {
   const params = new URLSearchParams({ data, horaInicio, numPessoas: String(numPessoas) });
   return api.get<RespostaMesasDisponiveis>(`/public/reservation-link/${token}/mesas-disponiveis?${params}`);
+}
+
+// Pagina publica do cardapio (QR code na mesa) - sem autenticacao, unidadeId direto
+// na URL (nao e informacao sensivel, so mostra categoria/item ativos).
+export interface CardapioPublico {
+  unidadeNome: string;
+  categorias: Array<{
+    id: string;
+    nome: string;
+    itens: Array<{
+      id: string;
+      nome: string;
+      descricao: string | null;
+      precoCentavos: number;
+      imagemUrl: string | null;
+      porcaoServePessoas: number | null;
+      somenteMaiorIdade: boolean;
+      tags: string[] | null;
+    }>;
+  }>;
+}
+
+export function obterCardapioPublico(unidadeId: string) {
+  return api.get<CardapioPublico>(`/public/cardapio/${unidadeId}`);
 }
 
 // Formulario de contato/lista de espera da landing page (secao de preco) - ainda
