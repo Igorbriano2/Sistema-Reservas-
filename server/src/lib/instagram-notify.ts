@@ -4,10 +4,14 @@ import { instagramConnections, mensagens } from "../db/schema/index.js";
 import { env } from "../config/env.js";
 import { decrypt } from "./crypto.js";
 import { enviarMensagemInstagram, InstagramAuthError } from "./instagram-api.js";
-import { buscarConexaoAtivaDaUnidade } from "./instagram-connection.js";
+import { buscarConexaoAtivaDaUnidade, buscarConexaoCompartilhadaDaEmpresa } from "./instagram-connection.js";
 
 export interface EnviarRespostaDoAgenteParams {
-  unidadeId: string;
+  // Nulo quando a conversa ainda nao teve a unidade resolvida (doc 17, parte 4) - a
+  // primeira mensagem do agente ("qual unidade voce quer?") sai pela conexao
+  // compartilhada da empresa, por isso empresaId e obrigatorio nesse caso.
+  unidadeId: string | null;
+  empresaId?: string;
   igSenderId: string;
   conversaId: string;
   texto: string;
@@ -23,9 +27,13 @@ export async function enviarRespostaDoAgente(db: Database, params: EnviarRespost
     return;
   }
 
-  const conexao = await buscarConexaoAtivaDaUnidade(db, params.unidadeId);
+  const conexao = params.unidadeId
+    ? await buscarConexaoAtivaDaUnidade(db, params.unidadeId)
+    : params.empresaId
+      ? await buscarConexaoCompartilhadaDaEmpresa(db, params.empresaId)
+      : null;
   if (!conexao) {
-    console.error(`[instagram] nenhuma conexao ativa para a unidade ${params.unidadeId}`);
+    console.error(`[instagram] nenhuma conexao ativa para ${params.unidadeId ? `a unidade ${params.unidadeId}` : `a empresa ${params.empresaId}`}`);
     return;
   }
 

@@ -91,3 +91,31 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     },
   },
 ];
+
+// So oferecida quando a conversa AINDA nao tem unidade resolvida (conexao do
+// Instagram compartilhada por varias unidades - doc 17, parte 4). unidade_id precisa
+// ser exatamente um dos ids listados no system prompt (montarSystemPromptResolucaoUnidade).
+const RESOLVER_UNIDADE_TOOL: Anthropic.Tool = {
+  name: "resolver_unidade_da_conversa",
+  description:
+    "Registra qual unidade o cliente escolheu, depois que ele responder qual unidade quer (ou isso ficar " +
+    "claro pelo contexto). So chame esta tool DEPOIS de saber com certeza qual unidade, usando o id exato " +
+    "de uma das unidades listadas no inicio desta conversa.",
+  input_schema: {
+    type: "object",
+    properties: {
+      unidade_id: { type: "string", description: "id (uuid) da unidade escolhida, exatamente como listado" },
+    },
+    required: ["unidade_id"],
+  },
+};
+
+// Antes de resolver a unidade, o modelo so pode perguntar/registrar a escolha ou
+// escalar para humano - nenhuma tool de reserva/disponibilidade fica visivel ainda,
+// pra nunca responder (ou dar link de reserva) na unidade errada.
+const ESCALATE_TOOL = AGENT_TOOLS.find((t) => t.name === "escalate_to_human")!;
+
+export function obterToolsDoAgente(unidadeResolvida: boolean): Anthropic.Tool[] {
+  if (unidadeResolvida) return AGENT_TOOLS;
+  return [RESOLVER_UNIDADE_TOOL, ESCALATE_TOOL];
+}

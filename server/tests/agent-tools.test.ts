@@ -7,7 +7,14 @@ import { executarTool } from "../src/modules/agent/tool-executor.js";
 import { decodificarTokenDeReserva } from "../src/lib/reservation-link.js";
 import type { AgentContext } from "../src/modules/agent/context.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
-import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarReservaDireta, criarSalao } from "./helpers/fixtures.js";
+import {
+  criarConversa,
+  criarConversaPendente,
+  criarMesa,
+  criarRegraHorarioTodosOsDias,
+  criarReservaDireta,
+  criarSalao,
+} from "./helpers/fixtures.js";
 
 beforeEach(async () => {
   await truncateAll();
@@ -213,6 +220,42 @@ describe("Tools do agente - escalate_to_human", () => {
 
     const [atualizada] = await db.select().from(conversas).where(eq(conversas.id, conversa.id));
     expect(atualizada.agentPaused).toBe(true);
+  });
+});
+
+describe("Tools do agente - resolver_unidade_da_conversa (doc 17, parte 4)", () => {
+  it("grava a unidade escolhida na conversa quando o id pertence a mesma empresa", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversaPendente(empresa.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: null, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "resolver_unidade_da_conversa", { unidade_id: unidade.id });
+    expect(resultado.isError).toBeUndefined();
+
+    const [atualizada] = await db.select().from(conversas).where(eq(conversas.id, conversa.id));
+    expect(atualizada.unidadeId).toBe(unidade.id);
+  });
+
+  it("rejeita um unidade_id de outra empresa, sem gravar nada", async () => {
+    const { empresa } = await setupUnidadeCompleta({ nomeEmpresa: "Empresa A", emailAdmin: "admin@a.com" });
+    const { unidade: unidadeDeOutraEmpresa } = await setupUnidadeCompleta({ nomeEmpresa: "Empresa B", emailAdmin: "admin@b.com" });
+    const conversa = await criarConversaPendente(empresa.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: null, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "resolver_unidade_da_conversa", { unidade_id: unidadeDeOutraEmpresa.id });
+    expect(resultado.isError).toBe(true);
+
+    const [aindaPendente] = await db.select().from(conversas).where(eq(conversas.id, conversa.id));
+    expect(aindaPendente.unidadeId).toBeNull();
+  });
+
+  it("tools de reserva/disponibilidade recusam rodar com a unidade ainda nao resolvida (rede de seguranca)", async () => {
+    const { empresa } = await setupUnidadeCompleta();
+    const conversa = await criarConversaPendente(empresa.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: null, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "check_availability", { data: "2026-10-10", hora: "19:00", num_pessoas: 2 });
+    expect(resultado.isError).toBe(true);
   });
 });
 

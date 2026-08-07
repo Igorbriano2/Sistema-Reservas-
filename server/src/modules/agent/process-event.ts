@@ -10,7 +10,7 @@ import {
   type InstagramConnection,
   type PapelMensagem,
 } from "../../db/schema/index.js";
-import { montarSystemPrompt } from "../../lib/agent-prompt.js";
+import { montarSystemPrompt, montarSystemPromptResolucaoUnidade } from "../../lib/agent-prompt.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 import { executarTurnoDoAgente } from "./orchestrator.js";
 import { agendarTurnoDoAgente } from "./debounce.js";
@@ -28,31 +28,36 @@ const HISTORICO_MAX_MENSAGENS = 20;
 // de quantas podem chegar durante a espera do debounce).
 const JANELA_TURNO_PENDENTE = HISTORICO_MAX_MENSAGENS + 20;
 
+// Devolve null quando a conexao e compartilhada (unidade_id nulo) e a empresa tem
+// mais de uma unidade - a partir de doc 17 parte 4, isso NAO e mais um erro: a
+// conversa nasce "pendente" e o agente pergunta ao cliente qual unidade ele quer (ver
+// montarSystemPromptResolucaoUnidade / tool resolver_unidade_da_conversa).
 async function resolverUnidadeDaConexao(db: Database, conexao: InstagramConnection): Promise<string | null> {
   if (conexao.unidadeId) {
     return conexao.unidadeId;
   }
-  // Conexao "da empresa toda" (sem unidade fixa): so da pra resolver sozinha se a
-  // empresa tiver exatamente uma unidade. Com mais de uma, e config ambigua - melhor
-  // nao adivinhar (mensagem fica sem resposta automatica) do que responder na unidade errada.
   const lista = await db.select({ id: unidades.id }).from(unidades).where(eq(unidades.empresaId, conexao.empresaId));
   return lista.length === 1 ? lista[0].id : null;
 }
 
+// Uma linha por (empresa, sender) - nao mais por unidade, ja que a unidade pode ainda
+// nao estar resolvida quando a conversa nasce. unidadeIdSugerido so e usado na
+// primeira mensagem (INSERT); se a conversa ja existe, o unidade_id ja gravado nela
+// (resolvido ou ainda pendente) prevalece, nunca e sobrescrito aqui.
 async function buscarOuCriarConversa(
   db: Database,
   empresaId: string,
-  unidadeId: string,
+  unidadeIdSugerido: string | null,
   igSenderId: string,
 ): Promise<Conversa> {
-  const condicao = and(eq(conversas.unidadeId, unidadeId), eq(conversas.igSenderId, igSenderId));
+  const condicao = and(eq(conversas.empresaId, empresaId), eq(conversas.igSenderId, igSenderId));
 
   const [existente] = await db.select().from(conversas).where(condicao).limit(1);
   if (existente) return existente;
 
   const [nova] = await db
     .insert(conversas)
-    .values({ empresaId, unidadeId, igSenderId })
+    .values({ empresaId, unidadeId: unidadeIdSugerido, igSenderId })
     .onConflictDoNothing()
     .returning();
   if (nova) return nova;
@@ -104,10 +109,28 @@ async function processarTurnoAgrupado(db: Database, ctx: AgentContext): Promise<
   }
 
   const [config] = await db.select().from(agenteConfig).where(eq(agenteConfig.empresaId, ctx.empresaId)).limit(1);
-  const [unidade] = await db.select().from(unidades).where(eq(unidades.id, ctx.unidadeId)).limit(1);
-  if (!config || !unidade) {
-    console.error(`[webhook] agente_config ou unidade ausente para a empresa ${ctx.empresaId}`);
+  if (!config) {
+    console.error(`[webhook] agente_config ausente para a empresa ${ctx.empresaId}`);
     return;
+  }
+
+  // Doc 17, parte 4: sem unidade resolvida ainda, o agente so pergunta qual unidade o
+  // cliente quer (system prompt + tools bem mais restritos - ver montarSystemPrompt
+  // ResolucaoUnidade e obterToolsDoAgente).
+  let systemPrompt: string;
+  if (ctx.unidadeId) {
+    const [unidade] = await db.select().from(unidades).where(eq(unidades.id, ctx.unidadeId)).limit(1);
+    if (!unidade) {
+      console.error(`[webhook] unidade ${ctx.unidadeId} ausente para a empresa ${ctx.empresaId}`);
+      return;
+    }
+    systemPrompt = montarSystemPrompt(config, unidade);
+  } else {
+    const listaUnidades = await db
+      .select({ id: unidades.id, nome: unidades.nome })
+      .from(unidades)
+      .where(eq(unidades.empresaId, ctx.empresaId));
+    systemPrompt = montarSystemPromptResolucaoUnidade(config, listaUnidades);
   }
 
   const { historico, mensagemAgrupada } = await carregarTurnoPendente(db, ctx.conversaId);
@@ -118,13 +141,14 @@ async function processarTurnoAgrupado(db: Database, ctx: AgentContext): Promise<
   const respostaTexto = await executarTurnoDoAgente({
     db,
     ctx,
-    systemPrompt: montarSystemPrompt(config, unidade),
+    systemPrompt,
     historico,
     mensagemDoCliente: mensagemAgrupada,
   });
 
   await enviarRespostaDoAgente(db, {
     unidadeId: ctx.unidadeId,
+    empresaId: ctx.empresaId,
     igSenderId: ctx.igSenderId,
     conversaId: ctx.conversaId,
     texto: respostaTexto,
@@ -165,13 +189,10 @@ export async function processarEventoDoInstagram(db: Database, evento: Instagram
     return;
   }
 
-  const unidadeId = await resolverUnidadeDaConexao(db, conexao);
-  if (!unidadeId) {
-    console.error(`[webhook] Nao foi possivel resolver a unidade da conexao ${conexao.id} (empresa ${conexao.empresaId})`);
-    return;
-  }
-
-  const conversa = await buscarOuCriarConversa(db, conexao.empresaId, unidadeId, igSenderId);
+  // unidadeSugerida so vale pra CRIAR a conversa (primeira mensagem); se ela ja
+  // existir, o unidade_id ja gravado nela prevalece (resolvido ou ainda pendente).
+  const unidadeSugerida = await resolverUnidadeDaConexao(db, conexao);
+  const conversa = await buscarOuCriarConversa(db, conexao.empresaId, unidadeSugerida, igSenderId);
 
   if (mensagem.is_echo) {
     // Echo de uma mensagem enviada PELA conta do restaurante. Se o mid corresponde a
@@ -213,6 +234,6 @@ export async function processarEventoDoInstagram(db: Database, evento: Instagram
     return; // um humano assumiu esta conversa; nao responde automaticamente ate reativacao manual
   }
 
-  const ctx: AgentContext = { empresaId: conexao.empresaId, unidadeId, igSenderId, conversaId: conversa.id };
+  const ctx: AgentContext = { empresaId: conexao.empresaId, unidadeId: conversa.unidadeId, igSenderId, conversaId: conversa.id };
   agendarTurnoDoAgente(conversa.id, () => processarTurnoAgrupado(db, ctx));
 }

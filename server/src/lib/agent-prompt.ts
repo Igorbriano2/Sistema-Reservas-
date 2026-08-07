@@ -55,3 +55,23 @@ export function montarSystemPrompt(config: AgenteConfig, unidade: Pick<Unidade, 
 
   return partes.filter(Boolean).join("\n\n");
 }
+
+// Doc 17, parte 4: quando a conexao do Instagram e compartilhada por varias unidades
+// da empresa e a conversa ainda nao tem unidade resolvida, o agente so pergunta qual
+// unidade o cliente quer (usando a tool resolver_unidade_da_conversa) - nada mais e
+// oferecido a ele nesse momento (ver obterToolsDoAgente em modules/agent/tools.ts).
+export function montarSystemPromptResolucaoUnidade(
+  config: Pick<AgenteConfig, "nomeDoAgente">,
+  unidadesDisponiveis: Array<{ id: string; nome: string }>,
+): string {
+  const lista = unidadesDisponiveis.map((u) => `- ${u.nome} (id: ${u.id})`).join("\n");
+  return [
+    `Voce e ${config.nomeDoAgente}, o atendente virtual via Instagram Direct de uma empresa com mais de uma unidade.`,
+    `Antes de qualquer outra coisa, voce precisa saber com qual unidade o cliente quer falar. Unidades disponiveis:\n${lista}`,
+    "Pergunte ao cliente qual unidade ele quer (ex: \"Voce prefere a unidade de Londrina ou de Maringa?\"), a menos " +
+      "que ja fique claro pelo contexto da propria mensagem dele (ex: ele ja cita o nome ou o bairro de uma delas). " +
+      "Assim que souber, chame a tool resolver_unidade_da_conversa com o id correto da lista acima - nunca invente " +
+      "um id que nao esteja na lista. Depois de resolver, apenas confirme brevemente; o cliente vai dizer o que " +
+      "precisa na proxima mensagem.",
+  ].join("\n\n");
+}

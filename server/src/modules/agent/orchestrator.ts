@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { env } from "../../config/env.js";
 import type { Database } from "../../db/client.js";
 import { getAnthropicClient } from "../../lib/anthropic-client.js";
-import { AGENT_TOOLS } from "./tools.js";
+import { obterToolsDoAgente } from "./tools.js";
 import { executarTool } from "./tool-executor.js";
 import type { AgentContext } from "./context.js";
 
@@ -42,13 +42,18 @@ export async function executarTurnoDoAgente(params: ExecutarTurnoParams): Promis
     ...params.historico,
     { role: "user", content: params.mensagemDoCliente },
   ];
+  // Fixado no inicio do turno (doc 17, parte 4): se o modelo resolver a unidade no
+  // meio deste MESMO turno, as tools de reserva ainda ficam indisponiveis ate o
+  // proximo turno (proxima mensagem do cliente) - suficiente pra nunca vazar
+  // disponibilidade/link da unidade errada, e simples de raciocinar sobre.
+  const tools = obterToolsDoAgente(params.ctx.unidadeId !== null);
 
   for (let iteracao = 0; iteracao < MAX_ITERACOES_DE_TOOL_USE; iteracao++) {
     const resposta = await criarMensagem({
       model: env.ANTHROPIC_MODEL,
       max_tokens: MAX_TOKENS_RESPOSTA,
       system: params.systemPrompt,
-      tools: AGENT_TOOLS,
+      tools,
       messages,
     });
 

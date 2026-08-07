@@ -134,7 +134,7 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
     expect(await db.select().from(mensagens)).toHaveLength(0);
   });
 
-  it("nao adivinha a unidade quando a conexao nao tem unidade fixa e a empresa tem mais de uma", async () => {
+  it("pergunta qual unidade quando a conexao e compartilhada e a empresa tem mais de uma (doc 17, parte 4)", async () => {
     const { empresa, unidade: unidade1 } = await criarEmpresaComAdmin();
     const [unidade2] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda unidade" }).returning();
     await criarAgenteConfig(empresa.id);
@@ -145,9 +145,72 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
       recipient: { id: "ig-conta-multiunidade" },
       message: { mid: "mid-ambiguo", text: "oi" },
     });
+    await aguardarTurnoAgendado();
 
-    expect(await db.select().from(conversas).where(eq(conversas.unidadeId, unidade1.id))).toHaveLength(0);
-    expect(await db.select().from(conversas).where(eq(conversas.unidadeId, unidade2.id))).toHaveLength(0);
+    // A conversa nasce, mas fica "pendente" (sem unidade) ate o agente perguntar e o
+    // cliente responder - nao adivinha nem cai numa unidade ao acaso.
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.igSenderId, "ig-cliente-1"));
+    expect(conversa).toBeDefined();
+    expect(conversa.unidadeId).toBeNull();
+
+    const argsDaChamada = vi.mocked(getAnthropicClient).mock.results[0].value.messages.create.mock.calls[0][0];
+    const nomesDasTools = argsDaChamada.tools.map((t: { name: string }) => t.name);
+    expect(nomesDasTools).toEqual(["resolver_unidade_da_conversa", "escalate_to_human"]);
+    expect(argsDaChamada.system).toContain(unidade1.nome);
+    expect(argsDaChamada.system).toContain(unidade2.nome);
+  });
+
+  it("resolve a unidade quando o cliente responde, e libera o toolset completo so na mensagem seguinte", async () => {
+    const { empresa, unidade: unidade1 } = await criarEmpresaComAdmin();
+    await criarAgenteConfig(empresa.id);
+    await criarConexaoInstagram(empresa.id, null, "ig-conta-multiunidade");
+    // Duas respostas do agente nesse teste (uma por mensagem do cliente) - precisam
+    // de mids diferentes, senao a segunda colide com o unique index de ig_message_id.
+    vi.mocked(enviarMensagemInstagram)
+      .mockReset()
+      .mockResolvedValueOnce("mid-resposta-1")
+      .mockResolvedValueOnce("mid-resposta-2");
+
+    const criarMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: "msg_tool",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-5",
+        stop_sequence: null,
+        usage: { input_tokens: 1, output_tokens: 1 },
+        content: [{ type: "tool_use", id: "tool_1", name: "resolver_unidade_da_conversa", input: { unidade_id: unidade1.id } }],
+        stop_reason: "tool_use",
+      })
+      .mockResolvedValueOnce(respostaDeTexto("Perfeito! Em que posso ajudar?"))
+      .mockResolvedValueOnce(respostaDeTexto("Resposta na unidade certa"));
+    vi.mocked(getAnthropicClient)
+      .mockReset()
+      .mockReturnValue({ messages: { create: criarMock } } as unknown as ReturnType<typeof getAnthropicClient>);
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-1" },
+      recipient: { id: "ig-conta-multiunidade" },
+      message: { mid: "mid-1", text: "oi, quero a primeira unidade" },
+    });
+    await aguardarTurnoAgendado();
+
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.igSenderId, "ig-cliente-1"));
+    expect(conversa.unidadeId).toBe(unidade1.id);
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-1" },
+      recipient: { id: "ig-conta-multiunidade" },
+      message: { mid: "mid-2", text: "quero reservar uma mesa" },
+    });
+    await aguardarTurnoAgendado();
+
+    expect(criarMock).toHaveBeenCalledTimes(3);
+    const nomesNaTerceiraChamada = criarMock.mock.calls[2][0].tools.map((t: { name: string }) => t.name);
+    expect(nomesNaTerceiraChamada).toContain("check_availability");
+    expect(nomesNaTerceiraChamada).toContain("get_reservation_link");
+    expect(nomesNaTerceiraChamada).not.toContain("resolver_unidade_da_conversa");
   });
 });
 

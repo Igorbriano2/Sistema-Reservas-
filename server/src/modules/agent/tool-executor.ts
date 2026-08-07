@@ -1,10 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z, ZodError } from "zod";
 import type { Database } from "../../db/client.js";
-import { conversas } from "../../db/schema/index.js";
+import { conversas, unidades } from "../../db/schema/index.js";
 import { verificarDisponibilidade } from "../../lib/availability.js";
 import { atualizarReservaDoCliente, buscarReservasDoCliente, cancelarReservaDoCliente } from "../../lib/reservations.js";
-import { AppError } from "../../lib/errors.js";
+import { AppError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { env } from "../../config/env.js";
 import { gerarTokenDeReserva } from "../../lib/reservation-link.js";
 import { enviarPushParaUnidade } from "../../lib/push.js";
@@ -28,6 +28,16 @@ function erroAmigavel(err: unknown): ToolResultado {
 const dataSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data deve estar no formato YYYY-MM-DD");
 const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "hora deve estar no formato HH:MM");
 
+// Todas as tools de reserva/disponibilidade abaixo so ficam visiveis pro modelo
+// depois que a unidade da conversa esta resolvida (ver obterToolsDoAgente) - este
+// guard e so uma rede de seguranca contra o modelo tentar chama-las antes disso.
+function unidadeResolvida(ctx: AgentContext): string {
+  if (!ctx.unidadeId) {
+    throw new RequisicaoInvalidaError("Esta conversa ainda nao tem uma unidade definida");
+  }
+  return ctx.unidadeId;
+}
+
 async function checkAvailability(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
   const { data, hora, num_pessoas } = z
     .object({ data: dataSchema, hora: horaSchema, num_pessoas: z.number().int().positive() })
@@ -35,7 +45,7 @@ async function checkAvailability(db: Database, ctx: AgentContext, input: unknown
 
   // Tool puramente informativa: nunca cria, reserva ou bloqueia nada. So diz se ha
   // (ou nao) capacidade compativel disponivel para esse horario.
-  const resultado = await verificarDisponibilidade(db, { unidadeId: ctx.unidadeId, data, hora, numPessoas: num_pessoas });
+  const resultado = await verificarDisponibilidade(db, { unidadeId: unidadeResolvida(ctx), data, hora, numPessoas: num_pessoas });
 
   return {
     output: {
@@ -54,7 +64,7 @@ async function getReservationLink(ctx: AgentContext): Promise<ToolResultado> {
   if (!env.WEB_APP_URL) {
     return { output: { erro: "Link de reserva nao configurado nesta unidade" }, isError: true };
   }
-  const token = gerarTokenDeReserva({ unidadeId: ctx.unidadeId, igSenderId: ctx.igSenderId });
+  const token = gerarTokenDeReserva({ unidadeId: unidadeResolvida(ctx), igSenderId: ctx.igSenderId });
   return {
     output: {
       link: `${env.WEB_APP_URL}/reservar/${token}`,
@@ -75,7 +85,7 @@ function formatarReserva(r: Awaited<ReturnType<typeof buscarReservasDoCliente>>[
 }
 
 async function findMyReservations(db: Database, ctx: AgentContext): Promise<ToolResultado> {
-  const lista = await buscarReservasDoCliente(db, { unidadeId: ctx.unidadeId, igSenderId: ctx.igSenderId });
+  const lista = await buscarReservasDoCliente(db, { unidadeId: unidadeResolvida(ctx), igSenderId: ctx.igSenderId });
   return { output: { reservas: lista.map(formatarReserva) } };
 }
 
@@ -83,7 +93,7 @@ const STATUS_ATIVOS = new Set(["pendente", "confirmada"]);
 
 async function checkReservationStatus(db: Database, ctx: AgentContext): Promise<ToolResultado> {
   const hoje = new Date().toISOString().slice(0, 10);
-  const lista = await buscarReservasDoCliente(db, { unidadeId: ctx.unidadeId, igSenderId: ctx.igSenderId });
+  const lista = await buscarReservasDoCliente(db, { unidadeId: unidadeResolvida(ctx), igSenderId: ctx.igSenderId });
 
   const futuras = lista
     .filter((r) => STATUS_ATIVOS.has(r.status) && r.data >= hoje)
@@ -112,7 +122,7 @@ async function modifyMyReservation(db: Database, ctx: AgentContext, input: unkno
 
   const reserva = await atualizarReservaDoCliente(
     db,
-    { unidadeId: ctx.unidadeId, igSenderId: ctx.igSenderId, reservaId: dados.reservation_id },
+    { unidadeId: unidadeResolvida(ctx), igSenderId: ctx.igSenderId, reservaId: dados.reservation_id },
     {
       data: dados.data,
       horaInicio: dados.hora,
@@ -126,16 +136,17 @@ async function modifyMyReservation(db: Database, ctx: AgentContext, input: unkno
 
 async function cancelMyReservation(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
   const { reservation_id } = z.object({ reservation_id: z.string().uuid("reservation_id invalido") }).parse(input);
+  const unidadeId = unidadeResolvida(ctx);
 
   const reserva = await cancelarReservaDoCliente(db, {
-    unidadeId: ctx.unidadeId,
+    unidadeId,
     igSenderId: ctx.igSenderId,
     reservaId: reservation_id,
   });
 
   // Avisa os dispositivos da unidade com o PWA instalado (doc 15) - cancelamento feito
   // pelo proprio cliente no chat, sem passar pelo painel.
-  enviarPushParaUnidade(db, ctx.unidadeId, {
+  enviarPushParaUnidade(db, unidadeId, {
     titulo: "Reserva cancelada",
     corpo: `${reserva.clienteNome} - ${reserva.data.split("-").reverse().join("/")} as ${reserva.horaInicio.slice(0, 5)} foi cancelada pelo cliente`,
     url: "/admin/reservas",
@@ -144,6 +155,27 @@ async function cancelMyReservation(db: Database, ctx: AgentContext, input: unkno
   });
 
   return { output: formatarReserva(reserva) };
+}
+
+// Doc 17, parte 4: so chamada quando ctx.unidadeId ainda e nulo (conexao
+// compartilhada, unidade ainda nao resolvida). Valida que o id escolhido pertence
+// MESMO a empresa da conversa antes de gravar - o modelo recebe a lista de unidades
+// no system prompt, mas nunca confiamos cegamente num id que ele devolveu.
+async function resolverUnidadeDaConversa(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
+  const { unidade_id } = z.object({ unidade_id: z.string().uuid("unidade_id invalido") }).parse(input);
+
+  const [unidade] = await db
+    .select({ id: unidades.id, nome: unidades.nome })
+    .from(unidades)
+    .where(and(eq(unidades.id, unidade_id), eq(unidades.empresaId, ctx.empresaId)))
+    .limit(1);
+  if (!unidade) {
+    return { output: { erro: "unidade_id nao corresponde a nenhuma unidade valida" }, isError: true };
+  }
+
+  await db.update(conversas).set({ unidadeId: unidade.id }).where(eq(conversas.id, ctx.conversaId));
+
+  return { output: { unidade_resolvida: unidade.nome } };
 }
 
 async function escalateToHuman(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
@@ -176,6 +208,8 @@ export async function executarTool(
         return await checkReservationStatus(db, ctx);
       case "escalate_to_human":
         return await escalateToHuman(db, ctx, input);
+      case "resolver_unidade_da_conversa":
+        return await resolverUnidadeDaConversa(db, ctx, input);
       default:
         return { output: { erro: `Tool desconhecida: ${nomeDaTool}` }, isError: true };
     }

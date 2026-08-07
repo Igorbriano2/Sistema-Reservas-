@@ -90,6 +90,16 @@ export async function criarConversa(empresaId: string, unidadeId: string, igSend
   return conversa;
 }
 
+// Conexao compartilhada + empresa com mais de uma unidade (doc 17, parte 4) - a
+// conversa nasce sem unidade ainda resolvida.
+export async function criarConversaPendente(empresaId: string, igSenderId: string) {
+  const [conversa] = await db
+    .insert(conversas)
+    .values({ empresaId, unidadeId: null, igSenderId })
+    .returning();
+  return conversa;
+}
+
 export async function criarAgenteConfig(empresaId: string, overrides: Partial<{ nomeDoAgente: string }> = {}) {
   const [config] = await db
     .insert(agenteConfig)

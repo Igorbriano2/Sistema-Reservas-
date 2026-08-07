@@ -5,7 +5,10 @@
 // LLM em nenhuma decisao de isolamento multi-tenant.
 export interface AgentContext {
   empresaId: string;
-  unidadeId: string;
+  // Nulo quando a conexao e compartilhada por varias unidades e o cliente ainda nao
+  // disse qual quer (doc 17, parte 4) - nesse estado so a tool resolver_unidade_da_
+  // conversa (e escalate_to_human) ficam disponiveis pro modelo, ate isso ser resolvido.
+  unidadeId: string | null;
   igSenderId: string;
   conversaId: string;
 }
