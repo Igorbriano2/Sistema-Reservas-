@@ -80,6 +80,9 @@ const envSchema = z.object({
   WHATSAPP_TEMPLATE_FEEDBACK: z.string().default("feedback_pos_reserva"),
   WHATSAPP_TEMPLATE_ANIVERSARIO: z.string().default("aniversario_cliente"),
   WHATSAPP_TEMPLATE_RECUPERACAO: z.string().default("recuperacao_cliente"),
+  // Disparado na hora (nao pelo agendador diario) quando o dono chama um cliente da
+  // fila de espera (doc 20) - avisa que a mesa esta pronta.
+  WHATSAPP_TEMPLATE_FILA_ESPERA: z.string().default("mesa_pronta"),
   WHATSAPP_TEMPLATE_LANG: z.string().default("pt_BR"),
   // Cron (formato node-cron) de quando as 3 rotinas diarias de marketing rodam.
   WHATSAPP_SCHEDULER_CRON: z.string().default("0 10 * * *"),

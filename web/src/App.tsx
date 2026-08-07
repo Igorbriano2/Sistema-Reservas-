@@ -13,6 +13,7 @@ import { UsersPage } from "./pages/UsersPage.js";
 import { UnidadesPage } from "./pages/UnidadesPage.js";
 import { MenuPage } from "./pages/MenuPage.js";
 import { SchedulePage } from "./pages/SchedulePage.js";
+import { WaitingListPage } from "./pages/WaitingListPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
@@ -111,6 +112,7 @@ function AppRoutes() {
           }
         />
         <Route path="reservas" element={<ReservationsPage />} />
+        <Route path="fila-espera" element={<WaitingListPage />} />
         <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route
           path="mesas"

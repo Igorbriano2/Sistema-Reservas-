@@ -633,6 +633,27 @@ tbody tr:hover {
   color: var(--status-no-show);
 }
 
+/* Fila de espera (doc 20) - reaproveita os mesmos tokens de status das reservas. */
+.badge-esperando {
+  background: var(--status-pendente-bg);
+  color: var(--status-pendente);
+}
+
+.badge-chamado {
+  background: rgba(var(--accent-rgb), 0.16);
+  color: var(--accent);
+}
+
+.badge-sentado {
+  background: var(--status-concluida-bg);
+  color: var(--status-concluida);
+}
+
+.badge-desistiu {
+  background: var(--status-cancelada-bg);
+  color: var(--status-cancelada);
+}
+
 .abas-status {
   display: flex;
   flex-wrap: wrap;

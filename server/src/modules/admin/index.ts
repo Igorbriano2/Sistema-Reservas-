@@ -20,6 +20,7 @@ import { instagramRouter } from "./instagram.routes.js";
 import { usuariosRouter } from "./usuarios.routes.js";
 import { assinaturaRouter } from "./assinatura.routes.js";
 import { cardapioRouter } from "./cardapio.routes.js";
+import { filaEsperaRouter } from "./fila-espera.routes.js";
 
 export const adminRouter = Router();
 
@@ -65,6 +66,9 @@ unidadeRouter.use("/relatorios", requirePermissaoUnidade("ver_relatorios"), rela
 unidadeRouter.use("/cardapio", requirePermissaoUnidade("editar_cardapio"), cardapioRouter);
 unidadeRouter.use("/availability", requireAcessoUnidade, availabilityRouter);
 unidadeRouter.use("/reservations", requireAcessoUnidade, reservationsRouter);
+// Fila de espera de walk-in (doc 20) - mesma tarefa do dia a dia de reservas, sem
+// depender de nenhuma funcionalidade extra marcada pelo dono.
+unidadeRouter.use("/fila-espera", requireAcessoUnidade, filaEsperaRouter);
 unidadeRouter.use("/conversas", requireRole("owner"), conversasRouter);
 // So exige acesso a unidade (nao e uma funcionalidade extra "configuravel" - qualquer
 // gerente/funcionario com acesso pode inscrever o proprio dispositivo).

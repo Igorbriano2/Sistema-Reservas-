@@ -221,6 +221,23 @@ export interface CardapioCategoria {
   itens: CardapioItem[];
 }
 
+// Fila de espera de walk-in (doc 20) - cliente que chegou sem reserva e esta
+// esperando mesa vagar. Diferente do formulario de interesse da landing page.
+export type FilaEsperaStatus = "esperando" | "chamado" | "sentado" | "desistiu";
+
+export interface FilaEsperaEntrada {
+  id: string;
+  unidadeId: string;
+  clienteNome: string;
+  clienteTelefone: string | null;
+  numPessoas: number;
+  status: FilaEsperaStatus;
+  observacoes: string | null;
+  criadoEm: string;
+  chamadoEm: string | null;
+  finalizadoEm: string | null;
+}
+
 export interface Relatorio {
   periodo: { dataInicio: string; dataFim: string };
   ocupacao: { capacidadeSlots: number; reservasOcupando: number; taxa: number | null };

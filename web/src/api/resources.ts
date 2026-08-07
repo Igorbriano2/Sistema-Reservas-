@@ -5,6 +5,8 @@ import type {
   CardapioCategoria,
   CardapioItem,
   Feedback,
+  FilaEsperaEntrada,
+  FilaEsperaStatus,
   InstagramConnection,
   Mesa,
   MesaFormato,
@@ -213,6 +215,30 @@ export function atualizarRegraHorario(unidadeId: string, regraId: string, dados:
 
 export function excluirRegraHorario(unidadeId: string, regraId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/regras-horario/${regraId}`);
+}
+
+// Fila de espera de walk-in (doc 20).
+export function listarFilaEspera(unidadeId: string, todos = false) {
+  return api.get<FilaEsperaEntrada[]>(`/admin/unidades/${unidadeId}/fila-espera${todos ? "?todos=true" : ""}`);
+}
+
+export interface DadosNovaEntradaFila {
+  clienteNome: string;
+  clienteTelefone?: string;
+  numPessoas: number;
+  observacoes?: string;
+}
+
+export function adicionarNaFilaEspera(unidadeId: string, dados: DadosNovaEntradaFila) {
+  return api.post<FilaEsperaEntrada>(`/admin/unidades/${unidadeId}/fila-espera`, dados);
+}
+
+export function atualizarStatusFilaEspera(unidadeId: string, entradaId: string, status: FilaEsperaStatus) {
+  return api.patch<FilaEsperaEntrada>(`/admin/unidades/${unidadeId}/fila-espera/${entradaId}/status`, { status });
+}
+
+export function removerDaFilaEspera(unidadeId: string, entradaId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/fila-espera/${entradaId}`);
 }
 
 export function listarBloqueios(unidadeId: string) {

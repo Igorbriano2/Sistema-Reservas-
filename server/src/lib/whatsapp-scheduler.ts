@@ -25,7 +25,9 @@ function dataLocalOffset(offsetDias: number): string {
 // Cada empresa pode ter uma conexao por unidade OU uma unica pra empresa toda
 // (unidade_id nulo) - prioriza a especifica da unidade quando existe, mesmo padrao
 // de resolucao usado pro Instagram.
-async function conexaoAtivaDaEmpresa(db: Database, empresaId: string, unidadeId: string | null) {
+// Exportado tambem pra uso fora do agendador diario (ex: aviso imediato da fila de
+// espera, doc 20) - mesma resolucao de conexao WhatsApp ativa da empresa/unidade.
+export async function conexaoAtivaDaEmpresa(db: Database, empresaId: string, unidadeId: string | null) {
   const conexoes = await db
     .select()
     .from(whatsappConnections)

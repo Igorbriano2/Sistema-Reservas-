@@ -24,3 +24,4 @@ export * from "./feedbacks.js";
 export * from "./mensagens-marketing-log.js";
 export * from "./whatsapp-config.js";
 export * from "./cardapio.js";
+export * from "./fila-espera.js";

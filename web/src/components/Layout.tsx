@@ -102,6 +102,16 @@ function IconeUnidades() {
   );
 }
 
+function IconeFilaEspera() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="3" />
+      <path d="M2.5 20c0-2.8 2.5-5 5.5-5s5.5 2.2 5.5 5" />
+      <path d="M16 4.5l2 2 3.5-3.5" />
+    </svg>
+  );
+}
+
 function IconeHorarios() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -131,6 +141,7 @@ function IconeChevron() {
 const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
   { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
+  { to: "/admin/fila-espera", label: "Fila de espera", icone: <IconeFilaEspera /> },
   { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
   { to: "/admin/mesas", label: "Mesas", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeMesas /> },
   { to: "/admin/horarios", label: "Horários", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeHorarios /> },
