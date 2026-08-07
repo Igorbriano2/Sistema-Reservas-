@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext.js";
 import { useBarraLateralRecolhida } from "../lib/useBarraLateralRecolhida.js";
 import { Marca } from "./Marca.js";
 import { ThemeToggle } from "./ThemeToggle.js";
+import { NotificacaoToggle } from "./NotificacaoToggle.js";
 
 interface ItemDeNav {
   to: string;
@@ -173,6 +174,7 @@ export function Layout() {
             </select>
           )}
           <span style={{ flex: 1 }} />
+          {unidade && <NotificacaoToggle unidadeId={unidade.id} />}
           <ThemeToggle />
           <span>{usuario?.nome}</span>
           <button className="btn btn-secundario" onClick={logout}>

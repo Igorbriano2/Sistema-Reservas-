@@ -9,6 +9,7 @@ import { decodificarTokenDeReserva, TokenDeReservaInvalidoError } from "../../li
 import { criarReserva, criarReservaComMesaAutomatica } from "../../lib/reservations.js";
 import { verificarDisponibilidade } from "../../lib/availability.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
+import { enviarPushParaUnidade } from "../../lib/push.js";
 
 // Rotas PUBLICAS (sem requireAuth) - a seguranca aqui e o proprio token assinado e de
 // curta duracao (ver lib/reservation-link.ts), nao um JWT de sessao de admin. unidade_id
@@ -231,6 +232,16 @@ reservationLinkRouter.post(
         console.error("[reserva-publica] falha ao notificar cliente no Instagram:", err);
       });
     }
+
+    // Avisa os dispositivos da unidade com o PWA instalado (doc 15) - nao bloqueia a
+    // resposta ao cliente se o envio falhar.
+    enviarPushParaUnidade(db, payload.unidadeId, {
+      titulo: "Nova reserva",
+      corpo: `${reserva.clienteNome} - ${reserva.data.split("-").reverse().join("/")} as ${reserva.horaInicio.slice(0, 5)}, ${reserva.numPessoas} pessoa(s)`,
+      url: "/admin/reservas",
+    }).catch((err) => {
+      console.error("[reserva-publica] falha ao enviar push:", err);
+    });
 
     res.status(201).json({
       id: reserva.id,

@@ -9,6 +9,7 @@ import { regrasHorarioRouter } from "./regras-horario.routes.js";
 import { availabilityRouter } from "./availability.routes.js";
 import { reservationsRouter } from "./reservations.routes.js";
 import { bloqueiosRouter } from "./bloqueios.routes.js";
+import { pushRouter } from "./push.routes.js";
 import { relatoriosRouter } from "./relatorios.routes.js";
 import { conversasRouter } from "./conversas.routes.js";
 import { unidadesRouter } from "./unidades.routes.js";
@@ -48,5 +49,8 @@ unidadeRouter.use("/relatorios", requireRole("owner"), relatoriosRouter);
 unidadeRouter.use("/availability", availabilityRouter);
 unidadeRouter.use("/reservations", reservationsRouter);
 unidadeRouter.use("/conversas", requireRole("owner"), conversasRouter);
+// Sem requireRole: qualquer funcionario logado pode inscrever o proprio dispositivo
+// pra receber notificacoes (nao e uma configuracao estrutural da unidade).
+unidadeRouter.use("/push", pushRouter);
 
 adminRouter.use("/unidades/:unidadeId", unidadeRouter);

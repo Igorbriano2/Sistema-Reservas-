@@ -8,6 +8,12 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icons/apple-touch-icon.png"],
+      // injectManifest (em vez de generateSW) porque precisamos de um handler proprio
+      // de "push" no service worker (ver src/sw.ts) - o Workbox generateSW so gera
+      // cache do shell, sem espaco pra logica custom de notificacao.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       manifest: {
         name: "Quero Reservar",
         short_name: "Quero Reservar",
@@ -28,11 +34,10 @@ export default defineConfig({
           { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
-      workbox: {
+      injectManifest: {
         // So o shell (JS/CSS/HTML/icones) pra abrir rapido mesmo com conexao ruim -
         // sem cache de respostas de API, sem suporte offline completo (nao e o objetivo).
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
-        navigateFallbackDenylist: [/^\/api/],
       },
     }),
   ],

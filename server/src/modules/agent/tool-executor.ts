@@ -7,6 +7,7 @@ import { atualizarReservaDoCliente, buscarReservasDoCliente, cancelarReservaDoCl
 import { AppError } from "../../lib/errors.js";
 import { env } from "../../config/env.js";
 import { gerarTokenDeReserva } from "../../lib/reservation-link.js";
+import { enviarPushParaUnidade } from "../../lib/push.js";
 import type { AgentContext } from "./context.js";
 
 export interface ToolResultado {
@@ -130,6 +131,16 @@ async function cancelMyReservation(db: Database, ctx: AgentContext, input: unkno
     unidadeId: ctx.unidadeId,
     igSenderId: ctx.igSenderId,
     reservaId: reservation_id,
+  });
+
+  // Avisa os dispositivos da unidade com o PWA instalado (doc 15) - cancelamento feito
+  // pelo proprio cliente no chat, sem passar pelo painel.
+  enviarPushParaUnidade(db, ctx.unidadeId, {
+    titulo: "Reserva cancelada",
+    corpo: `${reserva.clienteNome} - ${reserva.data.split("-").reverse().join("/")} as ${reserva.horaInicio.slice(0, 5)} foi cancelada pelo cliente`,
+    url: "/admin/reservas",
+  }).catch((err) => {
+    console.error("[cancel_my_reservation] falha ao enviar push:", err);
   });
 
   return { output: formatarReserva(reserva) };

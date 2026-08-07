@@ -97,6 +97,25 @@ export function excluirElementoSalao(unidadeId: string, elementoId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/salao-elementos/${elementoId}`);
 }
 
+// Notificacoes push (doc 15) - inscricao do proprio dispositivo/navegador pra
+// receber avisos de nova reserva / cancelamento pelo chat.
+export function obterChavePublicaPush(unidadeId: string) {
+  return api.get<{ chavePublica: string | null }>(`/admin/unidades/${unidadeId}/push/chave-publica`);
+}
+
+export interface DadosInscricaoPush {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export function inscreverPush(unidadeId: string, dados: DadosInscricaoPush) {
+  return api.post<{ inscrito: boolean }>(`/admin/unidades/${unidadeId}/push`, dados);
+}
+
+export function desinscreverPush(unidadeId: string, endpoint: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/push?endpoint=${encodeURIComponent(endpoint)}`);
+}
+
 export function listarBloqueios(unidadeId: string) {
   return api.get<Bloqueio[]>(`/admin/unidades/${unidadeId}/bloqueios`);
 }

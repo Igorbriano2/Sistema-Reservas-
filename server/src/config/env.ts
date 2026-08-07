@@ -50,6 +50,12 @@ const envSchema = z.object({
   // Dias de tolerancia com uma assinatura "atrasada" (cobranca recorrente falhou)
   // antes do middleware de acesso bloquear o painel da empresa.
   ASSINATURA_ATRASO_GRACE_DIAS: z.coerce.number().int().positive().default(5),
+  // Notificacoes push (doc 15 - nova reserva / cancelamento via chat). Par de chaves
+  // VAPID gerado uma vez com `npx web-push generate-vapid-keys`. Sem elas, o envio de
+  // push vira um no-op silencioso (nao quebra o resto do app).
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default("mailto:contato@queroreservar.com.br"),
 });
 
 export const env = envSchema.parse(process.env);
