@@ -17,3 +17,8 @@ export * from "./plataforma-admins.js";
 export * from "./assinaturas.js";
 export * from "./stripe-webhook-eventos.js";
 export * from "./push-subscricoes.js";
+export * from "./whatsapp-connections.js";
+export * from "./clientes.js";
+export * from "./feedbacks.js";
+export * from "./mensagens-marketing-log.js";
+export * from "./whatsapp-config.js";

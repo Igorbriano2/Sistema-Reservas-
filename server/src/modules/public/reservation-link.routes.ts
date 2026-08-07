@@ -10,6 +10,7 @@ import { criarReserva, criarReservaComMesaAutomatica } from "../../lib/reservati
 import { verificarDisponibilidade } from "../../lib/availability.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 import { enviarPushParaUnidade } from "../../lib/push.js";
+import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
 
 // Rotas PUBLICAS (sem requireAuth) - a seguranca aqui e o proprio token assinado e de
 // curta duracao (ver lib/reservation-link.ts), nao um JWT de sessao de admin. unidade_id
@@ -173,6 +174,11 @@ const criarReservaPublicaSchema = z.object({
   // Escolhida pelo cliente no mapa visual (Parte 2). Se ausente, cai no fluxo antigo
   // (backend escolhe a mesa/salao automaticamente).
   mesaId: z.string().uuid().optional(),
+  // Doc 16 - opcionais, so tem efeito quando clienteTelefone tambem e informado (sem
+  // telefone nao ha pra quem mandar WhatsApp nenhum). Opt-in nunca e assumido: so vira
+  // true se o campo vier explicitamente true (checkbox comeca desmarcado no form).
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data de nascimento deve estar no formato YYYY-MM-DD").optional(),
+  whatsappOptIn: z.boolean().optional(),
 });
 
 reservationLinkRouter.post(
@@ -231,6 +237,27 @@ reservationLinkRouter.post(
       }).catch((err) => {
         console.error("[reserva-publica] falha ao notificar cliente no Instagram:", err);
       });
+    }
+
+    // Doc 16 - so persiste dados do cliente (opt-in/data de nascimento) quando ha
+    // telefone pra vincular; nao bloqueia a resposta se a gravacao falhar.
+    if (dados.clienteTelefone) {
+      const [unidadeDaReserva] = await db
+        .select({ empresaId: unidades.empresaId })
+        .from(unidades)
+        .where(eq(unidades.id, payload.unidadeId))
+        .limit(1);
+      if (unidadeDaReserva) {
+        salvarOuAtualizarCliente(db, {
+          empresaId: unidadeDaReserva.empresaId,
+          telefone: dados.clienteTelefone,
+          nome: dados.clienteNome,
+          dataNascimento: dados.dataNascimento,
+          whatsappOptIn: dados.whatsappOptIn,
+        }).catch((err) => {
+          console.error("[reserva-publica] falha ao salvar dados do cliente:", err);
+        });
+      }
     }
 
     // Avisa os dispositivos da unidade com o PWA instalado (doc 15) - nao bloqueia a

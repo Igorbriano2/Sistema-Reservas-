@@ -16,3 +16,5 @@ process.env.AGENT_DEBOUNCE_MS = process.env.AGENT_DEBOUNCE_MS ?? "50";
 process.env.VAPID_PUBLIC_KEY =
   process.env.VAPID_PUBLIC_KEY ?? "BDNSlr4wn0INb1MTtl_oE9au71xjuDvImJP-kOhEAoVPo2YEoyHyQIbbY34Fgfte5uyxUGr3qOcTScB-evqHDOg";
 process.env.VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? "3ygRuW5t88P3gCXTEsP0PJ3zP_OKgyDA_tK8coW9ak8";
+process.env.WHATSAPP_APP_SECRET = process.env.WHATSAPP_APP_SECRET ?? "test-whatsapp-app-secret";
+process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ?? "test-whatsapp-verify-token";

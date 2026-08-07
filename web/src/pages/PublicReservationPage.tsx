@@ -40,6 +40,8 @@ export function PublicReservationPage() {
   const [numPessoas, setNumPessoas] = useState("2");
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTelefone, setClienteTelefone] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false);
 
   const [saloes, setSaloes] = useState<SalaoPublico[]>([]);
   const [salaoEscolhidoId, setSalaoEscolhidoId] = useState("");
@@ -200,6 +202,8 @@ export function PublicReservationPage() {
         clienteNome,
         clienteTelefone: clienteTelefone || undefined,
         mesaId: mesaEscolhidaId ?? undefined,
+        dataNascimento: dataNascimento || undefined,
+        whatsappOptIn: clienteTelefone ? whatsappOptIn : undefined,
       });
       setConfirmada(reserva);
       dispararEventoGA4("reserva_confirmada", { data: reserva.data, num_pessoas: reserva.numPessoas });
@@ -429,6 +433,23 @@ export function PublicReservationPage() {
         <label>
           Telefone (opcional)
           <input value={clienteTelefone} onChange={(e) => setClienteTelefone(e.target.value)} />
+        </label>
+        <label>
+          Data de nascimento (opcional)
+          <input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} />
+        </label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input
+            type="checkbox"
+            style={{ width: "auto" }}
+            checked={whatsappOptIn}
+            disabled={!clienteTelefone}
+            onChange={(e) => setWhatsappOptIn(e.target.checked)}
+          />
+          <span style={{ fontSize: "0.85rem" }}>
+            Aceito receber novidades e promoções por WhatsApp
+            {!clienteTelefone && <span className="texto-secundario"> (informe o telefone acima)</span>}
+          </span>
         </label>
         {erro && <span className="erro">{erro}</span>}
         <div className="acoes">

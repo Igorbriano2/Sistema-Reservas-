@@ -1,5 +1,16 @@
 import { db } from "../../src/db/client.js";
-import { agenteConfig, assinaturas, conversas, instagramConnections, mesas, regrasHorario, saloes, type Assinatura } from "../../src/db/schema/index.js";
+import {
+  agenteConfig,
+  assinaturas,
+  clientes,
+  conversas,
+  instagramConnections,
+  mesas,
+  regrasHorario,
+  saloes,
+  whatsappConnections,
+  type Assinatura,
+} from "../../src/db/schema/index.js";
 import { encrypt } from "../../src/lib/crypto.js";
 import { criarReserva } from "../../src/lib/reservations.js";
 
@@ -132,6 +143,47 @@ export async function criarConexaoInstagram(
     })
     .returning();
   return conexao;
+}
+
+export async function criarConexaoWhatsapp(
+  empresaId: string,
+  unidadeId: string | null,
+  wabaId = "waba-teste",
+  phoneNumberId = "phone-number-id-teste",
+  tokenPlano = "token-de-teste-do-whatsapp",
+) {
+  const chave = process.env.TOKEN_ENCRYPTION_KEY!;
+  const [conexao] = await db
+    .insert(whatsappConnections)
+    .values({
+      empresaId,
+      unidadeId,
+      wabaId,
+      phoneNumberId,
+      accessTokenEncrypted: encrypt(tokenPlano, chave),
+      status: "ativo",
+    })
+    .returning();
+  return conexao;
+}
+
+export async function criarCliente(
+  empresaId: string,
+  telefone: string,
+  overrides: Partial<{ nome: string; dataNascimento: string; whatsappOptIn: boolean; whatsappOptInEm: Date }> = {},
+) {
+  const [cliente] = await db
+    .insert(clientes)
+    .values({
+      empresaId,
+      telefone,
+      nome: overrides.nome ?? "Cliente Teste",
+      dataNascimento: overrides.dataNascimento,
+      whatsappOptIn: overrides.whatsappOptIn ?? false,
+      whatsappOptInEm: overrides.whatsappOptInEm,
+    })
+    .returning();
+  return cliente;
 }
 
 export async function criarAssinatura(

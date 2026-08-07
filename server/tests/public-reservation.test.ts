@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import request from "supertest";
 import { db } from "../src/db/client.js";
-import { agenteConfig, reservas } from "../src/db/schema/index.js";
+import { agenteConfig, clientes, reservas } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
 import {
   criarConexaoInstagram,
@@ -237,6 +237,102 @@ describe("POST /public/reservation-link/:token/reservations", () => {
     expect(statusCodes).toEqual([201, 409]);
     const todas = await db.select().from(reservas).where(eq(reservas.mesaId, mesa.id));
     expect(todas).toHaveLength(1);
+  });
+
+  it("doc 16 - salva data de nascimento e opt-in de whatsapp no cliente quando o checkbox e marcado", async () => {
+    const { empresa, unidade, mesa } = await setupUnidadeCompleta();
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-opt-in" });
+
+    const res = await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-11-22",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Cliente Optin",
+      clienteTelefone: "11988887777",
+      dataNascimento: "1990-05-20",
+      whatsappOptIn: true,
+      mesaId: mesa.id,
+    });
+    expect(res.status).toBe(201);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const [cliente] = await db.select().from(clientes).where(eq(clientes.telefone, "11988887777"));
+    expect(cliente).toBeDefined();
+    expect(cliente.empresaId).toBe(empresa.id);
+    expect(cliente.dataNascimento).toBe("1990-05-20");
+    expect(cliente.whatsappOptIn).toBe(true);
+    expect(cliente.whatsappOptInEm).not.toBeNull();
+  });
+
+  it("doc 16 - opt-in NUNCA e assumido como true por padrao quando o campo nao e enviado", async () => {
+    const { unidade, mesa } = await setupUnidadeCompleta();
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-sem-opt-in" });
+
+    const res = await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-11-23",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Cliente Sem Optin",
+      clienteTelefone: "11977776666",
+      mesaId: mesa.id,
+    });
+    expect(res.status).toBe(201);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const [cliente] = await db.select().from(clientes).where(eq(clientes.telefone, "11977776666"));
+    expect(cliente).toBeDefined();
+    expect(cliente.whatsappOptIn).toBe(false);
+    expect(cliente.whatsappOptInEm).toBeNull();
+  });
+
+  it("doc 16 - nao cria registro de cliente quando nenhum telefone e informado", async () => {
+    const { unidade, mesa } = await setupUnidadeCompleta();
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-anonimo" });
+
+    const res = await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-11-24",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Cliente Anonimo",
+      whatsappOptIn: true,
+      mesaId: mesa.id,
+    });
+    expect(res.status).toBe(201);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const todos = await db.select().from(clientes);
+    expect(todos).toHaveLength(0);
+  });
+
+  it("doc 16 - uma segunda reserva do mesmo telefone atualiza o cliente existente (upsert) em vez de duplicar", async () => {
+    const { empresa, unidade, mesa } = await setupUnidadeCompleta();
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-repete" });
+    void empresa;
+
+    await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-11-25",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Cliente Repete",
+      clienteTelefone: "11966665555",
+      mesaId: mesa.id,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-11-26",
+      horaInicio: "20:00",
+      numPessoas: 2,
+      clienteNome: "Cliente Repete",
+      clienteTelefone: "11966665555",
+      whatsappOptIn: true,
+      mesaId: mesa.id,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const linhas = await db.select().from(clientes).where(eq(clientes.telefone, "11966665555"));
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].whatsappOptIn).toBe(true);
   });
 });
 

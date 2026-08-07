@@ -237,6 +237,9 @@ export interface DadosReservaPublica {
   // Escolhida pelo cliente no mapa visual (doc 11 Parte 2). Se ausente, o backend
   // escolhe a mesa/salao automaticamente (fluxo antigo, ainda suportado).
   mesaId?: string;
+  // Doc 16 - opcionais, so tem efeito com clienteTelefone tambem preenchido.
+  dataNascimento?: string;
+  whatsappOptIn?: boolean;
 }
 
 export interface ReservaPublicaCriada {

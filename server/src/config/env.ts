@@ -56,6 +56,22 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().default("mailto:contato@queroreservar.com.br"),
+  // WhatsApp Business Cloud API (doc 16) - marketing/feedback, conexao manual (mesmo
+  // padrao do Instagram, ver connect-whatsapp.ts). Usados pra verificar o webhook e
+  // assinar requests, nao pra autenticar contas individuais (isso fica em
+  // whatsapp_connections, uma linha por empresa).
+  WHATSAPP_APP_SECRET: z.string().optional(),
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  WHATSAPP_GRAPH_API_VERSION: z.string().default("v21.0"),
+  // Nome/id dos templates pre-aprovados pela Meta (configurados no painel dela, fora
+  // do codigo - ver doc) e o codigo de idioma usado no submit. Nunca hardcoded no
+  // codigo que monta a chamada de envio.
+  WHATSAPP_TEMPLATE_FEEDBACK: z.string().default("feedback_pos_reserva"),
+  WHATSAPP_TEMPLATE_ANIVERSARIO: z.string().default("aniversario_cliente"),
+  WHATSAPP_TEMPLATE_RECUPERACAO: z.string().default("recuperacao_cliente"),
+  WHATSAPP_TEMPLATE_LANG: z.string().default("pt_BR"),
+  // Cron (formato node-cron) de quando as 3 rotinas diarias de marketing rodam.
+  WHATSAPP_SCHEDULER_CRON: z.string().default("0 10 * * *"),
 });
 
 export const env = envSchema.parse(process.env);
