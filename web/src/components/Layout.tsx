@@ -93,6 +93,15 @@ function IconeUsuarios() {
   );
 }
 
+function IconeUnidades() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 21V9l8-5 8 5v12" />
+      <path d="M9 21v-6h6v6M4 9h16" />
+    </svg>
+  );
+}
+
 function IconeChevron() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -110,6 +119,7 @@ const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },
   { to: "/admin/agente", label: "Agente de IA", permissao: { valor: "editar_agente", escopo: "empresa" }, icone: <IconeAgente /> },
   { to: "/admin/usuarios", label: "Usuarios", permissao: { valor: "criar_usuarios", escopo: "empresa" }, icone: <IconeUsuarios /> },
+  { to: "/admin/unidades", label: "Unidades", ownerOnly: true, icone: <IconeUnidades /> },
 ];
 
 const MODO_TESTE_ATIVO_KEY = "modo_teste_ativo";

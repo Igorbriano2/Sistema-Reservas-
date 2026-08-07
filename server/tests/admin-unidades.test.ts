@@ -50,3 +50,40 @@ describe("GET /admin/unidades", () => {
     expect(res.body.some((u: { id: string }) => u.id === segundaUnidade.id)).toBe(false);
   });
 });
+
+describe("POST /admin/unidades (doc 17, parte 3 - adicionar unidade)", () => {
+  it("gerente/funcionario nao pode adicionar unidade, mesmo com criar_usuarios (owner only)", async () => {
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);
+    await criarUsuarioUnidade(funcionario.id, unidade.id, ["criar_usuarios"]);
+    const token = await login(app, funcionario.username, senha);
+
+    const res = await request(app)
+      .post("/admin/unidades")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Nova Loja", paymentMethodId: "pm_fake" });
+    expect(res.status).toBe(403);
+  });
+
+  it("sem STRIPE_SECRET_KEY configurada (ambiente de teste), informa servico indisponivel em vez de quebrar", async () => {
+    const { usuario, senhaAdmin } = await criarEmpresaComAdmin();
+    const token = await login(app, usuario.email, senhaAdmin);
+
+    const res = await request(app)
+      .post("/admin/unidades")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Nova Loja", paymentMethodId: "pm_fake" });
+    expect(res.status).toBe(503);
+  });
+
+  it("rejeita corpo sem nome ou sem paymentMethodId", async () => {
+    const { usuario, senhaAdmin } = await criarEmpresaComAdmin();
+    const token = await login(app, usuario.email, senhaAdmin);
+
+    const semNome = await request(app).post("/admin/unidades").set("Authorization", `Bearer ${token}`).send({ paymentMethodId: "pm_fake" });
+    expect(semNome.status).toBe(400);
+
+    const semPaymentMethod = await request(app).post("/admin/unidades").set("Authorization", `Bearer ${token}`).send({ nome: "Nova Loja" });
+    expect(semPaymentMethod.status).toBe(400);
+  });
+});

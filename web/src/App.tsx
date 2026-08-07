@@ -10,6 +10,7 @@ import { TablesPage } from "./pages/TablesPage.js";
 import { BlocksPage } from "./pages/BlocksPage.js";
 import { ReportsPage } from "./pages/ReportsPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
+import { UnidadesPage } from "./pages/UnidadesPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
@@ -145,6 +146,14 @@ function AppRoutes() {
             <RequirePermissaoNaEmpresa permissao="criar_usuarios">
               <UsersPage />
             </RequirePermissaoNaEmpresa>
+          }
+        />
+        <Route
+          path="unidades"
+          element={
+            <RequireOwner>
+              <UnidadesPage />
+            </RequireOwner>
           }
         />
       </Route>

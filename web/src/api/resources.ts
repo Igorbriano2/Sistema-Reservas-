@@ -30,6 +30,19 @@ export function listarUnidades() {
   return api.get<Unidade[]>("/admin/unidades");
 }
 
+// Fluxo "adicionar unidade" (doc 17, parte 3) - owner apenas. paymentMethodId vem do
+// Stripe Elements no navegador, mesmo padrao do checkout publico.
+export interface DadosNovaUnidade {
+  nome: string;
+  endereco?: string;
+  timezone?: string;
+  paymentMethodId: string;
+}
+
+export function adicionarUnidade(dados: DadosNovaUnidade) {
+  return api.post<Unidade>("/admin/unidades", dados);
+}
+
 export function listarSaloes(unidadeId: string) {
   return api.get<Salao[]>(`/admin/unidades/${unidadeId}/saloes`);
 }

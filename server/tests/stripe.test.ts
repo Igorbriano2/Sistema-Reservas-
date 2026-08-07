@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
-import { criarAssinaturaTrial, resolverPriceId } from "../src/lib/stripe.js";
+import { criarAssinaturaTrial, criarAssinaturaTrialParaUnidadeAdicional, resolverPriceId } from "../src/lib/stripe.js";
 import { RequisicaoInvalidaError, ServicoIndisponivelError } from "../src/lib/errors.js";
 
 // Fake minimo do client da Stripe - so implementa os metodos que lib/stripe.ts usa,
@@ -10,10 +10,14 @@ function criarStripeFalso(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     customers: {
       create: vi.fn(),
+      update: vi.fn().mockResolvedValue({}),
       del: vi.fn().mockResolvedValue({ id: "cus_deletado", deleted: true }),
     },
     subscriptions: {
       create: vi.fn(),
+    },
+    paymentMethods: {
+      attach: vi.fn().mockResolvedValue({}),
     },
     prices: {
       list: vi.fn(),
@@ -72,6 +76,52 @@ describe("criarAssinaturaTrial", () => {
     await expect(criarAssinaturaTrial(stripe, "price_123", DADOS_BASE)).rejects.toBeInstanceOf(RequisicaoInvalidaError);
     // Sem customer criado, no del nao deve ser chamado.
     expect(stripe.customers.del).not.toHaveBeenCalled();
+  });
+});
+
+describe("criarAssinaturaTrialParaUnidadeAdicional", () => {
+  it("anexa o cartao ao customer JA EXISTENTE (sem criar outro) e cria uma nova subscription com trial de 7 dias", async () => {
+    const stripe = criarStripeFalso();
+    (stripe.subscriptions.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "sub_unidade_2",
+      status: "trialing",
+      trial_end: 1999999999,
+    });
+
+    const resultado = await criarAssinaturaTrialParaUnidadeAdicional(stripe, "price_123", {
+      customerId: "cus_existente",
+      paymentMethodId: "pm_fake_456",
+    });
+
+    expect(stripe.paymentMethods.attach).toHaveBeenCalledWith("pm_fake_456", { customer: "cus_existente" });
+    expect(stripe.customers.create).not.toHaveBeenCalled();
+    expect(stripe.subscriptions.create).toHaveBeenCalledWith(
+      expect.objectContaining({ customer: "cus_existente", trial_period_days: 7, items: [{ price: "price_123" }] }),
+    );
+    expect(resultado).toEqual({
+      stripeCustomerId: "cus_existente",
+      stripeSubscriptionId: "sub_unidade_2",
+      status: "trialing",
+      trialEnd: 1999999999,
+    });
+  });
+
+  it("propaga erro amigavel quando o cartao e recusado ao anexar", async () => {
+    const stripe = criarStripeFalso({ paymentMethods: { attach: vi.fn().mockRejectedValue(new Error("cartao recusado")) } });
+
+    await expect(
+      criarAssinaturaTrialParaUnidadeAdicional(stripe, "price_123", { customerId: "cus_existente", paymentMethodId: "pm_ruim" }),
+    ).rejects.toBeInstanceOf(RequisicaoInvalidaError);
+    expect(stripe.subscriptions.create).not.toHaveBeenCalled();
+  });
+
+  it("propaga erro amigavel quando a criacao da subscription falha", async () => {
+    const stripe = criarStripeFalso();
+    (stripe.subscriptions.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("falha generica"));
+
+    await expect(
+      criarAssinaturaTrialParaUnidadeAdicional(stripe, "price_123", { customerId: "cus_existente", paymentMethodId: "pm_fake" }),
+    ).rejects.toBeInstanceOf(RequisicaoInvalidaError);
   });
 });
 

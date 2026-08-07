@@ -128,3 +128,45 @@ export async function criarAssinaturaTrial(
     trialEnd: subscription.trial_end,
   };
 }
+
+export interface DadosAssinaturaUnidadeAdicional {
+  customerId: string;
+  paymentMethodId: string;
+}
+
+// Fluxo "adicionar unidade" (doc 17, parte 3): mesma logica de criarAssinaturaTrial
+// acima, mas reaproveitando o customer JA existente da empresa (empresas.
+// stripeCustomerId) em vez de criar um novo - evita duplicar cliente no gateway
+// quando o dono adiciona uma segunda/terceira loja. Sempre um subscription NOVO
+// (uma unidade = uma assinatura), com seu proprio trial de 7 dias independente.
+export async function criarAssinaturaTrialParaUnidadeAdicional(
+  stripe: Stripe,
+  priceId: string,
+  dados: DadosAssinaturaUnidadeAdicional,
+): Promise<AssinaturaTrialCriada> {
+  try {
+    await stripe.paymentMethods.attach(dados.paymentMethodId, { customer: dados.customerId });
+    await stripe.customers.update(dados.customerId, {
+      invoice_settings: { default_payment_method: dados.paymentMethodId },
+    });
+  } catch (err) {
+    throw new RequisicaoInvalidaError(mensagemDeErroStripe(err));
+  }
+
+  try {
+    const subscription = await stripe.subscriptions.create({
+      customer: dados.customerId,
+      items: [{ price: priceId }],
+      trial_period_days: 7,
+      default_payment_method: dados.paymentMethodId,
+    });
+    return {
+      stripeCustomerId: dados.customerId,
+      stripeSubscriptionId: subscription.id,
+      status: subscription.status,
+      trialEnd: subscription.trial_end,
+    };
+  } catch (err) {
+    throw new RequisicaoInvalidaError(mensagemDeErroStripe(err));
+  }
+}
