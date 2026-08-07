@@ -1,12 +1,13 @@
 import { Router } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import type { Response } from "express";
 import { db } from "../../db/client.js";
-import { conversas, unidades } from "../../db/schema/index.js";
+import { conversas, mesas, salaoElementos, saloes, unidades } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { decodificarTokenDeReserva, TokenDeReservaInvalidoError } from "../../lib/reservation-link.js";
-import { criarReservaComMesaAutomatica } from "../../lib/reservations.js";
+import { criarReserva, criarReservaComMesaAutomatica } from "../../lib/reservations.js";
+import { verificarDisponibilidade } from "../../lib/availability.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 
 // Rotas PUBLICAS (sem requireAuth) - a seguranca aqui e o proprio token assinado e de
@@ -42,12 +43,122 @@ reservationLinkRouter.get(
   }),
 );
 
+const mesasDisponiveisQuerySchema = z.object({
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data deve estar no formato YYYY-MM-DD"),
+  horaInicio: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "horario deve estar no formato HH:MM"),
+  numPessoas: z.coerce.number().int().positive(),
+});
+
+// Devolve o mapa visual (mesas + elementos decorativos) de cada salao em modo "mapa"
+// da unidade, com cada mesa marcada disponivel/indisponivel (e o motivo) pro
+// horario/numero de pessoas informado - usado pela Parte 2 do editor visual (cliente
+// escolhe a mesa na pagina publica). Reaproveita verificarDisponibilidade (mesma logica
+// ja usada pelo admin e pelo agente de IA) em vez de duplicar a checagem de conflito.
+reservationLinkRouter.get(
+  "/:token/mesas-disponiveis",
+  asyncHandler(async (req, res) => {
+    let payload;
+    try {
+      payload = decodificarTokenDeReserva(req.params.token);
+    } catch (err) {
+      if (err instanceof TokenDeReservaInvalidoError) return responderTokenInvalido(res);
+      throw err;
+    }
+
+    const query = mesasDisponiveisQuerySchema.parse(req.query);
+
+    const saloesMapa = await db
+      .select({ id: saloes.id, nome: saloes.nome })
+      .from(saloes)
+      .where(and(eq(saloes.unidadeId, payload.unidadeId), eq(saloes.modoConfiguracao, "mapa")));
+
+    if (saloesMapa.length === 0) {
+      res.json({ saloes: [] });
+      return;
+    }
+    const salaoIds = saloesMapa.map((s) => s.id);
+
+    const [disponibilidade, todasMesas, todosElementos] = await Promise.all([
+      verificarDisponibilidade(db, {
+        unidadeId: payload.unidadeId,
+        data: query.data,
+        hora: query.horaInicio,
+        numPessoas: query.numPessoas,
+      }),
+      db
+        .select({
+          id: mesas.id,
+          salaoId: mesas.salaoId,
+          nome: mesas.nome,
+          capacidadeMin: mesas.capacidadeMin,
+          capacidadeMax: mesas.capacidadeMax,
+          formato: mesas.formato,
+          posX: mesas.posX,
+          posY: mesas.posY,
+          largura: mesas.largura,
+          altura: mesas.altura,
+        })
+        .from(mesas)
+        .where(inArray(mesas.salaoId, salaoIds)),
+      db
+        .select({
+          id: salaoElementos.id,
+          salaoId: salaoElementos.salaoId,
+          tipo: salaoElementos.tipo,
+          nome: salaoElementos.nome,
+          posX: salaoElementos.posX,
+          posY: salaoElementos.posY,
+          largura: salaoElementos.largura,
+          altura: salaoElementos.altura,
+          rotacao: salaoElementos.rotacao,
+          capacidade: salaoElementos.capacidade,
+        })
+        .from(salaoElementos)
+        .where(inArray(salaoElementos.salaoId, salaoIds)),
+    ]);
+
+    const idsDisponiveis = new Set(disponibilidade.mesasDisponiveis.map((m) => m.id));
+
+    // O motivo por mesa vem sempre de capacidade/ocupacao da PROPRIA mesa - nao do
+    // motivo agregado de verificarDisponibilidade (esse so descreve o caso "nenhuma
+    // opcao serve", nao necessariamente porque ESSA mesa especifica esta ocupada).
+    // Fechamento do dia/fora do horario de funcionamento fica no campo "disponibilidade"
+    // no nivel do salao inteiro, exibido a parte pelo frontend.
+    const resultado = saloesMapa.map((salao) => ({
+      id: salao.id,
+      nome: salao.nome,
+      mesas: todasMesas
+        .filter((m) => m.salaoId === salao.id)
+        .map((m) => {
+          const disponivel = idsDisponiveis.has(m.id);
+          let motivo: string | undefined;
+          if (!disponivel) {
+            motivo =
+              query.numPessoas < m.capacidadeMin || query.numPessoas > m.capacidadeMax
+                ? "Nao comporta esse numero de pessoas"
+                : "Ocupada nesse horario";
+          }
+          return { ...m, disponivel, motivo };
+        }),
+      elementos: todosElementos.filter((e) => e.salaoId === salao.id),
+    }));
+
+    res.json({
+      disponibilidade: { disponivel: disponibilidade.disponivel, motivo: disponibilidade.motivo },
+      saloes: resultado,
+    });
+  }),
+);
+
 const criarReservaPublicaSchema = z.object({
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data deve estar no formato YYYY-MM-DD"),
   horaInicio: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "horario deve estar no formato HH:MM"),
   numPessoas: z.number().int().positive(),
   clienteNome: z.string().min(1),
   clienteTelefone: z.string().optional(),
+  // Escolhida pelo cliente no mapa visual (Parte 2). Se ausente, cai no fluxo antigo
+  // (backend escolhe a mesa/salao automaticamente).
+  mesaId: z.string().uuid().optional(),
 });
 
 reservationLinkRouter.post(
@@ -66,11 +177,27 @@ reservationLinkRouter.post(
     // (o schema nem os declara), eles sao ignorados.
     const dados = criarReservaPublicaSchema.parse(req.body);
 
-    const reserva = await criarReservaComMesaAutomatica(db, {
-      unidadeId: payload.unidadeId,
-      igSenderId: payload.igSenderId,
-      ...dados,
-    });
+    const reserva = dados.mesaId
+      ? await criarReserva(db, {
+          unidadeId: payload.unidadeId,
+          igSenderId: payload.igSenderId,
+          mesaId: dados.mesaId,
+          data: dados.data,
+          horaInicio: dados.horaInicio,
+          numPessoas: dados.numPessoas,
+          clienteNome: dados.clienteNome,
+          clienteTelefone: dados.clienteTelefone,
+          canalOrigem: "instagram",
+        })
+      : await criarReservaComMesaAutomatica(db, {
+          unidadeId: payload.unidadeId,
+          igSenderId: payload.igSenderId,
+          data: dados.data,
+          horaInicio: dados.horaInicio,
+          numPessoas: dados.numPessoas,
+          clienteNome: dados.clienteNome,
+          clienteTelefone: dados.clienteTelefone,
+        });
 
     const [conversa] = await db
       .select({ id: conversas.id })

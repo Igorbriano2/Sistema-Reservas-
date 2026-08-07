@@ -4,7 +4,14 @@ import request from "supertest";
 import { db } from "../src/db/client.js";
 import { reservas } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
-import { criarConexaoInstagram, criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
+import {
+  criarConexaoInstagram,
+  criarConversa,
+  criarMesa,
+  criarRegraHorarioTodosOsDias,
+  criarSalao,
+  criarSalaoSimples,
+} from "./helpers/fixtures.js";
 
 vi.mock("../src/lib/instagram-api.js", () => ({
   enviarMensagemInstagram: vi.fn(),
@@ -162,5 +169,113 @@ describe("POST /public/reservation-link/:token/reservations", () => {
 
     expect(res.status).toBe(201);
     expect(enviarMensagemInstagram).not.toHaveBeenCalled();
+  });
+
+  it("cria a reserva na mesa escolhida pelo cliente (mesaId), nao numa escolhida automaticamente", async () => {
+    const { unidade, salao } = await setupUnidadeCompleta();
+    const mesaEscolhida = await criarMesa(salao.id, { nome: "Mesa da Janela", capacidadeMin: 1, capacidadeMax: 4 });
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+
+    const res = await request(app)
+      .post(`/public/reservation-link/${token}/reservations`)
+      .send({
+        data: "2026-11-20",
+        horaInicio: "19:00",
+        numPessoas: 2,
+        clienteNome: "Cliente Publico",
+        mesaId: mesaEscolhida.id,
+      });
+
+    expect(res.status).toBe(201);
+    const [linha] = await db.select().from(reservas).where(eq(reservas.id, res.body.id));
+    expect(linha.mesaId).toBe(mesaEscolhida.id);
+  });
+
+  it("sob duas requisicoes simultaneas escolhendo a MESMA mesa pelo mapa, so uma reserva e criada (409 na outra)", async () => {
+    const { unidade, salao } = await setupUnidadeCompleta();
+    const mesa = await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+    const corpo = {
+      data: "2026-11-21",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Cliente Publico",
+      mesaId: mesa.id,
+    };
+
+    const [primeira, segunda] = await Promise.all([
+      request(app).post(`/public/reservation-link/${token}/reservations`).send(corpo),
+      request(app).post(`/public/reservation-link/${token}/reservations`).send(corpo),
+    ]);
+
+    const statusCodes = [primeira.status, segunda.status].sort();
+    expect(statusCodes).toEqual([201, 409]);
+    const todas = await db.select().from(reservas).where(eq(reservas.mesaId, mesa.id));
+    expect(todas).toHaveLength(1);
+  });
+});
+
+describe("GET /public/reservation-link/:token/mesas-disponiveis", () => {
+  it("retorna saloes vazio quando a unidade nao tem nenhum salao em modo mapa", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    await criarSalaoSimples(unidade.id, 20);
+    await criarRegraHorarioTodosOsDias(unidade.id);
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+
+    const res = await request(app)
+      .get(`/public/reservation-link/${token}/mesas-disponiveis`)
+      .query({ data: "2026-11-20", horaInicio: "19:00", numPessoas: 2 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.saloes).toEqual([]);
+  });
+
+  it("marca mesa livre e compativel como disponivel, e mesa com capacidade incompativel como indisponivel", async () => {
+    const { unidade, salao, mesa } = await setupUnidadeCompleta();
+    const mesaGrande = await criarMesa(salao.id, { nome: "Mesa Grande", capacidadeMin: 6, capacidadeMax: 10 });
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+
+    const res = await request(app)
+      .get(`/public/reservation-link/${token}/mesas-disponiveis`)
+      .query({ data: "2026-11-20", horaInicio: "19:00", numPessoas: 2 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.saloes).toHaveLength(1);
+    const mesas = res.body.saloes[0].mesas;
+    const linhaMesa = mesas.find((m: { id: string }) => m.id === mesa.id);
+    const linhaMesaGrande = mesas.find((m: { id: string }) => m.id === mesaGrande.id);
+    expect(linhaMesa.disponivel).toBe(true);
+    expect(linhaMesa.motivo).toBeUndefined();
+    expect(linhaMesaGrande.disponivel).toBe(false);
+    expect(linhaMesaGrande.motivo).toBeTruthy();
+  });
+
+  it("marca mesa ja reservada naquele horario como indisponivel (nao aparece clicavel)", async () => {
+    const { unidade, mesa } = await setupUnidadeCompleta();
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+
+    await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-11-20",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Primeiro cliente",
+      mesaId: mesa.id,
+    });
+
+    const res = await request(app)
+      .get(`/public/reservation-link/${token}/mesas-disponiveis`)
+      .query({ data: "2026-11-20", horaInicio: "19:00", numPessoas: 2 });
+
+    expect(res.status).toBe(200);
+    const linhaMesa = res.body.saloes[0].mesas.find((m: { id: string }) => m.id === mesa.id);
+    expect(linhaMesa.disponivel).toBe(false);
+    expect(linhaMesa.motivo).toMatch(/ocupada/i);
+  });
+
+  it("retorna 410 para token invalido", async () => {
+    const res = await request(app)
+      .get("/public/reservation-link/token-invalido/mesas-disponiveis")
+      .query({ data: "2026-11-20", horaInicio: "19:00", numPessoas: 2 });
+    expect(res.status).toBe(410);
   });
 });

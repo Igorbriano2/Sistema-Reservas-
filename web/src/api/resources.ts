@@ -212,6 +212,9 @@ export interface DadosReservaPublica {
   numPessoas: number;
   clienteNome: string;
   clienteTelefone?: string;
+  // Escolhida pelo cliente no mapa visual (doc 11 Parte 2). Se ausente, o backend
+  // escolhe a mesa/salao automaticamente (fluxo antigo, ainda suportado).
+  mesaId?: string;
 }
 
 export interface ReservaPublicaCriada {
@@ -225,6 +228,54 @@ export interface ReservaPublicaCriada {
 
 export function criarReservaPublica(token: string, dados: DadosReservaPublica) {
   return api.post<ReservaPublicaCriada>(`/public/reservation-link/${token}/reservations`, dados);
+}
+
+// Mapa visual do salao pra escolha de mesa pelo cliente (doc 11 Parte 2) - mesma forma
+// de mesa/elemento do editor do dono, com disponivel/motivo calculados pro
+// data/horaInicio/numPessoas informados.
+export interface MesaPublica {
+  id: string;
+  salaoId: string;
+  nome: string;
+  capacidadeMin: number;
+  capacidadeMax: number;
+  formato: MesaFormato;
+  posX: number | null;
+  posY: number | null;
+  largura: number | null;
+  altura: number | null;
+  disponivel: boolean;
+  motivo?: string;
+}
+
+export interface ElementoPublico {
+  id: string;
+  salaoId: string;
+  tipo: TipoElementoSalao;
+  nome: string;
+  posX: number;
+  posY: number;
+  largura: number;
+  altura: number;
+  rotacao: number;
+  capacidade: number | null;
+}
+
+export interface SalaoPublico {
+  id: string;
+  nome: string;
+  mesas: MesaPublica[];
+  elementos: ElementoPublico[];
+}
+
+export interface RespostaMesasDisponiveis {
+  disponibilidade: { disponivel: boolean; motivo?: string };
+  saloes: SalaoPublico[];
+}
+
+export function listarMesasDisponiveisPublico(token: string, data: string, horaInicio: string, numPessoas: number) {
+  const params = new URLSearchParams({ data, horaInicio, numPessoas: String(numPessoas) });
+  return api.get<RespostaMesasDisponiveis>(`/public/reservation-link/${token}/mesas-disponiveis?${params}`);
 }
 
 // Formulario de contato/lista de espera da landing page (secao de preco) - ainda

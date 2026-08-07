@@ -17,6 +17,9 @@ export interface MesaCanvas {
   posY: number;
   largura: number;
   altura: number;
+  // So usado em modo "selecao" (Parte 2, pagina publica) - texto do tooltip nativo
+  // (title) quando a mesa esta indisponivel, explicando o motivo.
+  motivoIndisponivel?: string;
 }
 
 // Objetos decorativos/estruturais (parede, porta, janela, planta, balcao, banheiro,
@@ -377,6 +380,7 @@ export function SalaoCanvasSvg({
               onSelecionarMesa?.(mesa.id);
             }}
           >
+            {modo === "selecao" && indisponivel && mesa.motivoIndisponivel && <title>{mesa.motivoIndisponivel}</title>}
             {cadeiras.map((c, i) => (
               <circle key={i} cx={c.x} cy={c.y} r={6} className="mesa-canvas-cadeira" />
             ))}
