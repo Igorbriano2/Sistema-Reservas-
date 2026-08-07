@@ -18,6 +18,10 @@ export interface AgenteConfig {
   politicasReserva: string;
   faq: Array<{ pergunta: string; resposta: string }>;
   topicosProibidos: string[];
+  // Tracking de marketing do proprio restaurante (doc 13) - disparado na pagina
+  // publica de reserva. Nulo ate o dono colar o id.
+  googleTagId: string | null;
+  facebookPixelId: string | null;
 }
 
 export interface Unidade {

@@ -16,6 +16,10 @@ export const agenteConfig = pgTable("agente_config", {
   faq: jsonb("faq").notNull().default([]),
   // Lista de topicos que o agente deve evitar/escalar: ["politica", "reclamacoes juridicas", ...]
   topicosProibidos: jsonb("topicos_proibidos").notNull().default([]),
+  // Tracking de marketing do PROPRIO restaurante (nao nosso) - disparados na pagina
+  // publica de reserva. Nulos ate o dono colar o id; nunca carregamos script sem eles.
+  googleTagId: text("google_tag_id"),
+  facebookPixelId: text("facebook_pixel_id"),
 });
 
 export type AgenteConfig = typeof agenteConfig.$inferSelect;

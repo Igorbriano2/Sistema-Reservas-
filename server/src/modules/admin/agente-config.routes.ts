@@ -19,6 +19,16 @@ const atualizarSchema = z
     politicasReserva: z.string(),
     faq: z.array(faqItemSchema),
     topicosProibidos: z.array(z.string()),
+    // Tracking de marketing do restaurante (doc 13) - string vazia normaliza pra null
+    // (apaga o id salvo), nao fica vazia armazenada.
+    googleTagId: z
+      .string()
+      .transform((v) => v.trim() || null)
+      .nullable(),
+    facebookPixelId: z
+      .string()
+      .transform((v) => v.trim() || null)
+      .nullable(),
   })
   .partial()
   .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar");

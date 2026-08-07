@@ -10,6 +10,8 @@ interface FormState {
   despedida: string;
   politicasReserva: string;
   topicosProibidos: string;
+  googleTagId: string;
+  facebookPixelId: string;
 }
 
 const VAZIO: FormState = {
@@ -20,6 +22,8 @@ const VAZIO: FormState = {
   despedida: "",
   politicasReserva: "",
   topicosProibidos: "",
+  googleTagId: "",
+  facebookPixelId: "",
 };
 
 export function AgentConfigPage() {
@@ -40,6 +44,8 @@ export function AgentConfigPage() {
           despedida: config.despedida,
           politicasReserva: config.politicasReserva,
           topicosProibidos: config.topicosProibidos.join(", "),
+          googleTagId: config.googleTagId ?? "",
+          facebookPixelId: config.facebookPixelId ?? "",
         }),
       )
       .catch((err) => setErro(err instanceof ApiError ? err.message : "Nao foi possivel carregar a configuracao."))
@@ -63,6 +69,8 @@ export function AgentConfigPage() {
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
+        googleTagId: form.googleTagId,
+        facebookPixelId: form.facebookPixelId,
       });
       setSalvo(true);
     } catch (err) {
@@ -113,6 +121,38 @@ export function AgentConfigPage() {
           Topicos proibidos (separados por virgula)
           <input value={form.topicosProibidos} onChange={(e) => setForm({ ...form, topicosProibidos: e.target.value })} />
         </label>
+
+        <hr style={{ border: "none", borderTop: "1px solid var(--border-subtle)", margin: "1.25rem 0" }} />
+        <h4 style={{ marginTop: 0, marginBottom: "0.25rem" }}>Rastreamento de marketing</h4>
+        <p className="texto-secundario" style={{ marginTop: 0, marginBottom: "0.75rem", fontSize: "0.85rem" }}>
+          Opcional. Cole os ids das suas proprias campanhas pra ver no Google Ads/Meta Ads quantas reservas elas
+          geraram. So carregamos os scripts na pagina publica de reserva depois que o cliente aceitar cookies.
+        </p>
+        <div className="linha-form">
+          <label>
+            Google Tag ID
+            <input
+              value={form.googleTagId}
+              onChange={(e) => setForm({ ...form, googleTagId: e.target.value })}
+              placeholder="G-XXXXXXXXXX ou AW-XXXXXXXXX"
+            />
+            <span className="texto-secundario" style={{ fontSize: "0.78rem", fontWeight: 400 }}>
+              Google Tag Manager ou GA4 → Admin → Fluxos de dados
+            </span>
+          </label>
+          <label>
+            Facebook Pixel ID
+            <input
+              value={form.facebookPixelId}
+              onChange={(e) => setForm({ ...form, facebookPixelId: e.target.value })}
+              placeholder="Somente numeros"
+            />
+            <span className="texto-secundario" style={{ fontSize: "0.78rem", fontWeight: 400 }}>
+              Meta Events Manager → Origens de dados → Pixel
+            </span>
+          </label>
+        </div>
+
         {erro && <p className="erro">{erro}</p>}
         {salvo && <p className="sucesso" style={{ fontSize: "0.85rem" }}>Configuracao salva.</p>}
         <button className="btn" type="submit" disabled={salvando}>

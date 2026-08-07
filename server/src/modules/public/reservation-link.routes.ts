@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import type { Response } from "express";
 import { db } from "../../db/client.js";
-import { conversas, mesas, salaoElementos, saloes, unidades } from "../../db/schema/index.js";
+import { agenteConfig, conversas, mesas, salaoElementos, saloes, unidades } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { decodificarTokenDeReserva, TokenDeReservaInvalidoError } from "../../lib/reservation-link.js";
 import { criarReserva, criarReservaComMesaAutomatica } from "../../lib/reservations.js";
@@ -32,14 +32,27 @@ reservationLinkRouter.get(
     }
 
     const [unidade] = await db
-      .select({ id: unidades.id, nome: unidades.nome, timezone: unidades.timezone })
+      .select({ id: unidades.id, nome: unidades.nome, timezone: unidades.timezone, empresaId: unidades.empresaId })
       .from(unidades)
       .where(eq(unidades.id, payload.unidadeId))
       .limit(1);
 
     if (!unidade) return responderTokenInvalido(res);
 
-    res.json({ unidadeNome: unidade.nome, timezone: unidade.timezone });
+    // Ids de tracking de marketing do PROPRIO restaurante (doc 13) - nulo se o dono
+    // nunca configurou (agenteConfig pode nem existir ainda pra essa empresa).
+    const [config] = await db
+      .select({ googleTagId: agenteConfig.googleTagId, facebookPixelId: agenteConfig.facebookPixelId })
+      .from(agenteConfig)
+      .where(eq(agenteConfig.empresaId, unidade.empresaId))
+      .limit(1);
+
+    res.json({
+      unidadeNome: unidade.nome,
+      timezone: unidade.timezone,
+      googleTagId: config?.googleTagId ?? null,
+      facebookPixelId: config?.facebookPixelId ?? null,
+    });
   }),
 );
 

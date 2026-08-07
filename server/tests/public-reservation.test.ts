@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import request from "supertest";
 import { db } from "../src/db/client.js";
-import { reservas } from "../src/db/schema/index.js";
+import { agenteConfig, reservas } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
 import {
   criarConexaoInstagram,
@@ -54,6 +54,31 @@ describe("GET /public/reservation-link/:token", () => {
   it("retorna 410 para token invalido (string qualquer)", async () => {
     const res = await request(app).get("/public/reservation-link/token-invalido-qualquer");
     expect(res.status).toBe(410);
+  });
+
+  it("googleTagId/facebookPixelId vem nulos quando a empresa nunca configurou tracking", async () => {
+    const { unidade } = await setupUnidadeCompleta();
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+
+    const res = await request(app).get(`/public/reservation-link/${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.googleTagId).toBeNull();
+    expect(res.body.facebookPixelId).toBeNull();
+  });
+
+  it("devolve googleTagId/facebookPixelId configurados pelo dono (doc 13)", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    await db.insert(agenteConfig).values({
+      empresaId: empresa.id,
+      googleTagId: "GT-XPTO",
+      facebookPixelId: "999888777",
+    });
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+
+    const res = await request(app).get(`/public/reservation-link/${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.googleTagId).toBe("GT-XPTO");
+    expect(res.body.facebookPixelId).toBe("999888777");
   });
 
   it("retorna 410 para token de outro proposito (ex: nunca aceita um token de sessao de admin aqui)", async () => {

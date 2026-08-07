@@ -200,6 +200,9 @@ export function atualizarAgenteConfig(dados: Partial<Omit<AgenteConfig, "empresa
 export interface InfoDoLinkDeReserva {
   unidadeNome: string;
   timezone: string;
+  // Tracking de marketing do restaurante (doc 13) - nulo se o dono nao configurou.
+  googleTagId: string | null;
+  facebookPixelId: string | null;
 }
 
 export function obterInfoDoLinkDeReserva(token: string) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { ApiError } from "../api/client.js";
 import {
@@ -10,15 +10,24 @@ import {
 } from "../api/resources.js";
 import { Marca } from "../components/Marca.js";
 import { SalaoCanvasSvg, type MesaCanvas } from "../components/salao-canvas/SalaoCanvasSvg.js";
+import { carregarFacebookPixel, carregarGoogleTag, dispararEventoFacebook, dispararEventoGA4 } from "../lib/tracking.js";
 
 type Estado = "carregando" | "invalido" | "pronto";
 // "dados": data/horario/pessoas. "mapa": escolher a mesa (so quando a unidade tem
 // salao em modo "mapa"). "cliente": nome/telefone + confirmar.
 type Etapa = "dados" | "mapa" | "cliente";
+type Consentimento = "pendente" | "aceito" | "recusado";
 
 // Mesa sem posicao/tamanho salvos (nunca deveria acontecer se o dono usou o editor
 // visual, mas evita esconder uma mesa reservavel do cliente por falta de dados).
 const TAMANHO_PADRAO_FALLBACK = 90;
+
+const CHAVE_CONSENTIMENTO = "consentimento_cookies";
+
+function lerConsentimentoSalvo(): Consentimento {
+  const salvo = localStorage.getItem(CHAVE_CONSENTIMENTO);
+  return salvo === "aceito" || salvo === "recusado" ? salvo : "pendente";
+}
 
 export function PublicReservationPage() {
   const { token } = useParams<{ token: string }>();
@@ -42,6 +51,18 @@ export function PublicReservationPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [confirmada, setConfirmada] = useState<ReservaPublicaCriada | null>(null);
 
+  const [tracking, setTracking] = useState<{ googleTagId: string | null; facebookPixelId: string | null }>({
+    googleTagId: null,
+    facebookPixelId: null,
+  });
+  const [consentimento, setConsentimento] = useState<Consentimento>(lerConsentimentoSalvo);
+  // "Comecou a preencher" e "ja disparou o evento" sao coisas diferentes: o cliente
+  // pode preencher o primeiro campo antes de decidir sobre os cookies, e o evento so
+  // pode ser enviado quando (e se) o consentimento chegar depois disso.
+  const [iniciouPreenchimento, setIniciouPreenchimento] = useState(false);
+  const jaIniciouReservaRef = useRef(false);
+  const eventoIniciouDisparadoRef = useRef(false);
+
   useEffect(() => {
     if (!token) {
       setEstado("invalido");
@@ -50,10 +71,52 @@ export function PublicReservationPage() {
     obterInfoDoLinkDeReserva(token)
       .then((info) => {
         setUnidadeNome(info.unidadeNome);
+        setTracking({ googleTagId: info.googleTagId, facebookPixelId: info.facebookPixelId });
         setEstado("pronto");
       })
       .catch(() => setEstado("invalido"));
   }, [token]);
+
+  // So carrega os scripts de rastreamento depois do consentimento (mesmo que ja
+  // salvo de uma visita anterior) e so se o restaurante configurou pelo menos um id -
+  // nunca dispara nada sem consentimento explicito, nunca com id vazio.
+  useEffect(() => {
+    if (consentimento !== "aceito") return;
+    if (tracking.googleTagId) carregarGoogleTag(tracking.googleTagId);
+    if (tracking.facebookPixelId) carregarFacebookPixel(tracking.facebookPixelId);
+  }, [consentimento, tracking]);
+
+  // So dispara depois que os scripts acima ja rodaram (mesmo efeito de consentimento
+  // "aceito", so que declarado depois - roda em seguida, na mesma leva). Se o cliente
+  // ja tinha comecado a preencher antes de aceitar, o evento sai aqui; se aceitar veio
+  // primeiro, sai na hora que o campo e preenchido (o efeito ja tem os dois como true).
+  useEffect(() => {
+    if (!iniciouPreenchimento) return;
+    if (consentimento !== "aceito") return;
+    if (eventoIniciouDisparadoRef.current) return;
+    eventoIniciouDisparadoRef.current = true;
+    dispararEventoGA4("iniciou_reserva");
+    dispararEventoFacebook("InitiateCheckout");
+  }, [iniciouPreenchimento, consentimento]);
+
+  function aceitarCookies() {
+    localStorage.setItem(CHAVE_CONSENTIMENTO, "aceito");
+    setConsentimento("aceito");
+  }
+
+  function recusarCookies() {
+    localStorage.setItem(CHAVE_CONSENTIMENTO, "recusado");
+    setConsentimento("recusado");
+  }
+
+  // Marca que o cliente comecou a preencher o formulario inicial (data/horario/pessoas) -
+  // so uma vez, mesmo que o consentimento de cookies ainda nao tenha chegado (o disparo
+  // de fato acontece no efeito acima, quando as duas condicoes estiverem satisfeitas).
+  function marcarInicioDaReserva() {
+    if (jaIniciouReservaRef.current) return;
+    jaIniciouReservaRef.current = true;
+    setIniciouPreenchimento(true);
+  }
 
   const salaoAtual = useMemo(() => saloes.find((s) => s.id === salaoEscolhidoId) ?? null, [saloes, salaoEscolhidoId]);
   const mesaEscolhidaNome = useMemo(
@@ -139,6 +202,8 @@ export function PublicReservationPage() {
         mesaId: mesaEscolhidaId ?? undefined,
       });
       setConfirmada(reserva);
+      dispararEventoGA4("reserva_confirmada", { data: reserva.data, num_pessoas: reserva.numPessoas });
+      dispararEventoFacebook("Lead");
     } catch (err) {
       if (err instanceof ApiError && err.status === 409 && mesaEscolhidaId) {
         // A mesa escolhida foi reservada por outra pessoa entre a selecao e a
@@ -184,37 +249,77 @@ export function PublicReservationPage() {
     );
   }
 
+  // So aparece se o restaurante configurou pelo menos um pixel/tag - sem isso nao
+  // ha nenhum script de rastreamento pra pedir consentimento sobre.
+  const temTracking = !!(tracking.googleTagId || tracking.facebookPixelId);
+  const bannerCookies = temTracking && consentimento === "pendente" && (
+    <div className="banner-cookies">
+      <p>
+        Usamos cookies pra medir o resultado das campanhas deste restaurante. Voce pode aceitar ou recusar - a
+        reserva funciona normalmente de qualquer jeito.
+      </p>
+      <div className="acoes">
+        <button className="btn btn-secundario" type="button" onClick={recusarCookies}>
+          Recusar
+        </button>
+        <button className="btn" type="button" onClick={aceitarCookies}>
+          Aceitar
+        </button>
+      </div>
+    </div>
+  );
+
   if (confirmada) {
     return (
-      <div className="tela-login">
-        <div className="form-login">
-          <Marca tamanho="grande" />
-          <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reserva confirmada!</h1>
-          <p style={{ fontSize: "0.9rem" }}>
-            {confirmada.data.split("-").reverse().join("/")} as {confirmada.horaInicio.slice(0, 5)}, para{" "}
-            {confirmada.numPessoas} pessoa(s).
-          </p>
-          <p className="texto-secundario" style={{ fontSize: "0.85rem" }}>
-            Voce tambem vai receber a confirmacao pelo Instagram. Ate breve!
-          </p>
+      <>
+        <div className="tela-login">
+          <div className="form-login">
+            <Marca tamanho="grande" />
+            <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reserva confirmada!</h1>
+            <p style={{ fontSize: "0.9rem" }}>
+              {confirmada.data.split("-").reverse().join("/")} as {confirmada.horaInicio.slice(0, 5)}, para{" "}
+              {confirmada.numPessoas} pessoa(s).
+            </p>
+            <p className="texto-secundario" style={{ fontSize: "0.85rem" }}>
+              Voce tambem vai receber a confirmacao pelo Instagram. Ate breve!
+            </p>
+          </div>
         </div>
-      </div>
+        {bannerCookies}
+      </>
     );
   }
 
   if (etapa === "dados") {
     return (
+      <>
       <div className="tela-login">
         <form className="form-login" onSubmit={avancarParaMapa} style={{ width: 360 }}>
           <Marca tamanho="grande" />
           <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reservar em {unidadeNome}</h1>
           <label>
             Data
-            <input type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+            <input
+              type="date"
+              value={data}
+              onChange={(e) => {
+                marcarInicioDaReserva();
+                setData(e.target.value);
+              }}
+              required
+            />
           </label>
           <label>
             Horario
-            <input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} required />
+            <input
+              type="time"
+              value={horaInicio}
+              onChange={(e) => {
+                marcarInicioDaReserva();
+                setHoraInicio(e.target.value);
+              }}
+              required
+            />
           </label>
           <label>
             Numero de pessoas
@@ -222,7 +327,10 @@ export function PublicReservationPage() {
               type="number"
               min={1}
               value={numPessoas}
-              onChange={(e) => setNumPessoas(e.target.value)}
+              onChange={(e) => {
+                marcarInicioDaReserva();
+                setNumPessoas(e.target.value);
+              }}
               required
             />
           </label>
@@ -232,11 +340,14 @@ export function PublicReservationPage() {
           </button>
         </form>
       </div>
+      {bannerCookies}
+      </>
     );
   }
 
   if (etapa === "mapa") {
     return (
+      <>
       <div className="tela-login">
         <div className="form-login" style={{ width: "min(760px, 92vw)" }}>
           <Marca tamanho="grande" />
@@ -295,11 +406,14 @@ export function PublicReservationPage() {
           </button>
         </div>
       </div>
+      {bannerCookies}
+      </>
     );
   }
 
   // etapa === "cliente"
   return (
+    <>
     <div className="tela-login">
       <form className="form-login" onSubmit={handleSubmit} style={{ width: 360 }}>
         <Marca tamanho="grande" />
@@ -331,5 +445,7 @@ export function PublicReservationPage() {
         </div>
       </form>
     </div>
+    {bannerCookies}
+    </>
   );
 }
