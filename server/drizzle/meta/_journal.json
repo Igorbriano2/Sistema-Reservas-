@@ -183,6 +183,13 @@
       "when": 1786131101554,
       "tag": "0025_old_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1786141265584,
+      "tag": "0026_adiciona_telefone_redes_sociais_unidades",
+      "breakpoints": true
     }
   ]
 }

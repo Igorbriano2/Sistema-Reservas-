@@ -87,3 +87,56 @@ describe("POST /admin/unidades (doc 17, parte 3 - adicionar unidade)", () => {
     expect(semPaymentMethod.status).toBe(400);
   });
 });
+
+describe("PATCH /admin/unidades/:unidadeId (doc 24 - dados de contato pro agente de IA)", () => {
+  it("owner atualiza telefone, endereco e redes sociais", async () => {
+    const { usuario, senhaAdmin, unidade } = await criarEmpresaComAdmin();
+    const token = await login(app, usuario.email, senhaAdmin);
+
+    const res = await request(app)
+      .patch(`/admin/unidades/${unidade.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        telefone: "(11) 91234-5678",
+        endereco: "Rua das Flores, 123",
+        redesSociais: [{ rede: "Instagram", link: "https://instagram.com/restaurante" }],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.telefone).toBe("(11) 91234-5678");
+    expect(res.body.endereco).toBe("Rua das Flores, 123");
+    expect(res.body.redesSociais).toEqual([{ rede: "Instagram", link: "https://instagram.com/restaurante" }]);
+  });
+
+  it("gerente/funcionario nao pode editar (owner only)", async () => {
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);
+    await criarUsuarioUnidade(funcionario.id, unidade.id);
+    const token = await login(app, funcionario.username, senha);
+
+    const res = await request(app)
+      .patch(`/admin/unidades/${unidade.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ telefone: "(11) 90000-0000" });
+    expect(res.status).toBe(403);
+  });
+
+  it("404 para unidade de outra empresa", async () => {
+    const empresaA = await criarEmpresaComAdmin({ nomeEmpresa: "A", emailAdmin: "a2@a.com", senhaAdmin: "senha-a-123" });
+    const empresaB = await criarEmpresaComAdmin({ nomeEmpresa: "B", emailAdmin: "b2@b.com", senhaAdmin: "senha-b-123" });
+    const tokenA = await login(app, empresaA.usuario.email, empresaA.senhaAdmin);
+
+    const res = await request(app)
+      .patch(`/admin/unidades/${empresaB.unidade.id}`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ telefone: "(11) 90000-0000" });
+    expect(res.status).toBe(404);
+  });
+
+  it("rejeita corpo vazio", async () => {
+    const { usuario, senhaAdmin, unidade } = await criarEmpresaComAdmin();
+    const token = await login(app, usuario.email, senhaAdmin);
+
+    const res = await request(app).patch(`/admin/unidades/${unidade.id}`).set("Authorization", `Bearer ${token}`).send({});
+    expect(res.status).toBe(400);
+  });
+});

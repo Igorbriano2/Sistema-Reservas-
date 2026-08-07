@@ -8,6 +8,7 @@ import { requireRole } from "../../middleware/auth.middleware.js";
 import { adicionarUnidadeComAssinatura } from "../../lib/unidades.js";
 import { obterStripe, resolverPriceId } from "../../lib/stripe.js";
 import { env } from "../../config/env.js";
+import { RecursoNaoEncontradoError } from "../../lib/errors.js";
 
 export const unidadesRouter = Router();
 
@@ -33,6 +34,8 @@ unidadesRouter.get(
         empresaId: unidades.empresaId,
         nome: unidades.nome,
         endereco: unidades.endereco,
+        telefone: unidades.telefone,
+        redesSociais: unidades.redesSociais,
         timezone: unidades.timezone,
         permissoesExtra: usuarioUnidades.permissoesExtra,
       })
@@ -67,5 +70,34 @@ unidadesRouter.post(
     });
     const { unidade } = await adicionarUnidadeComAssinatura(db, stripe, priceId, req.auth!.empresaId, dados);
     res.status(201).json(unidade);
+  }),
+);
+
+const redeSocialSchema = z.object({ rede: z.string().trim().min(1), link: z.string().trim().min(1) });
+
+const atualizarUnidadeSchema = z
+  .object({
+    endereco: z.string().trim().transform((v) => v || null).nullable(),
+    telefone: z.string().trim().transform((v) => v || null).nullable(),
+    redesSociais: z.array(redeSocialSchema),
+  })
+  .partial()
+  .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar");
+
+// Dados de contato/presenca (doc 24 - agente de IA obrigatoriamente informado) - so o
+// dono edita (mesma tela ownerOnly de "Unidades" no menu), qualquer unidade da propria
+// empresa, nao so a selecionada no momento.
+unidadesRouter.patch(
+  "/:unidadeId",
+  requireRole("owner"),
+  asyncHandler(async (req, res) => {
+    const dados = atualizarUnidadeSchema.parse(req.body);
+    const [atualizada] = await db
+      .update(unidades)
+      .set(dados)
+      .where(and(eq(unidades.id, req.params.unidadeId), eq(unidades.empresaId, req.auth!.empresaId)))
+      .returning();
+    if (!atualizada) throw new RecursoNaoEncontradoError("Unidade nao encontrada");
+    res.json(atualizada);
   }),
 );

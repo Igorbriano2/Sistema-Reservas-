@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { ApiError } from "../api/client.js";
-import { adicionarUnidade, listarUnidades } from "../api/resources.js";
+import { adicionarUnidade, atualizarUnidade, listarUnidades } from "../api/resources.js";
 import { useTheme } from "../context/ThemeContext.js";
 import { stripePromise } from "../lib/stripe-client.js";
-import type { Unidade } from "../types.js";
+import type { RedeSocial, Unidade } from "../types.js";
 
 // Stripe Elements roda num iframe isolado e nao le CSS vars (mesma limitacao de
 // EtapaPagamento.tsx) - como esta tela (diferente do checkout publico) roda dentro do
@@ -110,11 +110,111 @@ function FormularioNovaUnidade({ onCriada, onCancelar }: FormularioNovaUnidadePr
   );
 }
 
+interface FormularioContatoState {
+  endereco: string;
+  telefone: string;
+  redesSociais: RedeSocial[];
+}
+
+function paraFormulario(u: Unidade): FormularioContatoState {
+  return { endereco: u.endereco ?? "", telefone: u.telefone ?? "", redesSociais: u.redesSociais };
+}
+
+// Edicao dos dados de contato/presenca (doc 24) - o agente de IA usa isso pra
+// responder endereco/telefone/redes sociais sem inventar (ver agent-prompt.ts).
+interface FormularioContatoProps {
+  unidade: Unidade;
+  onSalvo: (unidade: Unidade) => void;
+  onCancelar: () => void;
+}
+
+function FormularioContato({ unidade, onSalvo, onCancelar }: FormularioContatoProps) {
+  const [form, setForm] = useState<FormularioContatoState>(() => paraFormulario(unidade));
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  function atualizarRede(indice: number, campo: keyof RedeSocial, valor: string) {
+    setForm((atual) => ({
+      ...atual,
+      redesSociais: atual.redesSociais.map((r, i) => (i === indice ? { ...r, [campo]: valor } : r)),
+    }));
+  }
+
+  function removerRede(indice: number) {
+    setForm((atual) => ({ ...atual, redesSociais: atual.redesSociais.filter((_, i) => i !== indice) }));
+  }
+
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    setSalvando(true);
+    setErro(null);
+    try {
+      const atualizada = await atualizarUnidade(unidade.id, {
+        endereco: form.endereco.trim() || null,
+        telefone: form.telefone.trim() || null,
+        redesSociais: form.redesSociais.filter((r) => r.rede.trim() && r.link.trim()),
+      });
+      onSalvo(atualizada);
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Nao foi possivel salvar. Tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <form onSubmit={salvar} className="cartao">
+      <h3 style={{ marginTop: 0 }}>Contato de {unidade.nome}</h3>
+      <p className="texto-secundario" style={{ fontSize: "0.85rem" }}>
+        O agente de IA usa esses dados pra responder no Instagram/WhatsApp quando o cliente perguntar endereço,
+        telefone ou redes sociais - nunca inventa essas informações.
+      </p>
+      <div className="linha-form">
+        <label>
+          Endereço
+          <input value={form.endereco} onChange={(e) => setForm((f) => ({ ...f, endereco: e.target.value }))} />
+        </label>
+        <label>
+          Telefone
+          <input value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} placeholder="(11) 91234-5678" />
+        </label>
+      </div>
+      <label style={{ marginBottom: "0.5rem" }}>Redes sociais</label>
+      {form.redesSociais.map((rede, i) => (
+        <div className="linha-form" key={i}>
+          <input value={rede.rede} onChange={(e) => atualizarRede(i, "rede", e.target.value)} placeholder="Instagram" />
+          <input value={rede.link} onChange={(e) => atualizarRede(i, "link", e.target.value)} placeholder="https://instagram.com/..." />
+          <button type="button" className="btn btn-secundario" onClick={() => removerRede(i)}>
+            Remover
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="btn btn-secundario"
+        onClick={() => setForm((f) => ({ ...f, redesSociais: [...f.redesSociais, { rede: "", link: "" }] }))}
+      >
+        + Adicionar rede social
+      </button>
+      {erro && <p className="erro">{erro}</p>}
+      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+        <button className="btn" type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+        <button className="btn btn-secundario" type="button" onClick={onCancelar} disabled={salvando}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function UnidadesPage() {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   async function carregar() {
     setCarregando(true);
@@ -146,7 +246,10 @@ export function UnidadesPage() {
               <tr>
                 <th>Nome</th>
                 <th>Endereço</th>
+                <th>Telefone</th>
+                <th>Redes sociais</th>
                 <th>Fuso horário</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -154,13 +257,31 @@ export function UnidadesPage() {
                 <tr key={u.id}>
                   <td>{u.nome}</td>
                   <td>{u.endereco ?? "-"}</td>
+                  <td>{u.telefone ?? "-"}</td>
+                  <td>{u.redesSociais.length > 0 ? u.redesSociais.map((r) => r.rede).join(", ") : "-"}</td>
                   <td>{u.timezone}</td>
+                  <td>
+                    <button className="btn btn-secundario" type="button" onClick={() => setEditandoId(u.id)}>
+                      Editar contato
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {editandoId && (
+        <FormularioContato
+          unidade={unidades.find((u) => u.id === editandoId)!}
+          onSalvo={(atualizada) => {
+            setUnidades((atual) => atual.map((u) => (u.id === atualizada.id ? atualizada : u)));
+            setEditandoId(null);
+          }}
+          onCancelar={() => setEditandoId(null)}
+        />
+      )}
 
       <div className="cartao">
         <h3 style={{ marginTop: 0 }}>Adicionar unidade</h3>

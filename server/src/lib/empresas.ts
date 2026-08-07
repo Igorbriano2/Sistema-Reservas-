@@ -76,10 +76,17 @@ export async function criarEmpresaComOwner(
     })
     .returning();
 
+  // "Agente master": toda empresa nova sai daqui com um agenteConfig ja pronto pra
+  // responder no Instagram/WhatsApp, sem o dono precisar configurar nada primeiro -
+  // esses valores sao so o ponto de partida (editavel em /admin/agente); as regras
+  // que garantem comportamento humano e uso obrigatorio dos dados reais do restaurante
+  // ficam fixas no prompt em si (ver REGRAS_FIXAS_DO_MASTER em lib/agent-prompt.ts),
+  // nao dependem de nada configurado aqui.
   await db.insert(agenteConfig).values({
     empresaId: empresa.id,
     nomeDoAgente: "Assistente",
     descricaoRestaurante: params.nomeEmpresa,
+    tomDeVoz: "acolhedor e natural, como uma pessoa de verdade da equipe conversando - nunca robotico ou repetitivo",
     saudacao: "Ola! Como posso ajudar com sua reserva?",
     despedida: "Ate breve!",
   });

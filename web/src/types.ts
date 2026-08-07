@@ -104,11 +104,20 @@ export interface Feedback {
   respostasCustomizadas: PesquisaRespostaCustomizada[];
 }
 
+export interface RedeSocial {
+  rede: string;
+  link: string;
+}
+
 export interface Unidade {
   id: string;
   empresaId: string;
   nome: string;
   endereco: string | null;
+  // Dados obrigatorios pro agente de IA responder com precisao quando o cliente
+  // perguntar (doc 24) - nunca inventados, sempre vindos daqui.
+  telefone: string | null;
+  redesSociais: RedeSocial[];
   timezone: string;
   // So vem preenchido pra gerente/funcionario (owner tem acesso implicito a tudo,
   // backend nem inclui o campo) - funcionalidades extra liberadas nessa loja (doc 17).

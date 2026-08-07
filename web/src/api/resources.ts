@@ -15,6 +15,7 @@ import type {
   Permissao,
   PesquisaPergunta,
   PesquisaPerguntaTipo,
+  RedeSocial,
   RegraHorario,
   Relatorio,
   Reserva,
@@ -48,6 +49,18 @@ export interface DadosNovaUnidade {
 
 export function adicionarUnidade(dados: DadosNovaUnidade) {
   return api.post<Unidade>("/admin/unidades", dados);
+}
+
+// Dados de contato/presenca (doc 24) - o agente de IA usa isso pra responder
+// endereco/telefone/redes sociais sem inventar (ver montarSystemPrompt no backend).
+export interface DadosEditarUnidade {
+  endereco?: string | null;
+  telefone?: string | null;
+  redesSociais?: RedeSocial[];
+}
+
+export function atualizarUnidade(unidadeId: string, dados: DadosEditarUnidade) {
+  return api.patch<Unidade>(`/admin/unidades/${unidadeId}`, dados);
 }
 
 export function listarSaloes(unidadeId: string) {

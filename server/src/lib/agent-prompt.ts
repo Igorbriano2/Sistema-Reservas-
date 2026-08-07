@@ -5,11 +5,38 @@ interface FaqItem {
   resposta?: string;
 }
 
+interface RedeSocialItem {
+  rede?: string;
+  link?: string;
+}
+
+// Bloco de regras fixas, iguais para TODO agente de qualquer restaurante - e o que faz
+// o "agente master" (o motor unico de prompt/orquestracao compartilhado por todas as
+// empresas, ver criarEmpresaComOwner em lib/empresas.ts + processarTurnoAgrupado em
+// modules/agent/process-event.ts) valer de verdade como controle central: em vez de
+// depender do dono configurar isso certo, essas instrucoes vao pra CADA agente sempre,
+// nunca sao opcionais nem editaveis pelo formulario de agente_config.
+const REGRAS_FIXAS_DO_MASTER = [
+  "Fale como uma pessoa de verdade da equipe do restaurante conversando no Instagram/WhatsApp - frases curtas, tom" +
+    " natural, sem soar robotico, repetitivo ou formal demais. Nunca mencione que voce e uma IA a nao ser que o" +
+    " cliente pergunte diretamente ou que voce precise usar a regra abaixo de 'nao sei responder'.",
+  "So responda com informacoes que voce realmente tem: os dados do restaurante informados neste prompt (endereco," +
+    " telefone, redes sociais, politicas) ou o que as tools te devolverem (ex: get_menu para cardapio," +
+    " check_availability para horarios). NUNCA invente endereco, telefone, prato, preco, promocao ou qualquer" +
+    " outro dado que voce nao tenha recebido.",
+  "Se o cliente perguntar algo que voce nao tem como responder com certeza (nao esta nas informacoes acima nem" +
+    " numa tool), diga com naturalidade que voce nao sabe responder isso porque e um atendimento automatico (uma" +
+    " IA) e, se fizer sentido, ofereca chamar um humano com a tool escalate_to_human. Nunca chute uma resposta.",
+].join(" ");
+
 // Constroi o system prompt da Claude API a partir da configuracao da empresa
-// (agente_config) e do fuso horario da unidade. A data/hora atual no fuso da
-// unidade e injetada aqui para o modelo interpretar "hoje", "amanha" etc.
-// corretamente - sem isso ele nao tem como saber que dia e hoje.
-export function montarSystemPrompt(config: AgenteConfig, unidade: Pick<Unidade, "nome" | "timezone">): string {
+// (agente_config) e dos dados da unidade (endereco/telefone/redes sociais/fuso). A
+// data/hora atual no fuso da unidade e injetada aqui para o modelo interpretar "hoje",
+// "amanha" etc. corretamente - sem isso ele nao tem como saber que dia e hoje.
+export function montarSystemPrompt(
+  config: AgenteConfig,
+  unidade: Pick<Unidade, "nome" | "timezone" | "endereco" | "telefone" | "redesSociais">,
+): string {
   const agora = new Intl.DateTimeFormat("pt-BR", {
     timeZone: unidade.timezone,
     dateStyle: "full",
@@ -18,11 +45,22 @@ export function montarSystemPrompt(config: AgenteConfig, unidade: Pick<Unidade, 
 
   const faq = (Array.isArray(config.faq) ? (config.faq as FaqItem[]) : []).filter((f) => f.pergunta && f.resposta);
   const topicosProibidos = Array.isArray(config.topicosProibidos) ? (config.topicosProibidos as string[]) : [];
+  const redesSociais = (Array.isArray(unidade.redesSociais) ? (unidade.redesSociais as RedeSocialItem[]) : []).filter(
+    (r) => r.rede && r.link,
+  );
+
+  const dadosDoRestaurante = [
+    unidade.endereco && `Endereco: ${unidade.endereco}`,
+    unidade.telefone && `Telefone: ${unidade.telefone}`,
+    redesSociais.length > 0 && `Redes sociais:\n${redesSociais.map((r) => `- ${r.rede}: ${r.link}`).join("\n")}`,
+  ].filter(Boolean);
 
   const partes = [
-    `Voce e ${config.nomeDoAgente}, o atendente virtual do ${unidade.nome} via Instagram Direct. Voce cuida do ` +
-      `atendimento geral (duvidas, elogios, reclamacoes) e do fluxo de reservas.`,
+    `Voce e ${config.nomeDoAgente}, o atendente virtual do ${unidade.nome} via Instagram Direct e WhatsApp. Voce ` +
+      `cuida do atendimento geral (duvidas, elogios, reclamacoes) e do fluxo de reservas.`,
+    REGRAS_FIXAS_DO_MASTER,
     config.descricaoRestaurante && `Sobre o restaurante: ${config.descricaoRestaurante}`,
+    dadosDoRestaurante.length > 0 && `Dados do restaurante (use sempre que o cliente perguntar):\n${dadosDoRestaurante.join("\n")}`,
     config.tomDeVoz && `Tom de voz: ${config.tomDeVoz}.`,
     `Data e hora atual (fuso horario do restaurante, ${unidade.timezone}): ${agora}. Use isso para interpretar ` +
       `datas relativas como "hoje", "amanha" ou "sabado que vem".`,
@@ -37,8 +75,8 @@ export function montarSystemPrompt(config: AgenteConfig, unidade: Pick<Unidade, 
       "- Elogio: agradeca de forma calorosa e genuina, em poucas linhas.",
       "- Reclamacao: acolha com empatia, peca desculpas quando fizer sentido, e chame a tool escalate_to_human",
       "  se for algo serio, sensivel ou que voce nao consiga resolver sozinho.",
-      "- Pergunta simples (horario de funcionamento, endereco, politicas, etc.): responda direto usando as",
-      "  informacoes acima. Nao use nenhuma tool so para isso.",
+      "- Pergunta simples (horario de funcionamento, endereco, telefone, redes sociais, politicas, etc.): responda",
+      "  direto usando os dados do restaurante acima. Nao use nenhuma tool so para isso.",
       "- Pergunta sobre pratos, bebidas, precos ou opcoes do cardapio: use a tool get_menu para consultar o",
       "  cardapio atualizado do restaurante, em vez de adivinhar ou usar so as informacoes acima.",
       "- Pedido de reserva NOVA: use a tool get_reservation_link e envie o link ao cliente, explicando que e so",
@@ -51,7 +89,7 @@ export function montarSystemPrompt(config: AgenteConfig, unidade: Pick<Unidade, 
       "  modify_my_reservation, cancel_my_reservation ou check_reservation_status, normalmente.",
       "- Se o cliente pedir para falar com uma pessoa, ou voce nao tiver certeza de como ajudar com seguranca,",
       "  use escalate_to_human.",
-      "- Seja breve e direto, como em uma conversa real de Instagram Direct.",
+      "- Seja breve e direto, como em uma conversa real de Instagram Direct/WhatsApp.",
     ].join("\n"),
   ];
 
