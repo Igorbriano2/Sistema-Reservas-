@@ -209,4 +209,47 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
     expect(resposta.body).toHaveLength(1);
     expect(resposta.body[0].data).toBe("2026-09-15");
   });
+
+  it("persiste posicao/tamanho da mesa no editor visual (doc 11)", async () => {
+    const { unidade, token } = await setup();
+    const salao = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao Principal", modoConfiguracao: "mapa" });
+
+    const mesa = await request(app)
+      .post(`/admin/unidades/${unidade.id}/mesas`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        salaoId: salao.body.id,
+        nome: "Mesa 1",
+        capacidadeMin: 2,
+        capacidadeMax: 4,
+        posX: 10,
+        posY: 20,
+        largura: 90,
+        altura: 90,
+      });
+    expect(mesa.status).toBe(201);
+    expect(mesa.body.posX).toBe(10);
+    expect(mesa.body.posY).toBe(20);
+    expect(mesa.body.largura).toBe(90);
+    expect(mesa.body.altura).toBe(90);
+
+    const atualizada = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/mesas/${mesa.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ posX: 150.5, posY: 220.25, largura: 140, altura: 80 });
+    expect(atualizada.status).toBe(200);
+    expect(atualizada.body.posX).toBe(150.5);
+    expect(atualizada.body.posY).toBe(220.25);
+    expect(atualizada.body.largura).toBe(140);
+    expect(atualizada.body.altura).toBe(80);
+
+    const listada = await request(app).get(`/admin/unidades/${unidade.id}/mesas`).set("Authorization", `Bearer ${token}`);
+    expect(listada.status).toBe(200);
+    const mesaListada = listada.body.find((m: { id: string }) => m.id === mesa.body.id);
+    expect(mesaListada.posX).toBe(150.5);
+    expect(mesaListada.posY).toBe(220.25);
+  });
 });

@@ -49,6 +49,10 @@ export interface DadosMesa {
   capacidadeMin: number;
   capacidadeMax: number;
   formato?: MesaFormato;
+  posX?: number;
+  posY?: number;
+  largura?: number;
+  altura?: number;
 }
 
 export function criarMesa(unidadeId: string, dados: DadosMesa) {

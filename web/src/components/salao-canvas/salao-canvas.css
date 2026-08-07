@@ -1,0 +1,172 @@
+/* Editor visual do salao (doc 11) - componente compartilhado entre o editor do dono
+   (modo "edicao", TablesPage) e o seletor do cliente (modo "selecao", pagina publica,
+   Parte 2). Usa os tokens de design globais (index.css). */
+
+.salao-canvas-svg {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1000 / 640;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  touch-action: none;
+}
+
+.salao-canvas-grade-ponto {
+  fill: var(--border-subtle);
+}
+
+.mesa-canvas-forma {
+  fill: var(--bg-elevated);
+  stroke: var(--border-subtle);
+  stroke-width: 2;
+  transition: stroke var(--duracao-micro) var(--ease-padrao), fill var(--duracao-micro) var(--ease-padrao);
+}
+
+.mesa-canvas-cadeira {
+  fill: var(--bg-elevated-hover);
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.mesa-canvas-nome {
+  fill: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mesa-canvas-capacidade {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mesa-canvas-grupo {
+  cursor: grab;
+}
+
+.mesa-canvas-grupo:active {
+  cursor: grabbing;
+}
+
+.mesa-canvas-grupo.selecionada .mesa-canvas-forma {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.mesa-canvas-grupo.selecionavel {
+  cursor: pointer;
+}
+
+.mesa-canvas-grupo.selecionavel .mesa-canvas-forma {
+  stroke: var(--accent);
+}
+
+.mesa-canvas-grupo.selecionavel:hover .mesa-canvas-forma {
+  fill: rgba(185, 122, 79, 0.16);
+}
+
+.mesa-canvas-grupo.indisponivel {
+  cursor: not-allowed;
+}
+
+.mesa-canvas-grupo.indisponivel .mesa-canvas-forma {
+  fill: var(--bg-elevated);
+  stroke: var(--border-subtle);
+  opacity: 0.45;
+}
+
+.mesa-canvas-grupo.indisponivel .mesa-canvas-nome,
+.mesa-canvas-grupo.indisponivel .mesa-canvas-capacidade {
+  opacity: 0.45;
+}
+
+.mesa-canvas-alca-redimensionar {
+  fill: var(--accent);
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity var(--duracao-micro) var(--ease-padrao);
+}
+
+.mesa-canvas-grupo:hover .mesa-canvas-alca-redimensionar,
+.mesa-canvas-grupo.selecionada .mesa-canvas-alca-redimensionar {
+  opacity: 1;
+}
+
+/* Editor (TablesPage) --------------------------------------------------- */
+
+.canvas-editor {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.canvas-paleta {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.canvas-paleta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 10px;
+  cursor: grab;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+}
+
+.canvas-paleta-item:active {
+  cursor: grabbing;
+}
+
+.canvas-paleta-forma {
+  width: 28px;
+  height: 20px;
+  border: 2px solid var(--text-secondary);
+}
+
+.canvas-paleta-forma.redonda {
+  border-radius: 50%;
+}
+
+.canvas-paleta-forma.quadrada {
+  border-radius: 4px;
+  width: 22px;
+}
+
+.canvas-paleta-forma.retangular {
+  border-radius: 4px;
+}
+
+.canvas-painel-lateral {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.canvas-status-salvar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .canvas-editor {
+    grid-template-columns: 1fr;
+  }
+}

@@ -48,6 +48,11 @@ export interface Mesa {
   capacidadeMax: number;
   formato: MesaFormato;
   combinavelCom: string[];
+  // Posicao/tamanho no editor visual (doc 11) - nulo ate ser posicionada pela primeira vez.
+  posX: number | null;
+  posY: number | null;
+  largura: number | null;
+  altura: number | null;
 }
 
 export interface Bloqueio {

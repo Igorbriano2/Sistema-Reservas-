@@ -17,6 +17,12 @@ const criarMesaSchema = z.object({
   capacidadeMax: z.number().int().positive(),
   formato: formatoSchema.optional(),
   combinavelCom: z.array(z.string().uuid()).optional(),
+  // Posicao/tamanho no editor visual (doc 11) - opcionais pra nao quebrar nenhum
+  // outro fluxo que ainda cria mesa sem passar por la.
+  posX: z.number().optional(),
+  posY: z.number().optional(),
+  largura: z.number().positive().optional(),
+  altura: z.number().positive().optional(),
 });
 
 const atualizarMesaSchema = criarMesaSchema
@@ -44,6 +50,10 @@ mesasRouter.get(
         capacidadeMax: mesas.capacidadeMax,
         formato: mesas.formato,
         combinavelCom: mesas.combinavelCom,
+        posX: mesas.posX,
+        posY: mesas.posY,
+        largura: mesas.largura,
+        altura: mesas.altura,
       })
       .from(mesas)
       .innerJoin(saloes, eq(mesas.salaoId, saloes.id))
