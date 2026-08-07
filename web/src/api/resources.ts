@@ -2,6 +2,7 @@ import { api } from "./client.js";
 import type {
   AgenteConfig,
   Bloqueio,
+  Feedback,
   Mesa,
   MesaFormato,
   ModoConfiguracaoSalao,
@@ -13,6 +14,8 @@ import type {
   TipoElementoSalao,
   Unidade,
   Usuario,
+  WhatsappConfig,
+  WhatsappConnection,
 } from "../types.js";
 
 export function login(email: string, senha: string) {
@@ -212,6 +215,24 @@ export function obterAgenteConfig() {
 
 export function atualizarAgenteConfig(dados: Partial<Omit<AgenteConfig, "empresaId">>) {
   return api.patch<AgenteConfig>("/admin/agente-config", dados);
+}
+
+// WhatsApp Business (doc 16) - conexao e feita fora do painel via o comando
+// whatsapp:connect (mesmo MVP manual do Instagram); aqui so mostramos o status.
+export function listarConexoesWhatsapp() {
+  return api.get<WhatsappConnection[]>("/admin/whatsapp/connection");
+}
+
+export function obterWhatsappConfig() {
+  return api.get<WhatsappConfig>("/admin/whatsapp/config");
+}
+
+export function atualizarWhatsappConfig(dados: Partial<Omit<WhatsappConfig, "empresaId">>) {
+  return api.patch<WhatsappConfig>("/admin/whatsapp/config", dados);
+}
+
+export function listarFeedbacks() {
+  return api.get<Feedback[]>("/admin/whatsapp/feedbacks");
 }
 
 // Rotas publicas (pagina /reservar/:token) - sem autenticacao, protegidas pelo proprio

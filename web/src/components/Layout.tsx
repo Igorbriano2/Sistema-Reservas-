@@ -59,6 +59,15 @@ function IconeRelatorios() {
   );
 }
 
+function IconeWhatsapp() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20l1.3-3.9A8 8 0 1 1 8.9 19.7L4 20z" />
+      <path d="M8.5 9.5c0 3.5 2.5 6 6 6" />
+    </svg>
+  );
+}
+
 function IconeAgente() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
@@ -87,6 +96,7 @@ function IconeChevron() {
 const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
   { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
+  { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
   { to: "/admin/mesas", label: "Mesas", ownerOnly: true, icone: <IconeMesas /> },
   { to: "/admin/bloqueios", label: "Bloqueios", ownerOnly: true, icone: <IconeBloqueios /> },
   { to: "/admin/relatorios", label: "Relatórios", ownerOnly: true, icone: <IconeRelatorios /> },

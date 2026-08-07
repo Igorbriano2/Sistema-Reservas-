@@ -14,6 +14,7 @@ import { relatoriosRouter } from "./relatorios.routes.js";
 import { conversasRouter } from "./conversas.routes.js";
 import { unidadesRouter } from "./unidades.routes.js";
 import { agenteConfigRouter } from "./agente-config.routes.js";
+import { whatsappRouter } from "./whatsapp.routes.js";
 import { usuariosRouter } from "./usuarios.routes.js";
 import { assinaturaRouter } from "./assinatura.routes.js";
 
@@ -36,6 +37,9 @@ adminRouter.use("/unidades", unidadesRouter);
 // Owner apenas: configuracao estrutural (mesas, saloes, regras de horario),
 // personalizacao do agente de IA, e criacao de outros logins da empresa.
 adminRouter.use("/agente-config", requireRole("owner"), agenteConfigRouter);
+// Papel misto por rota (connection/config = owner, feedbacks = qualquer papel) - ver
+// whatsapp.routes.ts, por isso nao leva requireRole aqui no mount.
+adminRouter.use("/whatsapp", whatsappRouter);
 adminRouter.use("/usuarios", requireRole("owner"), usuariosRouter);
 
 const unidadeRouter = Router({ mergeParams: true });

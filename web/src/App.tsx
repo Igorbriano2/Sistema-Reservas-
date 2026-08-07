@@ -10,6 +10,7 @@ import { BlocksPage } from "./pages/BlocksPage.js";
 import { ReportsPage } from "./pages/ReportsPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
+import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
 import { CheckoutPage } from "./pages/CheckoutPage.js";
 import { AssinaturaBloqueadaPage } from "./pages/AssinaturaBloqueadaPage.js";
@@ -86,6 +87,7 @@ function AppRoutes() {
           }
         />
         <Route path="reservas" element={<ReservationsPage />} />
+        <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route
           path="mesas"
           element={

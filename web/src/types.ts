@@ -24,6 +24,38 @@ export interface AgenteConfig {
   facebookPixelId: string | null;
 }
 
+export interface WhatsappConnection {
+  id: string;
+  unidadeId: string | null;
+  wabaId: string;
+  phoneNumberId: string;
+  status: "ativo" | "inativo";
+  conectadoEm: string;
+}
+
+export interface WhatsappConfig {
+  empresaId: string;
+  feedbackAtivo: boolean;
+  aniversarioAtivo: boolean;
+  recuperacaoAtivo: boolean;
+  textoAniversario: string | null;
+  textoRecuperacao: string | null;
+  diasInatividadeRecuperacao: number;
+}
+
+export interface Feedback {
+  id: string;
+  reservaId: string;
+  clienteTelefone: string;
+  nota: number | null;
+  comentarioTexto: string | null;
+  recebidoEm: string;
+  clienteNome: string;
+  reservaData: string;
+  reservaHoraInicio: string;
+  unidadeNome: string;
+}
+
 export interface Unidade {
   id: string;
   empresaId: string;
