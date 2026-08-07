@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
-import { papelUsuarioEnum, usuarios } from "../../db/schema/index.js";
+import { unidades, usuarioUnidades, usuarios } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { hashPassword } from "../../lib/password.js";
 import { RequisicaoInvalidaError } from "../../lib/errors.js";
@@ -10,11 +10,26 @@ import { codigoDoErroPostgres } from "../../lib/pg-error.js";
 
 export const usuariosRouter = Router();
 
+// Funcionalidades "configuraveis" que o dono liga/desliga por usuario na hora de
+// criar gerente/funcionario (ver doc 17) - reservas do dia (ver/criar/editar/
+// cancelar, marcar sentada/no-show) sao sempre liberadas pra quem tem acesso a
+// unidade, sem precisar marcar nada aqui.
+const PERMISSOES_VALIDAS = ["editar_salao", "ver_relatorios", "editar_agente", "criar_usuarios"] as const;
+
 const criarUsuarioSchema = z.object({
   nome: z.string().min(1),
-  email: z.string().email(),
+  // Sem e-mail pra gerente/funcionario (doc 17) - login e so por username+senha,
+  // definidos aqui pelo dono (nao ha convite por e-mail).
+  username: z
+    .string()
+    .trim()
+    .min(3, "nome de usuario deve ter pelo menos 3 caracteres")
+    .regex(/^[a-z0-9._-]+$/i, "use so letras, numeros, ponto, traco ou underscore"),
   senha: z.string().min(8, "senha deve ter pelo menos 8 caracteres"),
-  papel: z.enum(papelUsuarioEnum.enumValues),
+  papel: z.enum(["gerente", "funcionario"]),
+  // Lojas/unidades que esse acesso alcanca - um gerente geral pode ter varias.
+  unidadeIds: z.array(z.string().uuid()).min(1, "selecione pelo menos uma unidade"),
+  permissoes: z.array(z.enum(PERMISSOES_VALIDAS)).default([]),
 });
 
 const PG_UNIQUE_VIOLATION = "23505";
@@ -24,15 +39,47 @@ function ehViolacaoDeUnicidade(err: unknown): boolean {
 }
 
 // owner ve e cria logins da propria empresa diretamente (sem convite por e-mail no
-// MVP). funcionario nao acessa nada aqui (requireRole("owner") aplicado no index.ts).
+// MVP). funcionario/gerente nao acessam nada aqui (requireRole("owner") aplicado no
+// index.ts).
 usuariosRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const lista = await db
-      .select({ id: usuarios.id, nome: usuarios.nome, email: usuarios.email, papel: usuarios.papel, criadoEm: usuarios.criadoEm })
+      .select({
+        id: usuarios.id,
+        nome: usuarios.nome,
+        email: usuarios.email,
+        username: usuarios.username,
+        papel: usuarios.papel,
+        criadoEm: usuarios.criadoEm,
+      })
       .from(usuarios)
       .where(eq(usuarios.empresaId, req.auth!.empresaId));
-    res.json(lista);
+
+    const idsGerenteFuncionario = lista.filter((u) => u.papel !== "owner").map((u) => u.id);
+    const acessos =
+      idsGerenteFuncionario.length === 0
+        ? []
+        : await db
+            .select({
+              usuarioId: usuarioUnidades.usuarioId,
+              unidadeId: usuarioUnidades.unidadeId,
+              unidadeNome: unidades.nome,
+              permissoesExtra: usuarioUnidades.permissoesExtra,
+            })
+            .from(usuarioUnidades)
+            .innerJoin(unidades, eq(unidades.id, usuarioUnidades.unidadeId))
+            .where(inArray(usuarioUnidades.usuarioId, idsGerenteFuncionario));
+
+    const resultado = lista.map((u) => ({
+      ...u,
+      unidades: acessos
+        .filter((a) => a.usuarioId === u.id)
+        .map((a) => ({ id: a.unidadeId, nome: a.unidadeNome })),
+      permissoes: acessos.find((a) => a.usuarioId === u.id)?.permissoesExtra ?? [],
+    }));
+
+    res.json(resultado);
   }),
 );
 
@@ -40,6 +87,24 @@ usuariosRouter.post(
   "/",
   asyncHandler(async (req, res) => {
     const dados = criarUsuarioSchema.parse(req.body);
+
+    // As unidades escolhidas precisam pertencer a MESMA empresa do dono logado -
+    // nunca confia em IDs vindos do corpo sem confirmar isso (evitaria um dono
+    // conceder acesso a unidade de outra empresa so adivinhando o UUID). Mesma
+    // mensagem generica pra "nao existe" e "existe mas nao e sua".
+    const idsDaEmpresa = new Set(
+      (
+        await db
+          .select({ id: unidades.id })
+          .from(unidades)
+          .where(eq(unidades.empresaId, req.auth!.empresaId))
+      ).map((u) => u.id),
+    );
+    const idsInvalidos = dados.unidadeIds.filter((id) => !idsDaEmpresa.has(id));
+    if (idsInvalidos.length > 0) {
+      throw new RequisicaoInvalidaError("Uma ou mais unidades selecionadas nao pertencem a sua empresa");
+    }
+
     const senhaHash = await hashPassword(dados.senha);
 
     try {
@@ -48,15 +113,24 @@ usuariosRouter.post(
         .values({
           empresaId: req.auth!.empresaId,
           nome: dados.nome,
-          email: dados.email.toLowerCase(),
+          username: dados.username.toLowerCase(),
           senhaHash,
           papel: dados.papel,
         })
-        .returning({ id: usuarios.id, nome: usuarios.nome, email: usuarios.email, papel: usuarios.papel, criadoEm: usuarios.criadoEm });
-      res.status(201).json(usuario);
+        .returning({ id: usuarios.id, nome: usuarios.nome, username: usuarios.username, papel: usuarios.papel, criadoEm: usuarios.criadoEm });
+
+      await db.insert(usuarioUnidades).values(
+        dados.unidadeIds.map((unidadeId) => ({
+          usuarioId: usuario.id,
+          unidadeId,
+          permissoesExtra: dados.permissoes,
+        })),
+      );
+
+      res.status(201).json({ ...usuario, unidadeIds: dados.unidadeIds, permissoes: dados.permissoes });
     } catch (err) {
       if (ehViolacaoDeUnicidade(err)) {
-        throw new RequisicaoInvalidaError("Ja existe um usuario com este email");
+        throw new RequisicaoInvalidaError("Ja existe um usuario com este nome de usuario");
       }
       throw err;
     }

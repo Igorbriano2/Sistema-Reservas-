@@ -114,9 +114,9 @@ describe("POST /admin/assinatura/cancelar", () => {
     const funcionario = await request(app)
       .post("/admin/usuarios")
       .set("Authorization", `Bearer ${token}`)
-      .send({ nome: "Func", email: "func-assinatura@teste.com", senha: "senha12345", papel: "funcionario" });
+      .send({ nome: "Func", username: "func.assinatura", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
     expect(funcionario.status).toBe(201);
-    const tokenFunc = await login(app, "func-assinatura@teste.com", "senha12345");
+    const tokenFunc = await login(app, "func.assinatura", "senha12345");
 
     const resposta = await request(app).get("/admin/assinatura").set("Authorization", `Bearer ${tokenFunc}`);
     expect(resposta.status).toBe(403);

@@ -127,6 +127,13 @@
       "when": 1786114463521,
       "tag": "0017_hard_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786115201065,
+      "tag": "0018_fixed_fabian_cortez",
+      "breakpoints": true
     }
   ]
 }

@@ -20,7 +20,7 @@ describe("POST /auth/login", () => {
 
     const res = await request(app)
       .post("/auth/login")
-      .send({ email: usuario.email, senha: senhaAdmin });
+      .send({ identificador: usuario.email, senha: senhaAdmin });
 
     expect(res.status).toBe(200);
     expect(res.body.token).toEqual(expect.any(String));
@@ -37,37 +37,48 @@ describe("POST /auth/login", () => {
     expect(payload.empresaId).toBe(empresa.id);
   });
 
+  it("autentica pelo username tambem (mesma senha do e-mail)", async () => {
+    const { usuario, senhaAdmin } = await criarEmpresaComAdmin();
+
+    const res = await request(app)
+      .post("/auth/login")
+      .send({ identificador: usuario.username, senha: senhaAdmin });
+
+    expect(res.status).toBe(200);
+    expect(res.body.usuario.id).toBe(usuario.id);
+  });
+
   it("rejeita senha incorreta com mensagem generica", async () => {
     const { usuario } = await criarEmpresaComAdmin();
 
     const res = await request(app)
       .post("/auth/login")
-      .send({ email: usuario.email, senha: "senha-errada" });
+      .send({ identificador: usuario.email, senha: "senha-errada" });
 
     expect(res.status).toBe(401);
-    expect(res.body.error).toBe("Email ou senha invalidos");
+    expect(res.body.error).toBe("Usuario ou senha invalidos");
   });
 
-  it("rejeita email inexistente com a MESMA mensagem generica (evita enumeracao)", async () => {
+  it("rejeita identificador inexistente com a MESMA mensagem generica (evita enumeracao)", async () => {
     const comSenhaErrada = await request(app)
       .post("/auth/login")
-      .send({ email: "alguem@teste.com", senha: "qualquer" });
+      .send({ identificador: "alguem@teste.com", senha: "qualquer" });
 
     const { usuario } = await criarEmpresaComAdmin();
-    const comEmailInexistente = await request(app)
+    const comIdentificadorInexistente = await request(app)
       .post("/auth/login")
-      .send({ email: "nao-existe@teste.com", senha: "qualquer" });
+      .send({ identificador: "nao-existe@teste.com", senha: "qualquer" });
     const comSenhaErradaUsuarioReal = await request(app)
       .post("/auth/login")
-      .send({ email: usuario.email, senha: "senha-errada" });
+      .send({ identificador: usuario.email, senha: "senha-errada" });
 
-    expect(comEmailInexistente.status).toBe(401);
-    expect(comEmailInexistente.body).toEqual(comSenhaErradaUsuarioReal.body);
+    expect(comIdentificadorInexistente.status).toBe(401);
+    expect(comIdentificadorInexistente.body).toEqual(comSenhaErradaUsuarioReal.body);
     expect(comSenhaErrada.status).toBe(401);
   });
 
   it("rejeita corpo de requisicao invalido", async () => {
-    const res = await request(app).post("/auth/login").send({ email: "nao-e-email" });
+    const res = await request(app).post("/auth/login").send({ identificador: "" });
     expect(res.status).toBe(400);
   });
 });
@@ -87,7 +98,7 @@ describe("GET /auth/me", () => {
     const { usuario, senhaAdmin } = await criarEmpresaComAdmin();
     const login = await request(app)
       .post("/auth/login")
-      .send({ email: usuario.email, senha: senhaAdmin });
+      .send({ identificador: usuario.email, senha: senhaAdmin });
 
     const res = await request(app)
       .get("/auth/me")
@@ -112,10 +123,10 @@ describe("GET /auth/me", () => {
 
     const loginA = await request(app)
       .post("/auth/login")
-      .send({ email: empresaA.usuario.email, senha: empresaA.senhaAdmin });
+      .send({ identificador: empresaA.usuario.email, senha: empresaA.senhaAdmin });
     const loginB = await request(app)
       .post("/auth/login")
-      .send({ email: empresaB.usuario.email, senha: empresaB.senhaAdmin });
+      .send({ identificador: empresaB.usuario.email, senha: empresaB.senhaAdmin });
 
     const meA = await request(app)
       .get("/auth/me")

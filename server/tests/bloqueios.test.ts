@@ -147,8 +147,8 @@ describe("Bloqueios de mesa/salao", () => {
     const funcionario = await request(app)
       .post("/admin/usuarios")
       .set("Authorization", `Bearer ${token}`)
-      .send({ nome: "Func", email: "func@teste.com", senha: "senha12345", papel: "funcionario" });
-    const tokenFunc = await login(app, "func@teste.com", "senha12345");
+      .send({ nome: "Func", username: "func.bloqueios", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+    const tokenFunc = await login(app, "func.bloqueios", "senha12345");
 
     const resposta = await request(app)
       .get(`/admin/unidades/${unidade.id}/bloqueios`)

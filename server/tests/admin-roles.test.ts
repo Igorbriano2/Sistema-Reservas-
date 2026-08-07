@@ -19,7 +19,7 @@ async function setup() {
   const { empresa, unidade, usuario, senhaAdmin } = await criarEmpresaComAdmin();
   const tokenOwner = await login(app, usuario.email, senhaAdmin);
   const { usuario: funcionario, senha: senhaFuncionario } = await criarFuncionario(empresa.id);
-  const tokenFuncionario = await login(app, funcionario.email, senhaFuncionario);
+  const tokenFuncionario = await login(app, funcionario.username, senhaFuncionario);
   return { empresa, unidade, tokenOwner, tokenFuncionario, funcionario };
 }
 
@@ -66,13 +66,13 @@ describe("Papeis - funcionario nao acessa recursos de configuracao (403), nem sa
   });
 
   it("bloqueia criacao/listagem de usuarios", async () => {
-    const { tokenFuncionario } = await setup();
+    const { unidade, tokenFuncionario } = await setup();
     const get = await request(app).get("/admin/usuarios").set("Authorization", `Bearer ${tokenFuncionario}`);
     expect(get.status).toBe(403);
     const post = await request(app)
       .post("/admin/usuarios")
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ nome: "Outro", email: "outro@teste.com", senha: "12345678", papel: "funcionario" });
+      .send({ nome: "Outro", username: "outro", senha: "12345678", papel: "funcionario", unidadeIds: [unidade.id] });
     expect(post.status).toBe(403);
   });
 
@@ -141,27 +141,27 @@ describe("Papeis - owner tem acesso total", () => {
   });
 
   it("owner cria um funcionario, que loga e so enxerga o proprio papel restrito", async () => {
-    const { tokenOwner } = await setup();
+    const { unidade, tokenOwner } = await setup();
 
     const criar = await request(app)
       .post("/admin/usuarios")
       .set("Authorization", `Bearer ${tokenOwner}`)
-      .send({ nome: "Novo Funcionario", email: "novo@teste.com", senha: "senha-valida-123", papel: "funcionario" });
+      .send({ nome: "Novo Funcionario", username: "novo.funcionario", senha: "senha-valida-123", papel: "funcionario", unidadeIds: [unidade.id] });
     expect(criar.status).toBe(201);
     expect(criar.body.papel).toBe("funcionario");
     expect(criar.body.senhaHash).toBeUndefined();
 
-    const loginNovo = await request(app).post("/auth/login").send({ email: "novo@teste.com", senha: "senha-valida-123" });
+    const loginNovo = await request(app).post("/auth/login").send({ identificador: "novo.funcionario", senha: "senha-valida-123" });
     expect(loginNovo.status).toBe(200);
     expect(loginNovo.body.usuario.papel).toBe("funcionario");
   });
 
-  it("rejeita criar usuario com email duplicado com mensagem clara", async () => {
-    const { tokenOwner, funcionario } = await setup();
+  it("rejeita criar usuario com username duplicado com mensagem clara", async () => {
+    const { unidade, tokenOwner, funcionario } = await setup();
     const res = await request(app)
       .post("/admin/usuarios")
       .set("Authorization", `Bearer ${tokenOwner}`)
-      .send({ nome: "Duplicado", email: funcionario.email, senha: "senha-valida-123", papel: "funcionario" });
+      .send({ nome: "Duplicado", username: funcionario.username, senha: "senha-valida-123", papel: "funcionario", unidadeIds: [unidade.id] });
     expect(res.status).toBe(400);
   });
 });

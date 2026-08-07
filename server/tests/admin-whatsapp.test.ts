@@ -47,7 +47,7 @@ describe("GET /admin/whatsapp/connection", () => {
   it("funcionario nao pode ver a conexao (owner-only)", async () => {
     const { empresa } = await setup();
     const funcionario = await criarFuncionario(empresa.id);
-    const tokenFuncionario = await login(app, funcionario.usuario.email, funcionario.senha);
+    const tokenFuncionario = await login(app, funcionario.usuario.username, funcionario.senha);
 
     const res = await request(app).get("/admin/whatsapp/connection").set("Authorization", `Bearer ${tokenFuncionario}`);
     expect(res.status).toBe(403);
@@ -85,7 +85,7 @@ describe("GET/PATCH /admin/whatsapp/config", () => {
   it("funcionario nao pode alterar a config (owner-only)", async () => {
     const { empresa } = await setup();
     const funcionario = await criarFuncionario(empresa.id);
-    const tokenFuncionario = await login(app, funcionario.usuario.email, funcionario.senha);
+    const tokenFuncionario = await login(app, funcionario.usuario.username, funcionario.senha);
 
     const res = await request(app)
       .patch("/admin/whatsapp/config")
@@ -125,7 +125,7 @@ describe("GET /admin/whatsapp/feedbacks", () => {
     expect(res.body[0].clienteNome).toBe("Cliente Nota Boa");
 
     const funcionario = await criarFuncionario(empresa.id);
-    const tokenFuncionario = await login(app, funcionario.usuario.email, funcionario.senha);
+    const tokenFuncionario = await login(app, funcionario.usuario.username, funcionario.senha);
     const resFuncionario = await request(app).get("/admin/whatsapp/feedbacks").set("Authorization", `Bearer ${tokenFuncionario}`);
     expect(resFuncionario.status).toBe(200);
     expect(resFuncionario.body).toHaveLength(1);

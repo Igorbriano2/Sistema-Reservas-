@@ -37,31 +37,42 @@ export async function criarEmpresaComAdmin(options: FixtureEmpresaOptions = {}) 
     .values({ empresaId: empresa.id, nome: "Unidade Teste" })
     .returning();
   const senhaHash = await hashPassword(senhaAdmin);
-  const [usuario] = await db
+  const [usuarioLinha] = await db
     .insert(usuarios)
     .values({
       empresaId: empresa.id,
       nome: "Owner Teste",
       email: emailAdmin.toLowerCase(),
+      // Sanitiza o e-mail inteiro (nao so a parte local) pra nao colidir quando dois
+      // testes criam admins com o mesmo prefixo antes do @ (ex: admin@a.com / admin@b.com).
+      username: emailAdmin.toLowerCase().replace(/[^a-z0-9]/g, ""),
       senhaHash,
       papel: "owner",
     })
     .returning();
+  // Owner sempre tem email nesta fixture (e o requisito real de sinal) - o tipo da
+  // coluna e nullable so por causa de gerente/funcionario, entao o cast aqui e seguro
+  // e evita "string | null" vazando pra toda chamada de login(...) nos testes.
+  const usuario = { ...usuarioLinha, email: usuarioLinha.email as string };
 
   return { empresa, unidade, usuario, senhaAdmin };
 }
 
-export async function criarFuncionario(empresaId: string, email = "funcionario@teste.com", senha = "senha-funcionario-123") {
+// gerente/funcionario nao tem email (doc 17) - login e por username+senha, definidos
+// pelo dono na hora de criar. unidadeIds default pra [] (chame criarUsuarioUnidade
+// separadamente quando o teste precisar de escopo de unidade especifico).
+export async function criarFuncionario(empresaId: string, username = "funcionario.teste", senha = "senha-funcionario-123") {
   const senhaHash = await hashPassword(senha);
-  const [usuario] = await db
+  const [usuarioLinha] = await db
     .insert(usuarios)
     .values({
       empresaId,
       nome: "Funcionario Teste",
-      email: email.toLowerCase(),
+      username: username.toLowerCase(),
       senhaHash,
       papel: "funcionario",
     })
     .returning();
+  const usuario = { ...usuarioLinha, username: usuarioLinha.username as string };
   return { usuario, senha };
 }

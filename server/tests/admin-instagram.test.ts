@@ -43,7 +43,7 @@ describe("GET /admin/instagram/connection", () => {
   it("funcionario nao pode ver a conexao (owner-only)", async () => {
     const { empresa } = await setup();
     const funcionario = await criarFuncionario(empresa.id);
-    const tokenFuncionario = await login(app, funcionario.usuario.email, funcionario.senha);
+    const tokenFuncionario = await login(app, funcionario.usuario.username, funcionario.senha);
 
     const res = await request(app).get("/admin/instagram/connection").set("Authorization", `Bearer ${tokenFuncionario}`);
     expect(res.status).toBe(403);

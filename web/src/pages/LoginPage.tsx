@@ -6,7 +6,7 @@ import { Marca } from "../components/Marca.js";
 
 export function LoginPage() {
   const { usuario, login } = useAuth();
-  const [email, setEmail] = useState("");
+  const [identificador, setIdentificador] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -20,7 +20,7 @@ export function LoginPage() {
     setErro(null);
     setEnviando(true);
     try {
-      await login(email, senha);
+      await login(identificador, senha);
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Nao foi possivel entrar. Tente novamente.");
     } finally {
@@ -34,8 +34,8 @@ export function LoginPage() {
         <Marca tamanho="grande" />
         <h1 style={{ margin: 0, fontSize: "1.25rem" }}>Entrar</h1>
         <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+          E-mail ou usuário
+          <input type="text" value={identificador} onChange={(e) => setIdentificador(e.target.value)} required autoFocus />
         </label>
         <label>
           Senha

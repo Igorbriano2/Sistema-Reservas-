@@ -83,6 +83,7 @@ describe("POST /public/checkout/criar-conta (assistente de assinatura - Etapa 3)
     nome: "Maria Silva",
     telefone: "11912345678",
     email: "maria-etapa3-rota@teste.com",
+    username: "maria.etapa3",
     documento: "11144477735",
     nomeEmpresa: "Restaurante da Maria",
     senha: "senhaDaMaria123",

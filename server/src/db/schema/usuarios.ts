@@ -19,13 +19,23 @@ export const usuarios = pgTable(
       .notNull()
       .references(() => empresas.id, { onDelete: "cascade" }),
     nome: text("nome").notNull(),
-    email: text("email").notNull(),
+    // So obrigatorio pra owner (cadastrado no checkout, precisa de e-mail pra
+    // recibo/recuperacao de senha). gerente/funcionario nunca tem e-mail - so
+    // entram por username+senha, criados pelo dono direto no painel. A obrigatoriedade
+    // por papel e validada na aplicacao (routes), nao aqui via CHECK constraint.
+    email: text("email"),
+    // Obrigatorio pra gerente/funcionario (e o "Id" de login deles). Owner tambem tem
+    // um, alem do e-mail - pode entrar por qualquer um dos dois, mesma senha.
+    username: text("username"),
     senhaHash: text("senha_hash").notNull(),
     papel: papelUsuarioEnum("papel").notNull().default("owner"),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    // Unico entre os nao-nulos (varias linhas com email/username NULL nao conflitam
+    // entre si - comportamento padrao de indice unico no Postgres).
     uniqueIndex("usuarios_email_idx").on(table.email),
+    uniqueIndex("usuarios_username_idx").on(table.username),
     index("usuarios_empresa_id_idx").on(table.empresaId),
   ],
 );

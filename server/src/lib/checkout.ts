@@ -8,6 +8,7 @@ import { criarEmpresaComOwner } from "./empresas.js";
 export interface DadosCriarConta {
   nome: string;
   email: string;
+  username: string;
   telefone: string;
   documento: string;
   nomeEmpresa: string;
@@ -42,6 +43,7 @@ export async function provisionarContaAposPagamento(
     nomeEmpresa: dados.nomeEmpresa,
     ownerNome: dados.nome,
     ownerEmail: dados.email,
+    ownerUsername: dados.username,
     ownerSenha: dados.senha,
     plano: "trial",
   });

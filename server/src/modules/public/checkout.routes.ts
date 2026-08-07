@@ -37,6 +37,33 @@ checkoutRouter.post(
   }),
 );
 
+// Dono do checkout tambem escolhe um username (doc 17) - login funciona por e-mail
+// OU username, mesma senha.
+const usernameSchema = z
+  .string()
+  .trim()
+  .min(3, "nome de usuario deve ter pelo menos 3 caracteres")
+  .regex(/^[a-z0-9._-]+$/i, "use so letras, numeros, ponto, traco ou underscore");
+
+const validarUsernameSchema = z.object({ username: usernameSchema });
+
+async function usernameJaEstaEmUso(username: string): Promise<boolean> {
+  const [existente] = await db
+    .select({ id: usuarios.id })
+    .from(usuarios)
+    .where(eq(usuarios.username, username.toLowerCase()))
+    .limit(1);
+  return !!existente;
+}
+
+checkoutRouter.post(
+  "/validar-username",
+  asyncHandler(async (req, res) => {
+    const { username } = validarUsernameSchema.parse(req.body);
+    res.json({ disponivel: !(await usernameJaEstaEmUso(username)) });
+  }),
+);
+
 const assinarSchema = z.object({
   nome: z.string().trim().min(1),
   telefone: z.string().trim().min(8),
@@ -75,6 +102,7 @@ const criarContaSchema = z.object({
   nome: z.string().trim().min(1),
   telefone: z.string().trim().min(8),
   email: z.string().trim().email(),
+  username: usernameSchema,
   documento: z.string().trim().min(11),
   nomeEmpresa: z.string().trim().min(1),
   senha: z.string().min(8, "senha deve ter pelo menos 8 caracteres"),
@@ -89,8 +117,15 @@ checkoutRouter.post(
   "/criar-conta",
   asyncHandler(async (req, res) => {
     const dados = criarContaSchema.parse(req.body);
+    if (await usernameJaEstaEmUso(dados.username)) {
+      throw new RequisicaoInvalidaError(`Ja existe uma conta com o nome de usuario ${dados.username.toLowerCase()}`);
+    }
     const stripe = obterStripe();
-    const resultado = await provisionarContaAposPagamento(db, stripe, { ...dados, email: dados.email.toLowerCase() });
+    const resultado = await provisionarContaAposPagamento(db, stripe, {
+      ...dados,
+      email: dados.email.toLowerCase(),
+      username: dados.username.toLowerCase(),
+    });
     res.status(201).json(resultado);
   }),
 );

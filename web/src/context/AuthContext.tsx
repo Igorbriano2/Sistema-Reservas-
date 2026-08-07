@@ -17,7 +17,7 @@ interface AuthContextValue {
   isOwner: boolean;
   assinaturaBloqueada: AssinaturaBloqueadaInfo | null;
   assinaturaComAviso: boolean;
-  login: (email: string, senha: string) => Promise<void>;
+  login: (identificador: string, senha: string) => Promise<void>;
   logout: () => void;
   selecionarUnidade: (unidade: Unidade) => void;
 }
@@ -73,8 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.id]);
 
-  async function login(email: string, senha: string) {
-    const { token, usuario: usuarioLogado } = await apiLogin(email, senha);
+  async function login(identificador: string, senha: string) {
+    const { token, usuario: usuarioLogado } = await apiLogin(identificador, senha);
     localStorage.setItem("token", token);
     localStorage.setItem("usuario", JSON.stringify(usuarioLogado));
     setAssinaturaBloqueada(null);

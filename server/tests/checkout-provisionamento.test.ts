@@ -28,6 +28,7 @@ function criarStripeFalso(subscription: unknown) {
 const DADOS_BASE = {
   nome: "Maria Silva",
   email: "maria-etapa3@teste.com",
+  username: "maria.silva",
   telefone: "11912345678",
   documento: "11144477735",
   nomeEmpresa: "Restaurante da Maria",

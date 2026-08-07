@@ -56,7 +56,8 @@ export function EtapaSenha({ dados, assinatura, onVoltar }: EtapaSenhaProps) {
     <form onSubmit={concluir} className="checkout-form">
       <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Crie sua senha</h1>
       <p className="texto-secundario" style={{ fontSize: "0.85rem", marginTop: 0 }}>
-        Seu teste grátis de 7 dias já começou. Essa senha, junto com o e-mail {dados.email}, é o seu login no painel.
+        Seu teste grátis de 7 dias já começou. Essa senha, junto com o e-mail {dados.email} ou o usuário {dados.username},
+        é o seu login no painel.
       </p>
       <label>
         Senha

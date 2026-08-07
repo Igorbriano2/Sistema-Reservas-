@@ -9,10 +9,31 @@ export interface CriarEmpresaComOwnerParams {
   ownerNome: string;
   ownerEmail: string;
   ownerSenha: string;
+  // Opcional: quando nao informado (seed/modo teste/conversao de lead, que nao tem
+  // esse campo no formulario de origem), deriva um a partir do e-mail. O checkout
+  // publico (unico fluxo que hoje coleta isso do usuario) sempre passa explicito.
+  ownerUsername?: string;
   unidadeNome?: string;
   timezone?: string;
   plano?: string;
   ehDemo?: boolean;
+}
+
+// "joao.silva+teste@x.com" -> "joao.silva.teste" - so letras/numeros/ponto, sem @/dominio.
+function derivarUsernameDoEmail(email: string): string {
+  const local = email.split("@")[0] ?? email;
+  return local.toLowerCase().replace(/[^a-z0-9.]/g, "") || "usuario";
+}
+
+async function gerarUsernameDisponivel(db: Database, base: string): Promise<string> {
+  let candidato = base;
+  let sufixo = 1;
+  while (true) {
+    const [existente] = await db.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.username, candidato)).limit(1);
+    if (!existente) return candidato;
+    sufixo += 1;
+    candidato = `${base}${sufixo}`;
+  }
 }
 
 // Cria empresa + primeira unidade + agente_config padrao + usuario owner - o "pacote
@@ -27,6 +48,14 @@ export async function criarEmpresaComOwner(
   const [existente] = await db.select().from(usuarios).where(eq(usuarios.email, emailNormalizado)).limit(1);
   if (existente) {
     throw new RequisicaoInvalidaError(`Ja existe um login com o email ${emailNormalizado}`);
+  }
+
+  // Resolve/valida o username ANTES de criar qualquer coisa (empresa/unidade/agente
+  // ficariam orfaos se isso falhasse depois de ja terem sido inseridos).
+  const usernameDesejado = params.ownerUsername?.trim().toLowerCase() || derivarUsernameDoEmail(emailNormalizado);
+  const username = await gerarUsernameDisponivel(db, usernameDesejado);
+  if (params.ownerUsername && username !== usernameDesejado) {
+    throw new RequisicaoInvalidaError(`Ja existe um usuario com o nome "${usernameDesejado}"`);
   }
 
   const [empresa] = await db
@@ -62,6 +91,7 @@ export async function criarEmpresaComOwner(
       empresaId: empresa.id,
       nome: params.ownerNome,
       email: emailNormalizado,
+      username,
       senhaHash,
       papel: "owner",
     })

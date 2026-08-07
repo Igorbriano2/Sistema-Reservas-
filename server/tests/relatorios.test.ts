@@ -117,8 +117,8 @@ describe("Relatorios basicos", () => {
     await request(app)
       .post("/admin/usuarios")
       .set("Authorization", `Bearer ${token}`)
-      .send({ nome: "Func", email: "func-relatorio@teste.com", senha: "senha12345", papel: "funcionario" });
-    const tokenFunc = await login(app, "func-relatorio@teste.com", "senha12345");
+      .send({ nome: "Func", username: "func.relatorio", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+    const tokenFunc = await login(app, "func.relatorio", "senha12345");
 
     const resposta = await request(app)
       .get(`/admin/unidades/${unidade.id}/relatorios`)

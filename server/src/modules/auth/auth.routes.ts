@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import { usuarios } from "../../db/schema/index.js";
@@ -9,8 +9,10 @@ import { requireAuth } from "../../middleware/auth.middleware.js";
 
 export const authRouter = Router();
 
+// "identificador" cobre os dois modelos de login (doc 17): dono usa e-mail OU o
+// username que tambem escolheu; gerente/funcionario (sem e-mail) so tem username.
 const loginSchema = z.object({
-  email: z.string().email(),
+  identificador: z.string().trim().min(1),
   senha: z.string().min(1),
 });
 
@@ -20,24 +22,25 @@ authRouter.post("/login", async (req, res) => {
     res.status(400).json({ error: "Dados invalidos" });
     return;
   }
-  const { email, senha } = parsed.data;
+  const { identificador, senha } = parsed.data;
+  const identificadorNormalizado = identificador.toLowerCase();
 
   const [usuario] = await db
     .select()
     .from(usuarios)
-    .where(eq(usuarios.email, email.toLowerCase()))
+    .where(or(eq(usuarios.email, identificadorNormalizado), eq(usuarios.username, identificadorNormalizado)))
     .limit(1);
 
-  // Mensagem generica em ambos os casos (email inexistente ou senha errada)
-  // para nao permitir enumeracao de emails cadastrados.
+  // Mensagem generica em ambos os casos (identificador inexistente ou senha errada)
+  // para nao permitir enumeracao de contas cadastradas.
   if (!usuario) {
-    res.status(401).json({ error: "Email ou senha invalidos" });
+    res.status(401).json({ error: "Usuario ou senha invalidos" });
     return;
   }
 
   const senhaValida = await verifyPassword(senha, usuario.senhaHash);
   if (!senhaValida) {
-    res.status(401).json({ error: "Email ou senha invalidos" });
+    res.status(401).json({ error: "Usuario ou senha invalidos" });
     return;
   }
 
@@ -49,6 +52,7 @@ authRouter.post("/login", async (req, res) => {
       id: usuario.id,
       nome: usuario.nome,
       email: usuario.email,
+      username: usuario.username,
       papel: usuario.papel,
       empresaId: usuario.empresaId,
     },
@@ -71,6 +75,7 @@ authRouter.get("/me", requireAuth, async (req, res) => {
     id: usuario.id,
     nome: usuario.nome,
     email: usuario.email,
+    username: usuario.username,
     papel: usuario.papel,
     empresaId: usuario.empresaId,
   });

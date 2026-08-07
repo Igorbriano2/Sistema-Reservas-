@@ -147,7 +147,7 @@ describe("Leads (lista de espera da landing)", () => {
     // o login criado pra o dono do novo cliente funciona de verdade
     const loginNovoCliente = await request(app)
       .post("/auth/login")
-      .send({ email: "novo-cliente@restaurante.com", senha: "senhaDoNovoCliente123" });
+      .send({ identificador: "novo-cliente@restaurante.com", senha: "senhaDoNovoCliente123" });
     expect(loginNovoCliente.status).toBe(200);
     expect(loginNovoCliente.body.usuario.papel).toBe("owner");
   });

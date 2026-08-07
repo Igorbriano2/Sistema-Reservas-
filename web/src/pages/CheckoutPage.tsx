@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Elements } from "@stripe/react-stripe-js";
 import { ApiError } from "../api/client.js";
-import { verificarEmailDisponivel, type AssinaturaCriada } from "../api/resources.js";
+import { verificarEmailDisponivel, verificarUsernameDisponivel, type AssinaturaCriada } from "../api/resources.js";
 import { formatarCpfCnpj, validarCpfOuCnpj } from "../lib/documento.js";
 import { stripePromise } from "../lib/stripe-client.js";
 import { Marca } from "../components/Marca.js";
@@ -15,11 +15,13 @@ export interface DadosCadastrais {
   nome: string;
   telefone: string;
   email: string;
+  // Login do dono tambem funciona por username, alem do e-mail (doc 17).
+  username: string;
   documento: string;
   nomeEmpresa: string;
 }
 
-const DADOS_VAZIOS: DadosCadastrais = { nome: "", telefone: "", email: "", documento: "", nomeEmpresa: "" };
+const DADOS_VAZIOS: DadosCadastrais = { nome: "", telefone: "", email: "", username: "", documento: "", nomeEmpresa: "" };
 
 function Stepper({ etapaAtual }: { etapaAtual: number }) {
   return (
@@ -54,12 +56,21 @@ export function CheckoutPage() {
       setErro("Telefone invalido. Informe DDD + numero.");
       return;
     }
+    if (!/^[a-z0-9._-]{3,}$/i.test(dados.username)) {
+      setErro("Nome de usuario deve ter pelo menos 3 caracteres (letras, numeros, ponto, traco ou underscore).");
+      return;
+    }
 
     setEnviando(true);
     try {
-      const { disponivel } = await verificarEmailDisponivel(dados.email);
-      if (!disponivel) {
+      const { disponivel: emailDisponivel } = await verificarEmailDisponivel(dados.email);
+      if (!emailDisponivel) {
         setErro("Ja existe uma conta com este e-mail. Faça login ou use outro e-mail.");
+        return;
+      }
+      const { disponivel: usernameDisponivel } = await verificarUsernameDisponivel(dados.username);
+      if (!usernameDisponivel) {
+        setErro("Ja existe uma conta com este nome de usuario. Escolha outro.");
         return;
       }
       setEtapa(2);
@@ -101,6 +112,15 @@ export function CheckoutPage() {
                 type="email"
                 value={dados.email}
                 onChange={(e) => setDados({ ...dados, email: e.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Nome de usuário (para entrar no painel)
+              <input
+                value={dados.username}
+                onChange={(e) => setDados({ ...dados, username: e.target.value.toLowerCase() })}
+                placeholder="seu.usuario"
                 required
               />
             </label>

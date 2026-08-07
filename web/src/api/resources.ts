@@ -8,6 +8,7 @@ import type {
   MesaFormato,
   ModoConfiguracaoSalao,
   PapelUsuario,
+  Permissao,
   Relatorio,
   Reserva,
   Salao,
@@ -15,12 +16,14 @@ import type {
   TipoElementoSalao,
   Unidade,
   Usuario,
+  UsuarioComAcesso,
   WhatsappConfig,
   WhatsappConnection,
 } from "../types.js";
 
-export function login(email: string, senha: string) {
-  return api.post<{ token: string; usuario: Usuario }>("/auth/login", { email, senha });
+// "identificador" aceita e-mail (dono) OU username (dono/gerente/funcionario) - ver doc 17.
+export function login(identificador: string, senha: string) {
+  return api.post<{ token: string; usuario: Usuario }>("/auth/login", { identificador, senha });
 }
 
 export function listarUnidades() {
@@ -194,20 +197,24 @@ export function cancelarReserva(unidadeId: string, reservaId: string) {
   return api.delete<Reserva>(`/admin/unidades/${unidadeId}/reservations/${reservaId}`);
 }
 
-// Owner apenas (backend rejeita com 403 para funcionario nestas rotas).
+// Owner apenas (backend rejeita com 403 para funcionario/gerente nestas rotas).
 export function listarUsuarios() {
-  return api.get<Usuario[]>("/admin/usuarios");
+  return api.get<UsuarioComAcesso[]>("/admin/usuarios");
 }
 
 export interface DadosNovoUsuario {
   nome: string;
-  email: string;
+  // Sem e-mail (doc 17) - gerente/funcionario logam so com username+senha,
+  // definidos aqui pelo dono.
+  username: string;
   senha: string;
-  papel: PapelUsuario;
+  papel: Exclude<PapelUsuario, "owner">;
+  unidadeIds: string[];
+  permissoes: Permissao[];
 }
 
 export function criarUsuario(dados: DadosNovoUsuario) {
-  return api.post<Usuario>("/admin/usuarios", dados);
+  return api.post<UsuarioComAcesso>("/admin/usuarios", dados);
 }
 
 export function obterAgenteConfig() {
@@ -356,6 +363,10 @@ export function verificarEmailDisponivel(email: string) {
   return api.post<{ disponivel: boolean }>("/public/checkout/validar-email", { email });
 }
 
+export function verificarUsernameDisponivel(username: string) {
+  return api.post<{ disponivel: boolean }>("/public/checkout/validar-username", { username });
+}
+
 // Etapa 2 (pagamento) - paymentMethodId vem do Stripe Elements no navegador; o numero
 // do cartao em si nunca passa pelo nosso backend.
 export interface DadosAssinatura {
@@ -384,6 +395,7 @@ export interface DadosCriarConta {
   nome: string;
   telefone: string;
   email: string;
+  username: string;
   documento: string;
   nomeEmpresa: string;
   senha: string;

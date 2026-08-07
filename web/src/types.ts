@@ -1,11 +1,30 @@
-export type PapelUsuario = "owner" | "funcionario";
+export type PapelUsuario = "owner" | "gerente" | "funcionario";
 
 export interface Usuario {
   id: string;
   nome: string;
-  email: string;
+  // Dono sempre tem e-mail; gerente/funcionario so tem username (doc 17).
+  email: string | null;
+  username: string | null;
   papel: PapelUsuario;
   empresaId: string;
+}
+
+// Funcionalidades "configuraveis" que o dono liga/desliga por login na hora de criar
+// gerente/funcionario (ver doc 17) - reservas do dia (ver/criar/editar/cancelar,
+// marcar sentada/no-show) sao sempre liberadas, sem entrar nesta lista.
+export const PERMISSOES_DISPONIVEIS = [
+  { valor: "editar_salao", rotulo: "Editar salão e mesas" },
+  { valor: "ver_relatorios", rotulo: "Ver relatórios" },
+  { valor: "editar_agente", rotulo: "Editar configurações do agente" },
+  { valor: "criar_usuarios", rotulo: "Criar e gerenciar usuários" },
+] as const;
+
+export type Permissao = (typeof PERMISSOES_DISPONIVEIS)[number]["valor"];
+
+export interface UsuarioComAcesso extends Usuario {
+  unidades: Array<{ id: string; nome: string }>;
+  permissoes: Permissao[];
 }
 
 export interface AgenteConfig {

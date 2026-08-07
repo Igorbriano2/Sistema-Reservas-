@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import { assinaturaStatusEnum, empresas, usuarios } from "../../db/schema/index.js";
@@ -18,19 +18,21 @@ clientesRouter.get(
       .orderBy(asc(empresas.criadoEm));
 
     const empresaIds = listaEmpresas.map((e) => e.id);
+    // So o papel "owner" tem e-mail garantido (doc 17) - filtra explicito em vez de
+    // confiar em "primeiro criado" pra nao herdar um null de gerente/funcionario.
     const owners =
       empresaIds.length === 0
         ? []
         : await db
             .select({ empresaId: usuarios.empresaId, nome: usuarios.nome, email: usuarios.email, criadoEm: usuarios.criadoEm })
             .from(usuarios)
-            .where(inArray(usuarios.empresaId, empresaIds))
+            .where(and(inArray(usuarios.empresaId, empresaIds), eq(usuarios.papel, "owner")))
             .orderBy(asc(usuarios.criadoEm));
 
     // Primeiro login "owner" criado de cada empresa = contato responsavel exibido.
     const contatoPorEmpresa = new Map<string, { nome: string; email: string }>();
     for (const usuario of owners) {
-      if (!contatoPorEmpresa.has(usuario.empresaId)) {
+      if (!contatoPorEmpresa.has(usuario.empresaId) && usuario.email) {
         contatoPorEmpresa.set(usuario.empresaId, { nome: usuario.nome, email: usuario.email });
       }
     }
