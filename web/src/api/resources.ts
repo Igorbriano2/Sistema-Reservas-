@@ -487,6 +487,37 @@ export function obterCardapioPublico(unidadeId: string) {
   return api.get<CardapioPublico>(`/public/cardapio/${unidadeId}`);
 }
 
+// Widget embutivel no site do restaurante (doc 23) - link estavel por unidadeId (nao
+// expira, diferente do token de /public/reservation-link). Formulario compacto sem
+// mapa visual de mesas (mesa e escolhida automaticamente), pensado pra caber num
+// iframe pequeno.
+export interface InfoDoWidget {
+  unidadeNome: string;
+  timezone: string;
+  googleTagId: string | null;
+  facebookPixelId: string | null;
+}
+
+export function obterInfoDoWidget(unidadeId: string) {
+  return api.get<InfoDoWidget>(`/public/widget/${unidadeId}/info`);
+}
+
+export interface DadosReservaWidget {
+  data: string;
+  horaInicio: string;
+  numPessoas: number;
+  clienteNome: string;
+  clienteTelefone?: string;
+}
+
+export function criarReservaWidget(unidadeId: string, dados: DadosReservaWidget) {
+  return api.post<ReservaPublicaCriada>(`/public/widget/${unidadeId}/reservations`, dados);
+}
+
+export function urlEmbedDoWidget(unidadeId: string): string {
+  return `${API_URL}/public/widget/${unidadeId}/embed.js`;
+}
+
 // Formulario de contato/lista de espera da landing page (secao de preco) - ainda
 // nao ha checkout, entao isso so registra o interesse pra contato manual depois.
 export interface DadosWaitlist {

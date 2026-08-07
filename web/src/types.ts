@@ -177,7 +177,7 @@ export interface Bloqueio {
 }
 
 export type ReservaStatus = "pendente" | "confirmada" | "cancelada" | "concluida" | "no_show";
-export type CanalOrigem = "instagram" | "manual";
+export type CanalOrigem = "instagram" | "manual" | "widget";
 
 export interface Reserva {
   id: string;

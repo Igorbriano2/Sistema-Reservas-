@@ -18,6 +18,7 @@ import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
 import { PublicMenuPage } from "./pages/PublicMenuPage.js";
+import { WidgetReservationPage } from "./pages/WidgetReservationPage.js";
 import { CheckoutPage } from "./pages/CheckoutPage.js";
 import { AssinaturaBloqueadaPage } from "./pages/AssinaturaBloqueadaPage.js";
 import { PlataformaAuthProvider, usePlataformaAuth } from "./plataforma/PlataformaAuthContext.js";
@@ -93,6 +94,7 @@ function AppRoutes() {
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/reservar/:token" element={<PublicReservationPage />} />
       <Route path="/cardapio/:unidadeId" element={<PublicMenuPage />} />
+      <Route path="/widget/:unidadeId" element={<WidgetReservationPage />} />
       <Route path="/assinar" element={<CheckoutPage />} />
       <Route
         path="/admin"

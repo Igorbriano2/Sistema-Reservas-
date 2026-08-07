@@ -96,7 +96,7 @@ export interface CriarReservaParams {
   clienteTelefone?: string;
   observacoes?: string;
   igSenderId?: string;
-  canalOrigem: "instagram" | "manual";
+  canalOrigem: "instagram" | "manual" | "widget";
 }
 
 export async function criarReserva(db: Database, params: CriarReservaParams): Promise<Reserva> {
@@ -591,7 +591,9 @@ export async function buscarReservasDoCliente(
 
 export interface CriarReservaComMesaAutomaticaParams {
   unidadeId: string;
-  igSenderId: string;
+  // Ausente no fluxo do widget embutido (doc 23) - sem thread do Instagram pra vincular.
+  igSenderId?: string;
+  canalOrigem: "instagram" | "widget";
   data: string;
   horaInicio: string;
   numPessoas: number;
@@ -640,6 +642,6 @@ export async function criarReservaComMesaAutomatica(
     clienteNome: params.clienteNome,
     clienteTelefone: params.clienteTelefone,
     igSenderId: params.igSenderId,
-    canalOrigem: "instagram",
+    canalOrigem: params.canalOrigem,
   });
 }

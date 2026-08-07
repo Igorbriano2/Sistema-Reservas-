@@ -23,7 +23,9 @@ export const reservaStatusEnum = pgEnum("reserva_status", [
   "no_show",
 ]);
 
-export const canalOrigemEnum = pgEnum("canal_origem", ["instagram", "manual"]);
+// "widget" (doc 23) - reserva feita pelo cliente no widget embutido no site do
+// proprio restaurante (sem thread do Instagram, igSenderId fica nulo igual "manual").
+export const canalOrigemEnum = pgEnum("canal_origem", ["instagram", "manual", "widget"]);
 
 export const reservas = pgTable(
   "reservas",

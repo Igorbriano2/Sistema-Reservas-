@@ -212,6 +212,7 @@ reservationLinkRouter.post(
       : await criarReservaComMesaAutomatica(db, {
           unidadeId: payload.unidadeId,
           igSenderId: payload.igSenderId,
+          canalOrigem: "instagram",
           data: dados.data,
           horaInicio: dados.horaInicio,
           numPessoas: dados.numPessoas,

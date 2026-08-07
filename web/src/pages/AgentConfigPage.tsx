@@ -1,8 +1,45 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
-import { atualizarAgenteConfig, obterAgenteConfig, obterConexaoInstagram, urlConectarInstagram } from "../api/resources.js";
+import { atualizarAgenteConfig, obterAgenteConfig, obterConexaoInstagram, urlConectarInstagram, urlEmbedDoWidget } from "../api/resources.js";
 import type { InstagramConnection } from "../types.js";
+
+// Doc 23 - snippet pronto pra colar no site do proprio restaurante (fora do painel).
+// unidadeId vai direto na URL do script (link estavel, nao expira).
+function WidgetEmbutivel() {
+  const { unidade } = useAuth();
+  const [copiado, setCopiado] = useState(false);
+
+  if (!unidade) return null;
+
+  const snippet = `<script src="${urlEmbedDoWidget(unidade.id)}" defer></script>`;
+
+  async function copiar() {
+    await navigator.clipboard.writeText(snippet);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  }
+
+  return (
+    <div className="cartao">
+      <h3 style={{ marginTop: 0 }}>Widget de reserva para o site</h3>
+      <p className="texto-secundario" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+        Cole esta linha em qualquer página do site do restaurante ({unidade.nome}) para exibir um botão flutuante
+        "Reservar mesa" que abre o formulário de reserva num pop-up, sem sair do site.
+      </p>
+      <div className="linha-form" style={{ alignItems: "flex-end" }}>
+        <label style={{ flex: 1 }}>
+          Código para colar no site
+          <input value={snippet} readOnly onFocus={(e) => e.target.select()} style={{ fontFamily: "monospace", fontSize: "0.85rem" }} />
+        </label>
+        <button className="btn btn-secundario" type="button" onClick={copiar}>
+          {copiado ? "Copiado!" : "Copiar código"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const MENSAGENS_ERRO_INSTAGRAM: Record<string, string> = {
   nao_autorizado: "Voce precisa ser o dono da empresa pra conectar o Instagram.",
@@ -167,6 +204,7 @@ export function AgentConfigPage() {
     return (
       <>
         <ConexaoInstagram />
+        <WidgetEmbutivel />
         <p>Carregando...</p>
       </>
     );
@@ -175,6 +213,7 @@ export function AgentConfigPage() {
   return (
     <>
     <ConexaoInstagram />
+    <WidgetEmbutivel />
     <div className="cartao">
       <h3 style={{ marginTop: 0 }}>Personalizacao do agente de IA</h3>
       <p className="texto-secundario" style={{ marginTop: 0, fontSize: "0.85rem" }}>
