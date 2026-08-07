@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { Marca } from "./Marca.js";
+import { ThemeToggle } from "./ThemeToggle.js";
 
 interface ItemDeNav {
   to: string;
@@ -144,6 +145,7 @@ export function Layout() {
             </select>
           )}
           <span style={{ flex: 1 }} />
+          <ThemeToggle />
           <span>{usuario?.nome}</span>
           <button className="btn btn-secundario" onClick={logout}>
             Sair

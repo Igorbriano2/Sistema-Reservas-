@@ -1,23 +1,26 @@
 :root {
-  /* Quero Reservar - design system (identidade "etiqueta de reserva") */
-  --bg-base: #0a0f0a; /* Pinho escuro */
-  --bg-elevated: #16241a; /* Pinho */
-  --bg-elevated-hover: #1d2e21;
-  --border-subtle: rgba(199, 211, 184, 0.14); /* Salvia em baixa opacidade */
-  --accent: #b97a4f; /* Terracota */
-  --accent-deep: #8c5c3a;
-  --accent-glow: rgba(185, 122, 79, 0.35);
-  --text-primary: #c7d3b8; /* Salvia */
-  --text-secondary: rgba(199, 211, 184, 0.62);
-  --text-on-accent: #16130f;
+  /* Quero Reservar - design system (identidade "cadeira", Preto/Carmim/Marfim).
+     Tema escuro e o padrao (:root, sem atributo) - o claro sobrescreve so os
+     tokens que trocam no bloco html[data-theme="light"] logo abaixo. */
+  --bg-base: #0d0d0d; /* Preto */
+  --bg-elevated: #171313; /* Preto quente */
+  --bg-elevated-hover: #241a1a;
+  --border-subtle: #2a2222;
+  --accent: #d81b46; /* Carmim */
+  --accent-rgb: 216, 27, 70;
+  --accent-deep: #a8123a;
+  --accent-glow: rgba(216, 27, 70, 0.35);
+  --text-primary: #f5efe8; /* Marfim */
+  --text-secondary: #8a7a7a;
+  --text-on-accent: #f5efe8;
 
-  /* Neutro branco/creme - usado com moderação para dar ritmo visual (seções
-     alternadas) sem descaracterizar a identidade escura principal. */
-  --neutro-claro: #f4efe4;
-  --neutro-claro-hover: #ece5d4;
-  --texto-em-neutro: #1c2117;
-  --texto-em-neutro-secundario: rgba(28, 33, 23, 0.64);
-  --borda-em-neutro: rgba(28, 33, 23, 0.12);
+  /* Marfim/Preto-quente fixos - usados so pela secao "creme" alternada da
+     landing (motivo visual proprio, independente do toggle claro/escuro). */
+  --neutro-claro: #f5efe8;
+  --neutro-claro-hover: #ece2d8;
+  --texto-em-neutro: #171313;
+  --texto-em-neutro-secundario: rgba(23, 19, 19, 0.64);
+  --borda-em-neutro: rgba(23, 19, 19, 0.12);
 
   --status-pendente: #cfa457;
   --status-pendente-bg: rgba(207, 164, 87, 0.14);
@@ -37,6 +40,20 @@
 
   font-family: var(--font-texto);
   color-scheme: dark;
+}
+
+/* Tema claro - escolhido pelo usuario logado (ThemeContext), persistido em
+   localStorage. So sobrescreve os tokens de fundo/texto/borda; --accent e as
+   cores de status ficam iguais nos dois temas (ja funcionam em ambos). */
+html[data-theme="light"] {
+  --bg-base: #f5efe8; /* Marfim */
+  --bg-elevated: #ffffff;
+  --bg-elevated-hover: #f1e9df;
+  --border-subtle: #ddd0c8;
+  --accent-glow: rgba(216, 27, 70, 0.22);
+  --text-primary: #171313; /* Preto quente */
+  --text-secondary: #6b5c5c;
+  color-scheme: light;
 }
 
 h1,
@@ -132,7 +149,7 @@ button {
 }
 
 .btn:hover:not(:disabled) {
-  background: #cf9163;
+  background: #f1345f;
   box-shadow: 0 0 0 4px var(--accent-glow);
 }
 
@@ -157,14 +174,21 @@ button {
   box-shadow: none;
 }
 
+.btn-icone {
+  padding: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btn-perigo {
   background: var(--status-cancelada-bg);
   color: var(--status-cancelada);
-  border: 1px solid rgba(168, 119, 111, 0.35);
+  border: 1px solid rgba(156, 107, 92, 0.35);
 }
 
 .btn-perigo:hover:not(:disabled) {
-  background: rgba(168, 119, 111, 0.24);
+  background: rgba(156, 107, 92, 0.24);
   box-shadow: none;
 }
 
@@ -258,7 +282,7 @@ label {
 }
 
 .barra-lateral nav a.ativo {
-  background: rgba(185, 122, 79, 0.14);
+  background: rgba(var(--accent-rgb), 0.14);
   color: var(--accent);
 }
 
@@ -283,7 +307,7 @@ label {
 }
 
 .faixa-modo-teste {
-  background: rgba(185, 122, 79, 0.14);
+  background: rgba(var(--accent-rgb), 0.14);
   border-bottom: 1px solid var(--accent);
   color: var(--text-primary);
   padding: 0.6rem 1.5rem;
@@ -352,13 +376,13 @@ label {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 60%, rgba(185, 122, 79, 0.08) 100%);
-  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.06);
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 60%, rgba(var(--accent-rgb), 0.08) 100%);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.06);
   transition: box-shadow var(--duracao-micro) var(--ease-padrao), transform var(--duracao-micro) var(--ease-padrao);
 }
 
 .cartao-metrica:hover {
-  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.22), 0 0 24px rgba(185, 122, 79, 0.1);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.22), 0 0 24px rgba(var(--accent-rgb), 0.1);
   transform: translateY(-1px);
 }
 
@@ -439,7 +463,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: rgba(185, 122, 79, 0.06);
+  background: rgba(var(--accent-rgb), 0.06);
 }
 
 .badge {
@@ -453,7 +477,7 @@ tbody tr:hover {
 }
 
 .badge-confirmada {
-  background: rgba(185, 122, 79, 0.16);
+  background: rgba(var(--accent-rgb), 0.16);
   color: var(--accent);
 }
 
@@ -502,7 +526,7 @@ tbody tr:hover {
 }
 
 .aba-status.ativa {
-  background: rgba(185, 122, 79, 0.14);
+  background: rgba(var(--accent-rgb), 0.14);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -542,7 +566,7 @@ tbody tr:hover {
   justify-content: center;
   padding: 1.5rem;
   position: relative;
-  background: radial-gradient(600px circle at 50% 20%, rgba(185, 122, 79, 0.1), transparent 60%);
+  background: radial-gradient(600px circle at 50% 20%, rgba(var(--accent-rgb), 0.1), transparent 60%);
 }
 
 .form-login {
@@ -554,7 +578,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.08), 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.08), 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: entrada-login var(--duracao-painel) var(--ease-padrao) both;
 }
 

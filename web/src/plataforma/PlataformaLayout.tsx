@@ -4,6 +4,7 @@ import { usePlataformaAuth } from "./PlataformaAuthContext.js";
 import { entrarEmModoTeste } from "./resources.js";
 import { ApiError } from "../api/client.js";
 import { Marca } from "../components/Marca.js";
+import { ThemeToggle } from "../components/ThemeToggle.js";
 
 function IconeClientes() {
   return (
@@ -81,6 +82,7 @@ export function PlataformaLayout() {
         <header className="topo">
           <span className="texto-secundario">Painel da plataforma</span>
           <span style={{ flex: 1 }} />
+          <ThemeToggle />
           <span>{admin?.nome}</span>
           <button className="btn btn-secundario" onClick={logout}>
             Sair

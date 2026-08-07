@@ -1,26 +1,18 @@
-import { useId } from "react";
-
 interface MarcaProps {
   tamanho?: "normal" | "grande";
 }
 
-// Logotipo "Quero Reservar": a etiqueta de reserva (simbolo da identidade visual)
-// mais o nome em Bodoni Moda, com "Reservar" em italico.
+// Logotipo "Quero Reservar": a cadeira em tres blocos solidos (simbolo da
+// identidade visual - encosto, assento, pernas) mais o nome em Bodoni Moda,
+// com "Reservar" em italico.
 export function Marca({ tamanho = "normal" }: MarcaProps) {
-  const maskId = useId();
-
   return (
     <span className={`marca ${tamanho === "grande" ? "marca-grande" : ""}`}>
-      <svg viewBox="0 0 24 24" className="marca-etiqueta" aria-hidden="true">
-        <mask id={maskId}>
-          <rect width="24" height="24" fill="#fff" />
-          <circle cx="16.5" cy="7.5" r="1.6" fill="#000" />
-        </mask>
-        <path
-          d="M2.5 4A1.5 1.5 0 0 1 4 2.5h8.34c.4 0 .78.16 1.06.44l8.16 8.16a1.5 1.5 0 0 1 0 2.12l-8.78 8.78a1.5 1.5 0 0 1-2.12 0l-8.16-8.16A1.5 1.5 0 0 1 2.5 12.34V4z"
-          fill="currentColor"
-          mask={`url(#${maskId})`}
-        />
+      <svg viewBox="0 0 200 200" className="marca-etiqueta" aria-hidden="true">
+        <rect x="65" y="30" width="70" height="60" rx="20" fill="currentColor" />
+        <rect x="46" y="94" width="108" height="24" rx="12" fill="currentColor" />
+        <rect x="54" y="120" width="16" height="40" rx="7" fill="currentColor" />
+        <rect x="130" y="120" width="16" height="40" rx="7" fill="currentColor" />
       </svg>
       <span className="marca-texto">
         Quero <em>Reservar</em>

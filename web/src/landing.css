@@ -16,7 +16,7 @@
   width: 640px;
   height: 640px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(185, 122, 79, 0.16), transparent 70%);
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.16), transparent 70%);
   pointer-events: none;
   z-index: 0;
   will-change: transform;
@@ -189,7 +189,7 @@
 }
 
 .lp-card:hover {
-  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.16), 0 20px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.16), 0 20px 40px rgba(0, 0, 0, 0.35);
 }
 
 .lp-card h3 {
@@ -287,7 +287,7 @@
 
 .lp-passo.ativo {
   border-color: var(--accent);
-  background: rgba(185, 122, 79, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
 }
 
 .lp-passo.ativo .lp-passo-numero {
@@ -364,8 +364,8 @@
 
 .cf-bolha-agente {
   align-self: flex-start;
-  background: rgba(185, 122, 79, 0.14);
-  border: 1px solid rgba(185, 122, 79, 0.3);
+  background: rgba(var(--accent-rgb), 0.14);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
   border-bottom-left-radius: 4px;
   max-width: 90%;
   display: flex;
@@ -422,7 +422,7 @@
   width: 1.4rem;
   height: 1.4rem;
   border-radius: 50%;
-  background: rgba(185, 122, 79, 0.16);
+  background: rgba(var(--accent-rgb), 0.16);
   color: var(--accent);
   display: flex;
   align-items: center;
@@ -525,7 +525,7 @@
 }
 
 .lp-badge-disponivel {
-  background: rgba(185, 122, 79, 0.16);
+  background: rgba(var(--accent-rgb), 0.16);
   color: var(--accent);
 }
 
@@ -546,7 +546,7 @@
 .lp-fundador-foto-placeholder {
   aspect-ratio: 4 / 5;
   border-radius: 16px;
-  background: linear-gradient(160deg, var(--bg-elevated) 0%, rgba(185, 122, 79, 0.18) 100%);
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, rgba(var(--accent-rgb), 0.18) 100%);
   border: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
@@ -612,31 +612,31 @@
 
 .lp-comparativo th:last-child,
 .lp-comparativo td:last-child {
-  background: rgba(185, 122, 79, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   color: var(--text-primary);
   font-weight: 600;
-  border-left: 1px solid rgba(185, 122, 79, 0.3);
-  border-right: 1px solid rgba(185, 122, 79, 0.3);
+  border-left: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-right: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 
 .lp-comparativo thead th:last-child {
-  border-top: 1px solid rgba(185, 122, 79, 0.3);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.3);
   border-radius: 8px 8px 0 0;
 }
 
 .lp-comparativo tbody tr:last-child td:last-child {
   border-radius: 0 0 8px 8px;
-  border-bottom: 1px solid rgba(185, 122, 79, 0.3);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 
 /* Preco -------------------------------------------------------------------- */
 
 .lp-card-preco {
-  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 55%, rgba(185, 122, 79, 0.1) 100%);
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 55%, rgba(var(--accent-rgb), 0.1) 100%);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 0 0 1px rgba(185, 122, 79, 0.08);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.08);
   will-change: transform;
 }
 

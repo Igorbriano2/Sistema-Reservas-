@@ -4,13 +4,16 @@ import { ApiError } from "../../api/client.js";
 import { criarAssinatura, type AssinaturaCriada } from "../../api/resources.js";
 import type { DadosCadastrais } from "../../pages/CheckoutPage.js";
 
+// Stripe Elements roda num iframe isolado e nao le CSS vars, entao as cores
+// (tema escuro, o unico que este fluxo publico usa) ficam fixas aqui em vez de
+// var(--text-primary)/var(--status-cancelada).
 const ESTILO_CARTAO = {
   style: {
     base: {
-      color: "#c7d3b8",
+      color: "#f5efe8",
       fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
       fontSize: "15px",
-      "::placeholder": { color: "rgba(199, 211, 184, 0.4)" },
+      "::placeholder": { color: "rgba(245, 239, 232, 0.4)" },
     },
     invalid: { color: "#9c6b5c" },
   },
