@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, text, time, index, check } from "drizzle-orm/pg-core";
+import { pgTable, uuid, integer, text, time, boolean, index, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { unidades } from "./unidades.js";
 
@@ -22,9 +22,14 @@ export const regrasHorario = pgTable(
     // precisa reservar. 0 = sem restricao (comportamento anterior).
     antecedenciaMinMin: integer("antecedencia_min_min").notNull().default(0),
     // Desconto informativo (doc 19) - percentual mostrado ao cliente nesse turno
-    // (ex.: happy hour). Nulo = sem desconto. So exibicao, nao afeta cobranca (nao
-    // ha reserva com pagamento no MVP ainda).
+    // (ex.: happy hour). Nulo = sem desconto. So exibicao, nao afeta cobranca.
     descontoPercentual: integer("desconto_percentual"),
+    // Reserva com cobranca (doc 22) - quando marcado, a reserva PUBLICA (pelo link do
+    // agente) so se confirma depois de um deposito pago via Stripe. Reserva manual
+    // pelo painel (dono/funcionario) NUNCA exige isso - mesma logica de antecedencia
+    // minima, que so vale pro fluxo publico.
+    exigeDeposito: boolean("exige_deposito").notNull().default(false),
+    valorDepositoCentavos: integer("valor_deposito_centavos"),
   },
   (table) => [
     index("regras_horario_unidade_id_idx").on(table.unidadeId),
@@ -39,6 +44,10 @@ export const regrasHorario = pgTable(
     check(
       "regras_horario_desconto_check",
       sql`${table.descontoPercentual} IS NULL OR ${table.descontoPercentual} BETWEEN 0 AND 100`,
+    ),
+    check(
+      "regras_horario_deposito_check",
+      sql`NOT ${table.exigeDeposito} OR ${table.valorDepositoCentavos} > 0`,
     ),
   ],
 );

@@ -70,6 +70,8 @@ export async function criarRegraHorarioTodosOsDias(
     nome: string;
     antecedenciaMinMin: number;
     descontoPercentual: number;
+    exigeDeposito: boolean;
+    valorDepositoCentavos: number;
   }> = {},
 ) {
   const regras = [];
@@ -86,6 +88,8 @@ export async function criarRegraHorarioTodosOsDias(
         bufferMin: overrides.bufferMin ?? 0,
         antecedenciaMinMin: overrides.antecedenciaMinMin ?? 0,
         descontoPercentual: overrides.descontoPercentual,
+        exigeDeposito: overrides.exigeDeposito ?? false,
+        valorDepositoCentavos: overrides.valorDepositoCentavos,
       })
       .returning();
     regras.push(regra);

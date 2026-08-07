@@ -34,8 +34,14 @@ export interface DisponibilidadeResultado {
   mesasDisponiveis: MesaDisponivel[];
   saloesSimplesDisponiveis: SalaoSimplesDisponivel[];
   // Turno (doc 19) que cobre esse horario, quando encontrado - nome e desconto sao
-  // so informativos (o desconto nao afeta cobranca, nao ha reserva paga no MVP).
-  turno?: { nome: string | null; descontoPercentual: number | null };
+  // so informativos. exigeDeposito/valorDepositoCentavos (doc 22) controlam se a
+  // reserva PUBLICA nesse turno precisa de deposito via Stripe antes de confirmar.
+  turno?: {
+    nome: string | null;
+    descontoPercentual: number | null;
+    exigeDeposito: boolean;
+    valorDepositoCentavos: number | null;
+  };
 }
 
 // Reservas nesses status "ocupam" uma mesa (modo mapa) - inclui "pendente" pra nao
@@ -116,7 +122,12 @@ export async function verificarDisponibilidade(
   }
 
   const turno = janela.regra
-    ? { nome: janela.regra.nome, descontoPercentual: janela.regra.descontoPercentual }
+    ? {
+        nome: janela.regra.nome,
+        descontoPercentual: janela.regra.descontoPercentual,
+        exigeDeposito: janela.regra.exigeDeposito,
+        valorDepositoCentavos: janela.regra.valorDepositoCentavos,
+      }
     : undefined;
 
   const todosSaloes = await db

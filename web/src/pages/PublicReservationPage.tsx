@@ -1,22 +1,118 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { ApiError } from "../api/client.js";
 import {
+  criarDepositoDeReservaPublica,
   criarReservaPublica,
   listarMesasDisponiveisPublico,
   obterInfoDoLinkDeReserva,
+  type DadosReservaPublica,
   type ReservaPublicaCriada,
   type SalaoPublico,
+  type TurnoPublico,
 } from "../api/resources.js";
 import { Marca } from "../components/Marca.js";
 import { SalaoCanvasSvg, type MesaCanvas } from "../components/salao-canvas/SalaoCanvasSvg.js";
 import { carregarFacebookPixel, carregarGoogleTag, dispararEventoFacebook, dispararEventoGA4 } from "../lib/tracking.js";
+import { stripePromise } from "../lib/stripe-client.js";
 
 type Estado = "carregando" | "invalido" | "pronto";
 // "dados": data/horario/pessoas. "mapa": escolher a mesa (so quando a unidade tem
-// salao em modo "mapa"). "cliente": nome/telefone + confirmar.
-type Etapa = "dados" | "mapa" | "cliente";
+// salao em modo "mapa"). "cliente": nome/telefone. "deposito": pagamento do deposito
+// (doc 22, so quando o turno escolhido exige) - vem depois de "cliente" e antes da
+// reserva de fato ser criada.
+type Etapa = "dados" | "mapa" | "cliente" | "deposito";
 type Consentimento = "pendente" | "aceito" | "recusado";
+
+function formatarCentavos(centavos: number): string {
+  return (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+// Formulario de cartao pro deposito (doc 22) - precisa estar dentro de <Elements>,
+// por isso e um componente separado (useStripe/useElements so funcionam dentro do
+// provider). Cria o PaymentIntent ao montar, e so confirma a reserva de fato depois
+// que o pagamento suceder.
+interface EtapaDepositoProps {
+  token: string;
+  dadosReserva: Omit<DadosReservaPublica, "paymentIntentId">;
+  valorCentavos: number;
+  onSucesso: (reserva: ReservaPublicaCriada) => void;
+  onVoltar: () => void;
+}
+
+function FormularioDeposito({ token, dadosReserva, valorCentavos, onSucesso, onVoltar }: EtapaDepositoProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [preparando, setPreparando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    criarDepositoDeReservaPublica(token, dadosReserva.data, dadosReserva.horaInicio, dadosReserva.numPessoas)
+      .then((deposito) => setClientSecret(deposito.clientSecret))
+      .catch((err) => setErro(err instanceof ApiError ? err.message : "Nao foi possivel iniciar o pagamento do deposito."))
+      .finally(() => setPreparando(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  async function pagarEConfirmar(e: FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements || !clientSecret) return;
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) return;
+
+    setEnviando(true);
+    setErro(null);
+    try {
+      const { error: erroPagamento, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: cardElement, billing_details: { name: dadosReserva.clienteNome } },
+      });
+      if (erroPagamento || paymentIntent?.status !== "succeeded") {
+        setErro(erroPagamento?.message ?? "Nao foi possivel confirmar o pagamento. Tente novamente.");
+        return;
+      }
+
+      const reserva = await criarReservaPublica(token, { ...dadosReserva, paymentIntentId: paymentIntent.id });
+      onSucesso(reserva);
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Pagamento aprovado, mas nao foi possivel confirmar a reserva. Fale com o restaurante.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <form className="form-login" onSubmit={pagarEConfirmar} style={{ width: 360 }}>
+      <Marca tamanho="grande" />
+      <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Depósito para confirmar</h1>
+      <p className="texto-secundario" style={{ fontSize: "0.85rem", margin: 0 }}>
+        Este horário exige um depósito de {formatarCentavos(valorCentavos)} para garantir a mesa. O valor é cobrado
+        agora, no cartão informado abaixo.
+      </p>
+      {preparando ? (
+        <p>Preparando pagamento...</p>
+      ) : (
+        <label>
+          Cartão de crédito
+          <div className="checkout-card-element">
+            <CardElement options={{ style: { base: { color: "#f5efe8", fontSize: "15px", "::placeholder": { color: "rgba(245,239,232,.4)" } }, invalid: { color: "#9c6b5c" } } }} />
+          </div>
+        </label>
+      )}
+      {erro && <span className="erro">{erro}</span>}
+      <div className="acoes">
+        <button className="btn btn-secundario" type="button" onClick={onVoltar}>
+          Voltar
+        </button>
+        <button className="btn" type="submit" disabled={enviando || preparando || !clientSecret}>
+          {enviando ? "Processando..." : `Pagar ${formatarCentavos(valorCentavos)} e confirmar`}
+        </button>
+      </div>
+    </form>
+  );
+}
 
 // Mesa sem posicao/tamanho salvos (nunca deveria acontecer se o dono usou o editor
 // visual, mas evita esconder uma mesa reservavel do cliente por falta de dados).
@@ -48,6 +144,8 @@ export function PublicReservationPage() {
   const [mesaEscolhidaId, setMesaEscolhidaId] = useState<string | null>(null);
   const [avisoDisponibilidade, setAvisoDisponibilidade] = useState<string | null>(null);
   const [carregandoMapa, setCarregandoMapa] = useState(false);
+  // Doc 22 - turno do horario escolhido, pra saber se precisa da etapa de deposito.
+  const [turno, setTurno] = useState<TurnoPublico | null>(null);
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -160,6 +258,7 @@ export function PublicReservationPage() {
       const resposta = await buscarMesasDisponiveis();
       if (!resposta) return;
       setAvisoDisponibilidade(!resposta.disponibilidade.disponivel ? (resposta.disponibilidade.motivo ?? null) : null);
+      setTurno(resposta.disponibilidade.turno ?? null);
       if (resposta.saloes.length === 0) {
         // Unidade nao tem salao em modo "mapa" - segue direto pro fluxo antigo (o
         // backend escolhe a mesa/salao automaticamente ao confirmar).
@@ -189,25 +288,42 @@ export function PublicReservationPage() {
     setEtapa("cliente");
   }
 
+  function montarDadosReserva(): Omit<DadosReservaPublica, "paymentIntentId"> {
+    return {
+      data,
+      horaInicio,
+      numPessoas: Number(numPessoas),
+      clienteNome,
+      clienteTelefone: clienteTelefone || undefined,
+      mesaId: mesaEscolhidaId ?? undefined,
+      dataNascimento: dataNascimento || undefined,
+      whatsappOptIn: clienteTelefone ? whatsappOptIn : undefined,
+    };
+  }
+
+  function confirmarReserva(reserva: ReservaPublicaCriada) {
+    setConfirmada(reserva);
+    dispararEventoGA4("reserva_confirmada", { data: reserva.data, num_pessoas: reserva.numPessoas });
+    dispararEventoFacebook("Lead");
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!token) return;
+
+    // Doc 22 - este turno exige deposito: em vez de criar a reserva direto, avanca
+    // pra etapa de pagamento (a reserva so nasce depois do deposito confirmado).
+    if (turno?.exigeDeposito && turno.valorDepositoCentavos) {
+      setErro(null);
+      setEtapa("deposito");
+      return;
+    }
+
     setEnviando(true);
     setErro(null);
     try {
-      const reserva = await criarReservaPublica(token, {
-        data,
-        horaInicio,
-        numPessoas: Number(numPessoas),
-        clienteNome,
-        clienteTelefone: clienteTelefone || undefined,
-        mesaId: mesaEscolhidaId ?? undefined,
-        dataNascimento: dataNascimento || undefined,
-        whatsappOptIn: clienteTelefone ? whatsappOptIn : undefined,
-      });
-      setConfirmada(reserva);
-      dispararEventoGA4("reserva_confirmada", { data: reserva.data, num_pessoas: reserva.numPessoas });
-      dispararEventoFacebook("Lead");
+      const reserva = await criarReservaPublica(token, montarDadosReserva());
+      confirmarReserva(reserva);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409 && mesaEscolhidaId) {
         // A mesa escolhida foi reservada por outra pessoa entre a selecao e a
@@ -415,7 +531,7 @@ export function PublicReservationPage() {
     );
   }
 
-  // etapa === "cliente"
+  if (etapa === "cliente") {
   return (
     <>
     <div className="tela-login">
@@ -461,12 +577,42 @@ export function PublicReservationPage() {
             Voltar
           </button>
           <button className="btn" type="submit" disabled={enviando}>
-            {enviando ? "Confirmando..." : "Confirmar reserva"}
+            {enviando
+              ? "Confirmando..."
+              : turno?.exigeDeposito && turno.valorDepositoCentavos
+                ? `Continuar para o depósito (${formatarCentavos(turno.valorDepositoCentavos)})`
+                : "Confirmar reserva"}
           </button>
         </div>
       </form>
     </div>
     {bannerCookies}
+    </>
+  );
+  }
+
+  // etapa === "deposito" (doc 22)
+  return (
+    <>
+      <div className="tela-login">
+        {stripePromise ? (
+          <Elements stripe={stripePromise}>
+            <FormularioDeposito
+              token={token!}
+              dadosReserva={montarDadosReserva()}
+              valorCentavos={turno!.valorDepositoCentavos!}
+              onSucesso={confirmarReserva}
+              onVoltar={() => setEtapa("cliente")}
+            />
+          </Elements>
+        ) : (
+          <div className="form-login">
+            <Marca tamanho="grande" />
+            <p className="erro">Pagamento não configurado. Fale com o restaurante para reservar neste horário.</p>
+          </div>
+        )}
+      </div>
+      {bannerCookies}
     </>
   );
 }

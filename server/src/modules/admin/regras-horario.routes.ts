@@ -5,6 +5,9 @@ import { db } from "../../db/client.js";
 import { regrasHorario } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
+import { codigoDoErroPostgres } from "../../lib/pg-error.js";
+
+const PG_CHECK_VIOLATION = "23514";
 
 export const regrasHorarioRouter = Router({ mergeParams: true });
 
@@ -21,6 +24,9 @@ const criarRegraSchema = z.object({
   bufferMin: z.number().int().min(0).optional(),
   antecedenciaMinMin: z.number().int().min(0).optional(),
   descontoPercentual: z.number().int().min(0).max(100).optional(),
+  // Doc 22 - deposito exigido pra confirmar reserva PUBLICA nesse turno.
+  exigeDeposito: z.boolean().optional(),
+  valorDepositoCentavos: z.number().int().positive().optional(),
 });
 
 const atualizarRegraSchema = criarRegraSchema
@@ -42,11 +48,21 @@ regrasHorarioRouter.post(
     if (dados.horaFechamento <= dados.horaAbertura) {
       throw new RequisicaoInvalidaError("horaFechamento deve ser depois de horaAbertura");
     }
-    const [regra] = await db
-      .insert(regrasHorario)
-      .values({ unidadeId: req.unidadeId!, ...dados })
-      .returning();
-    res.status(201).json(regra);
+    if (dados.exigeDeposito && !dados.valorDepositoCentavos) {
+      throw new RequisicaoInvalidaError("Informe o valor do deposito");
+    }
+    try {
+      const [regra] = await db
+        .insert(regrasHorario)
+        .values({ unidadeId: req.unidadeId!, ...dados })
+        .returning();
+      res.status(201).json(regra);
+    } catch (err) {
+      if (codigoDoErroPostgres(err) === PG_CHECK_VIOLATION) {
+        throw new RequisicaoInvalidaError("Informe o valor do deposito");
+      }
+      throw err;
+    }
   }),
 );
 
@@ -57,11 +73,19 @@ regrasHorarioRouter.patch(
     if (dados.horaAbertura && dados.horaFechamento && dados.horaFechamento <= dados.horaAbertura) {
       throw new RequisicaoInvalidaError("horaFechamento deve ser depois de horaAbertura");
     }
-    const [regra] = await db
-      .update(regrasHorario)
-      .set(dados)
-      .where(and(eq(regrasHorario.id, req.params.regraId), eq(regrasHorario.unidadeId, req.unidadeId!)))
-      .returning();
+    let regra;
+    try {
+      [regra] = await db
+        .update(regrasHorario)
+        .set(dados)
+        .where(and(eq(regrasHorario.id, req.params.regraId), eq(regrasHorario.unidadeId, req.unidadeId!)))
+        .returning();
+    } catch (err) {
+      if (codigoDoErroPostgres(err) === PG_CHECK_VIOLATION) {
+        throw new RequisicaoInvalidaError("Informe o valor do deposito antes de exigi-lo neste turno");
+      }
+      throw err;
+    }
     if (!regra) throw new RecursoNaoEncontradoError("Regra de horario nao encontrada");
     res.json(regra);
   }),

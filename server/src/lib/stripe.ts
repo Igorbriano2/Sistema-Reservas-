@@ -129,6 +129,43 @@ export async function criarAssinaturaTrial(
   };
 }
 
+// Deposito de reserva (doc 22) - cobranca UNICA (nao recorrente, diferente de tudo
+// acima que e assinatura SaaS da PLATAFORMA). IMPORTANTE: este MVP usa a MESMA conta
+// Stripe da plataforma (STRIPE_SECRET_KEY) pra coletar o deposito - o dinheiro nao e
+// repassado automaticamente pro restaurante ainda. Pagar o restaurante de fato exige
+// Stripe Connect (cada restaurante com sua propria conta conectada), que precisa de
+// uma decisao de produto (tipo de conta Connect, quem paga a taxa da Stripe, fluxo de
+// onboarding) fora do escopo deste MVP - fica registrado aqui como proximo passo.
+export interface DadosDepositoReserva {
+  valorCentavos: number;
+  // Preso ao PaymentIntent pra conferencia depois (ver reservation-link.routes.ts) -
+  // nunca confia em nada que o cliente mandar de volta sem bater com isso.
+  metadata: Record<string, string>;
+}
+
+export interface DepositoCriado {
+  paymentIntentId: string;
+  clientSecret: string;
+}
+
+export async function criarDepositoDeReserva(stripe: Stripe, dados: DadosDepositoReserva): Promise<DepositoCriado> {
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: dados.valorCentavos,
+      currency: MOEDA,
+      metadata: dados.metadata,
+      automatic_payment_methods: { enabled: true },
+    });
+    if (!paymentIntent.client_secret) {
+      throw new ServicoIndisponivelError("Stripe nao devolveu o client_secret do deposito");
+    }
+    return { paymentIntentId: paymentIntent.id, clientSecret: paymentIntent.client_secret };
+  } catch (err) {
+    if (err instanceof ServicoIndisponivelError) throw err;
+    throw new RequisicaoInvalidaError(mensagemDeErroStripe(err));
+  }
+}
+
 export interface DadosAssinaturaUnidadeAdicional {
   customerId: string;
   paymentMethodId: string;

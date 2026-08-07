@@ -205,6 +205,8 @@ export interface DadosRegraHorario {
   bufferMin?: number;
   antecedenciaMinMin?: number;
   descontoPercentual?: number;
+  exigeDeposito?: boolean;
+  valorDepositoCentavos?: number;
 }
 
 export function criarRegraHorario(unidadeId: string, dados: DadosRegraHorario) {
@@ -426,6 +428,8 @@ export interface DadosReservaPublica {
   // Doc 16 - opcionais, so tem efeito com clienteTelefone tambem preenchido.
   dataNascimento?: string;
   whatsappOptIn?: boolean;
+  // Doc 22 - obrigatorio quando o turno exige deposito (ver criarDepositoDeReserva).
+  paymentIntentId?: string;
 }
 
 export interface ReservaPublicaCriada {
@@ -439,6 +443,18 @@ export interface ReservaPublicaCriada {
 
 export function criarReservaPublica(token: string, dados: DadosReservaPublica) {
   return api.post<ReservaPublicaCriada>(`/public/reservation-link/${token}/reservations`, dados);
+}
+
+// Reserva com cobranca (doc 22) - so chamado quando o turno escolhido exige deposito
+// (ver TurnoPublico.exigeDeposito, devolvido junto de RespostaMesasDisponiveis).
+export interface DepositoCriado {
+  clientSecret: string;
+  paymentIntentId: string;
+  valorCentavos: number;
+}
+
+export function criarDepositoDeReservaPublica(token: string, data: string, horaInicio: string, numPessoas: number) {
+  return api.post<DepositoCriado>(`/public/reservation-link/${token}/deposito`, { data, horaInicio, numPessoas });
 }
 
 // Mapa visual do salao pra escolha de mesa pelo cliente (doc 11 Parte 2) - mesma forma
@@ -479,8 +495,14 @@ export interface SalaoPublico {
   elementos: ElementoPublico[];
 }
 
+// Doc 22 - so os campos usados pelo frontend pra decidir se mostra a etapa de deposito.
+export interface TurnoPublico {
+  exigeDeposito: boolean;
+  valorDepositoCentavos: number | null;
+}
+
 export interface RespostaMesasDisponiveis {
-  disponibilidade: { disponivel: boolean; motivo?: string };
+  disponibilidade: { disponivel: boolean; motivo?: string; turno?: TurnoPublico };
   saloes: SalaoPublico[];
 }
 

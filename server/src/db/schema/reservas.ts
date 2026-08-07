@@ -27,6 +27,13 @@ export const reservaStatusEnum = pgEnum("reserva_status", [
 // proprio restaurante (sem thread do Instagram, igSenderId fica nulo igual "manual").
 export const canalOrigemEnum = pgEnum("canal_origem", ["instagram", "manual", "widget"]);
 
+// Reserva com cobranca (doc 22) - "nao_exigido" e o default histórico (turno sem
+// deposito, ou reserva manual pelo painel). "pendente" nunca fica persistido de fato
+// (a reserva so nasce depois do deposito confirmado) - existe pro tipo cobrir o
+// estado transitorio no fluxo, mas hoje toda reserva no banco esta em nao_exigido,
+// pago ou reembolsado.
+export const statusPagamentoEnum = pgEnum("status_pagamento", ["nao_exigido", "pendente", "pago", "reembolsado"]);
+
 export const reservas = pgTable(
   "reservas",
   {
@@ -51,6 +58,9 @@ export const reservas = pgTable(
     status: reservaStatusEnum("status").notNull().default("confirmada"),
     observacoes: text("observacoes"),
     canalOrigem: canalOrigemEnum("canal_origem").notNull().default("manual"),
+    // Doc 22 - deposito via Stripe. paymentIntentId fica nulo pra "nao_exigido".
+    statusPagamento: statusPagamentoEnum("status_pagamento").notNull().default("nao_exigido"),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

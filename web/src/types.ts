@@ -183,6 +183,10 @@ export interface RegraHorario {
   bufferMin: number;
   antecedenciaMinMin: number;
   descontoPercentual: number | null;
+  // Reserva com cobranca (doc 22) - deposito via Stripe exigido pra confirmar reserva
+  // PUBLICA nesse turno (reserva manual pelo painel nunca exige).
+  exigeDeposito: boolean;
+  valorDepositoCentavos: number | null;
 }
 
 export interface Bloqueio {
@@ -198,6 +202,9 @@ export interface Bloqueio {
 
 export type ReservaStatus = "pendente" | "confirmada" | "cancelada" | "concluida" | "no_show";
 export type CanalOrigem = "instagram" | "manual" | "widget";
+// Doc 22 - "pendente" nunca fica persistido de fato (a reserva so nasce depois do
+// deposito confirmado); existe pro tipo cobrir o estado transitorio do fluxo.
+export type StatusPagamento = "nao_exigido" | "pendente" | "pago" | "reembolsado";
 
 export interface Reserva {
   id: string;
@@ -215,6 +222,7 @@ export interface Reserva {
   status: ReservaStatus;
   observacoes: string | null;
   canalOrigem: CanalOrigem;
+  statusPagamento: StatusPagamento;
   criadoEm: string;
 }
 

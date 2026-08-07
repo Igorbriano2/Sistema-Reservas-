@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
-import { criarAssinaturaTrial, criarAssinaturaTrialParaUnidadeAdicional, resolverPriceId } from "../src/lib/stripe.js";
+import { criarAssinaturaTrial, criarAssinaturaTrialParaUnidadeAdicional, criarDepositoDeReserva, resolverPriceId } from "../src/lib/stripe.js";
 import { RequisicaoInvalidaError, ServicoIndisponivelError } from "../src/lib/errors.js";
 
 // Fake minimo do client da Stripe - so implementa os metodos que lib/stripe.ts usa,
@@ -21,6 +21,9 @@ function criarStripeFalso(overrides: Partial<Record<string, unknown>> = {}) {
     },
     prices: {
       list: vi.fn(),
+      create: vi.fn(),
+    },
+    paymentIntents: {
       create: vi.fn(),
     },
     ...overrides,
@@ -122,6 +125,37 @@ describe("criarAssinaturaTrialParaUnidadeAdicional", () => {
     await expect(
       criarAssinaturaTrialParaUnidadeAdicional(stripe, "price_123", { customerId: "cus_existente", paymentMethodId: "pm_fake" }),
     ).rejects.toBeInstanceOf(RequisicaoInvalidaError);
+  });
+});
+
+describe("criarDepositoDeReserva (doc 22)", () => {
+  it("cria o PaymentIntent com o valor/metadata informados e devolve id + clientSecret", async () => {
+    const stripe = criarStripeFalso();
+    (stripe.paymentIntents.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "pi_123",
+      client_secret: "pi_123_secret_abc",
+    });
+
+    const resultado = await criarDepositoDeReserva(stripe, {
+      valorCentavos: 5000,
+      metadata: { unidadeId: "unidade-1", igSenderId: "sender-1", data: "2026-10-10", horaInicio: "19:00" },
+    });
+
+    expect(resultado).toEqual({ paymentIntentId: "pi_123", clientSecret: "pi_123_secret_abc" });
+    expect(stripe.paymentIntents.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 5000,
+        currency: "brl",
+        metadata: { unidadeId: "unidade-1", igSenderId: "sender-1", data: "2026-10-10", horaInicio: "19:00" },
+      }),
+    );
+  });
+
+  it("traduz erro da Stripe em RequisicaoInvalidaError", async () => {
+    const stripe = criarStripeFalso();
+    (stripe.paymentIntents.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("falha generica"));
+
+    await expect(criarDepositoDeReserva(stripe, { valorCentavos: 5000, metadata: {} })).rejects.toBeInstanceOf(RequisicaoInvalidaError);
   });
 });
 

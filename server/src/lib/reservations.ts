@@ -97,6 +97,11 @@ export interface CriarReservaParams {
   observacoes?: string;
   igSenderId?: string;
   canalOrigem: "instagram" | "manual" | "widget";
+  // Doc 22 - preenchidos so quando o turno exige deposito e o pagamento ja foi
+  // verificado como succeeded (ver reservation-link.routes.ts). Ausentes = "nao_exigido"
+  // (default da coluna), o caso normal pra reserva manual/sem deposito.
+  statusPagamento?: "pago";
+  stripePaymentIntentId?: string;
 }
 
 export async function criarReserva(db: Database, params: CriarReservaParams): Promise<Reserva> {
@@ -182,6 +187,8 @@ async function criarReservaComMesa(
           horaFim,
           observacoes: params.observacoes,
           canalOrigem: params.canalOrigem,
+          statusPagamento: params.statusPagamento,
+          stripePaymentIntentId: params.stripePaymentIntentId,
         })
         .returning();
       return reserva;
@@ -270,6 +277,8 @@ async function criarReservaSimples(
         horaFim,
         observacoes: params.observacoes,
         canalOrigem: params.canalOrigem,
+        statusPagamento: params.statusPagamento,
+        stripePaymentIntentId: params.stripePaymentIntentId,
       })
       .returning();
     return reserva;
@@ -599,6 +608,8 @@ export interface CriarReservaComMesaAutomaticaParams {
   numPessoas: number;
   clienteNome: string;
   clienteTelefone?: string;
+  statusPagamento?: "pago";
+  stripePaymentIntentId?: string;
 }
 
 // Usada pela pagina publica de reserva (/reservar/:token): o cliente so escolhe
@@ -643,5 +654,7 @@ export async function criarReservaComMesaAutomatica(
     clienteTelefone: params.clienteTelefone,
     igSenderId: params.igSenderId,
     canalOrigem: params.canalOrigem,
+    statusPagamento: params.statusPagamento,
+    stripePaymentIntentId: params.stripePaymentIntentId,
   });
 }

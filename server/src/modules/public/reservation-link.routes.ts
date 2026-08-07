@@ -11,6 +11,8 @@ import { verificarDisponibilidade } from "../../lib/availability.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 import { enviarPushParaUnidade } from "../../lib/push.js";
 import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
+import { criarDepositoDeReserva, obterStripe } from "../../lib/stripe.js";
+import { RequisicaoInvalidaError } from "../../lib/errors.js";
 
 // Rotas PUBLICAS (sem requireAuth) - a seguranca aqui e o proprio token assinado e de
 // curta duracao (ver lib/reservation-link.ts), nao um JWT de sessao de admin. unidade_id
@@ -159,8 +161,67 @@ reservationLinkRouter.get(
     }));
 
     res.json({
-      disponibilidade: { disponivel: disponibilidade.disponivel, motivo: disponibilidade.motivo },
+      // turno (doc 22) - deixa o frontend saber ANTES de chegar na etapa de
+      // confirmacao se esse horario vai exigir deposito, pra mostrar a etapa de
+      // pagamento no lugar certo do fluxo em vez de descobrir so no POST final.
+      disponibilidade: { disponivel: disponibilidade.disponivel, motivo: disponibilidade.motivo, turno: disponibilidade.turno },
       saloes: resultado,
+    });
+  }),
+);
+
+const criarDepositoQuerySchema = z.object({
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data deve estar no formato YYYY-MM-DD"),
+  horaInicio: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "horario deve estar no formato HH:MM"),
+  numPessoas: z.number().int().positive(),
+});
+
+// Doc 22 - so chamada quando o turno do horario escolhido exige deposito (o frontend
+// confere isso no resultado de mesas-disponiveis antes de mostrar a etapa de
+// pagamento). Cria o PaymentIntent na Stripe SEM criar a reserva ainda - a reserva so
+// nasce depois do pagamento confirmado, em POST /reservations (evita segurar um
+// horario refem de um pagamento abandonado).
+reservationLinkRouter.post(
+  "/:token/deposito",
+  asyncHandler(async (req, res) => {
+    let payload;
+    try {
+      payload = decodificarTokenDeReserva(req.params.token);
+    } catch (err) {
+      if (err instanceof TokenDeReservaInvalidoError) return responderTokenInvalido(res);
+      throw err;
+    }
+
+    const dados = criarDepositoQuerySchema.parse(req.body);
+
+    const disponibilidade = await verificarDisponibilidade(db, {
+      unidadeId: payload.unidadeId,
+      data: dados.data,
+      hora: dados.horaInicio,
+      numPessoas: dados.numPessoas,
+    });
+    if (!disponibilidade.disponivel) {
+      throw new RequisicaoInvalidaError(disponibilidade.motivo ?? "Nao ha disponibilidade para esse horario");
+    }
+    if (!disponibilidade.turno?.exigeDeposito || !disponibilidade.turno.valorDepositoCentavos) {
+      throw new RequisicaoInvalidaError("Este horario nao exige deposito");
+    }
+
+    const stripe = obterStripe();
+    const deposito = await criarDepositoDeReserva(stripe, {
+      valorCentavos: disponibilidade.turno.valorDepositoCentavos,
+      metadata: {
+        unidadeId: payload.unidadeId,
+        igSenderId: payload.igSenderId,
+        data: dados.data,
+        horaInicio: dados.horaInicio,
+      },
+    });
+
+    res.json({
+      clientSecret: deposito.clientSecret,
+      paymentIntentId: deposito.paymentIntentId,
+      valorCentavos: disponibilidade.turno.valorDepositoCentavos,
     });
   }),
 );
@@ -179,6 +240,9 @@ const criarReservaPublicaSchema = z.object({
   // true se o campo vier explicitamente true (checkbox comeca desmarcado no form).
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data de nascimento deve estar no formato YYYY-MM-DD").optional(),
   whatsappOptIn: z.boolean().optional(),
+  // Doc 22 - obrigatorio quando o turno exige deposito (obtido em POST /deposito e
+  // confirmado no navegador via stripe.confirmCardPayment antes de chegar aqui).
+  paymentIntentId: z.string().optional(),
 });
 
 reservationLinkRouter.post(
@@ -197,28 +261,90 @@ reservationLinkRouter.post(
     // (o schema nem os declara), eles sao ignorados.
     const dados = criarReservaPublicaSchema.parse(req.body);
 
-    const reserva = dados.mesaId
-      ? await criarReserva(db, {
-          unidadeId: payload.unidadeId,
-          igSenderId: payload.igSenderId,
-          mesaId: dados.mesaId,
-          data: dados.data,
-          horaInicio: dados.horaInicio,
-          numPessoas: dados.numPessoas,
-          clienteNome: dados.clienteNome,
-          clienteTelefone: dados.clienteTelefone,
-          canalOrigem: "instagram",
-        })
-      : await criarReservaComMesaAutomatica(db, {
-          unidadeId: payload.unidadeId,
-          igSenderId: payload.igSenderId,
-          canalOrigem: "instagram",
-          data: dados.data,
-          horaInicio: dados.horaInicio,
-          numPessoas: dados.numPessoas,
-          clienteNome: dados.clienteNome,
-          clienteTelefone: dados.clienteTelefone,
-        });
+    // Doc 22 - so usado pra descobrir o turno (e se ele exige deposito) - a
+    // disponibilidade de fato (mesa/salao livre, sem conflito) e responsabilidade de
+    // criarReserva/criarReservaComMesaAutomatica logo abaixo, que tranca a linha e
+    // reflete o estado mais atual possivel (aqui poderia estar desatualizado por uma
+    // corrida entre esta consulta e a criacao em si).
+    const disponibilidade = await verificarDisponibilidade(db, {
+      unidadeId: payload.unidadeId,
+      data: dados.data,
+      hora: dados.horaInicio,
+      numPessoas: dados.numPessoas,
+    });
+
+    // Se o cliente mandou um paymentIntentId, valida ele SEMPRE (independente do que a
+    // re-checagem acima disser sobre exigir deposito agora) - a capacidade pode ter
+    // sumido entre o pagamento e esta chamada, o que apaga o "turno" da resposta de
+    // verificarDisponibilidade (ver semDisponibilidade em availability.ts); o proprio
+    // pagamento, com metadata batendo EXATAMENTE com esta unidade/cliente/data/horario,
+    // ja e prova suficiente de que era um deposito legitimo pra este pedido (so o
+    // endpoint /deposito cria PaymentIntent com essa metadata, e so quando o turno
+    // exigia deposito no momento em que foi gerado). So quando NAO ha paymentIntentId
+    // e a checagem atual ainda enxerga o turno exigindo deposito, rejeita.
+    let statusPagamento: "pago" | undefined;
+    let stripePaymentIntentId: string | undefined;
+    if (dados.paymentIntentId) {
+      const stripe = obterStripe();
+      const paymentIntent = await stripe.paymentIntents.retrieve(dados.paymentIntentId);
+      if (paymentIntent.status !== "succeeded") {
+        throw new RequisicaoInvalidaError("O pagamento do deposito ainda nao foi confirmado");
+      }
+      if (
+        paymentIntent.metadata.unidadeId !== payload.unidadeId ||
+        paymentIntent.metadata.igSenderId !== payload.igSenderId ||
+        paymentIntent.metadata.data !== dados.data ||
+        paymentIntent.metadata.horaInicio !== dados.horaInicio
+      ) {
+        throw new RequisicaoInvalidaError("Este deposito nao corresponde a esta reserva");
+      }
+      statusPagamento = "pago";
+      stripePaymentIntentId = dados.paymentIntentId;
+    } else if (disponibilidade.turno?.exigeDeposito) {
+      throw new RequisicaoInvalidaError("Este horario exige um deposito - pague antes de confirmar a reserva");
+    }
+
+    let reserva;
+    try {
+      reserva = dados.mesaId
+        ? await criarReserva(db, {
+            unidadeId: payload.unidadeId,
+            igSenderId: payload.igSenderId,
+            mesaId: dados.mesaId,
+            data: dados.data,
+            horaInicio: dados.horaInicio,
+            numPessoas: dados.numPessoas,
+            clienteNome: dados.clienteNome,
+            clienteTelefone: dados.clienteTelefone,
+            canalOrigem: "instagram",
+            statusPagamento,
+            stripePaymentIntentId,
+          })
+        : await criarReservaComMesaAutomatica(db, {
+            unidadeId: payload.unidadeId,
+            igSenderId: payload.igSenderId,
+            canalOrigem: "instagram",
+            data: dados.data,
+            horaInicio: dados.horaInicio,
+            numPessoas: dados.numPessoas,
+            clienteNome: dados.clienteNome,
+            clienteTelefone: dados.clienteTelefone,
+            statusPagamento,
+            stripePaymentIntentId,
+          });
+    } catch (err) {
+      // O deposito ja foi cobrado mas a reserva nao pode ser criada (ex: outra pessoa
+      // pegou a ultima mesa entre o pagamento e a confirmacao) - reembolsa na hora pra
+      // nunca cobrar um cliente por uma reserva que nao existe.
+      if (stripePaymentIntentId) {
+        obterStripe()
+          .refunds.create({ payment_intent: stripePaymentIntentId })
+          .catch((refundErr) => {
+            console.error("[reserva-publica] FALHA AO REEMBOLSAR deposito apos erro na criacao da reserva:", refundErr);
+          });
+      }
+      throw err;
+    }
 
     const [conversa] = await db
       .select({ id: conversas.id })

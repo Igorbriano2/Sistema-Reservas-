@@ -20,6 +20,8 @@ interface FormState {
   bufferMin: string;
   antecedenciaMinMin: string;
   descontoPercentual: string;
+  exigeDeposito: boolean;
+  valorDeposito: string;
 }
 
 const FORM_VAZIO: FormState = {
@@ -31,6 +33,8 @@ const FORM_VAZIO: FormState = {
   bufferMin: "0",
   antecedenciaMinMin: "0",
   descontoPercentual: "",
+  exigeDeposito: false,
+  valorDeposito: "",
 };
 
 function regraParaForm(regra: RegraHorario): FormState {
@@ -43,6 +47,8 @@ function regraParaForm(regra: RegraHorario): FormState {
     bufferMin: String(regra.bufferMin),
     antecedenciaMinMin: String(regra.antecedenciaMinMin),
     descontoPercentual: regra.descontoPercentual != null ? String(regra.descontoPercentual) : "",
+    exigeDeposito: regra.exigeDeposito,
+    valorDeposito: regra.valorDepositoCentavos != null ? (regra.valorDepositoCentavos / 100).toFixed(2) : "",
   };
 }
 
@@ -56,6 +62,8 @@ function formParaDados(form: FormState) {
     bufferMin: form.bufferMin ? Number(form.bufferMin) : undefined,
     antecedenciaMinMin: form.antecedenciaMinMin ? Number(form.antecedenciaMinMin) : undefined,
     descontoPercentual: form.descontoPercentual ? Number(form.descontoPercentual) : undefined,
+    exigeDeposito: form.exigeDeposito,
+    valorDepositoCentavos: form.valorDeposito ? Math.round(Number(form.valorDeposito.replace(",", ".")) * 100) : undefined,
   };
 }
 
@@ -213,6 +221,27 @@ export function SchedulePage() {
               />
             </label>
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <input
+              type="checkbox"
+              checked={form.exigeDeposito}
+              onChange={(e) => setForm({ ...form, exigeDeposito: e.target.checked })}
+            />
+            Exigir depósito para confirmar reserva neste turno
+          </label>
+          {form.exigeDeposito && (
+            <label style={{ maxWidth: 220, marginBottom: "0.75rem" }}>
+              Valor do depósito (R$)
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={form.valorDeposito}
+                onChange={(e) => setForm({ ...form, valorDeposito: e.target.value })}
+                required
+              />
+            </label>
+          )}
           {erroForm && <p className="erro">{erroForm}</p>}
           <button className="btn" type="submit" disabled={salvando}>
             {salvando ? "Salvando..." : "Adicionar turno"}
@@ -235,6 +264,7 @@ export function SchedulePage() {
                 <th>Horário</th>
                 <th>Antecedência</th>
                 <th>Desconto</th>
+                <th>Depósito</th>
                 <th></th>
               </tr>
             </thead>
@@ -244,7 +274,7 @@ export function SchedulePage() {
                 .map((regra) =>
                   editandoId === regra.id ? (
                     <tr key={regra.id}>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <form onSubmit={salvarEdicao}>
                           <div className="linha-form">
                             <label>
@@ -322,6 +352,27 @@ export function SchedulePage() {
                               />
                             </label>
                           </div>
+                          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                            <input
+                              type="checkbox"
+                              checked={formEdicao.exigeDeposito}
+                              onChange={(e) => setFormEdicao({ ...formEdicao, exigeDeposito: e.target.checked })}
+                            />
+                            Exigir depósito para confirmar reserva neste turno
+                          </label>
+                          {formEdicao.exigeDeposito && (
+                            <label style={{ maxWidth: 220, marginBottom: "0.75rem" }}>
+                              Valor do depósito (R$)
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                value={formEdicao.valorDeposito}
+                                onChange={(e) => setFormEdicao({ ...formEdicao, valorDeposito: e.target.value })}
+                                required
+                              />
+                            </label>
+                          )}
                           <div className="acoes">
                             <button className="btn" type="submit">
                               Salvar
@@ -342,6 +393,11 @@ export function SchedulePage() {
                       </td>
                       <td>{formatarAntecedencia(regra.antecedenciaMinMin)}</td>
                       <td>{regra.descontoPercentual != null ? `${regra.descontoPercentual}%` : "-"}</td>
+                      <td>
+                        {regra.exigeDeposito && regra.valorDepositoCentavos != null
+                          ? (regra.valorDepositoCentavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                          : "-"}
+                      </td>
                       <td>
                         <div className="acoes">
                           <button className="btn btn-secundario" onClick={() => abrirEdicao(regra)}>
