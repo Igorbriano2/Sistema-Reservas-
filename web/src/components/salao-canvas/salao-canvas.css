@@ -1,36 +1,43 @@
 /* Editor visual do salao (doc 11) - componente compartilhado entre o editor do dono
    (modo "edicao", TablesPage) e o seletor do cliente (modo "selecao", pagina publica,
-   Parte 2). Usa os tokens de design globais (index.css). */
+   Parte 2). A pagina em volta (paleta, painel lateral, botoes) continua no tema escuro
+   do app (var(--bg-elevated) etc.) - so a SUPERFICIE do canvas vira um "piso" claro tipo
+   planta baixa arquitetonica, com objetos em tons de madeira/verde, pra ficar parecido
+   com o desenho real do salao (pedido explicito do dono, ver doc 11 - banco de objetos).
+   Essas cores sao fixas (nao usam os tokens globais Pinho/Salvia/Terracota) de proposito:
+   sao a "tinta" do desenho, nao a interface ao redor dele. */
 
 .salao-canvas-svg {
   width: 100%;
   height: auto;
   aspect-ratio: 1000 / 640;
-  background: var(--bg-base);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  background: #ece2c8;
+  border: 10px solid #2b2118;
+  border-radius: 2px;
   touch-action: none;
 }
 
 .salao-canvas-grade-ponto {
-  fill: var(--border-subtle);
+  fill: #d9cca3;
 }
 
+/* Mesas -------------------------------------------------------------------- */
+
 .mesa-canvas-forma {
-  fill: var(--bg-elevated);
-  stroke: var(--border-subtle);
+  fill: #f4ecd8;
+  stroke: #c9b98f;
   stroke-width: 2;
-  transition: stroke var(--duracao-micro) var(--ease-padrao), fill var(--duracao-micro) var(--ease-padrao);
+  transition: stroke 0.15s ease, fill 0.15s ease;
 }
 
 .mesa-canvas-cadeira {
-  fill: var(--bg-elevated-hover);
-  stroke: var(--border-subtle);
+  fill: #6b4226;
+  stroke: #4a2c18;
   stroke-width: 1;
 }
 
 .mesa-canvas-nome {
-  fill: var(--text-primary);
+  fill: #3d2f1c;
   font-size: 13px;
   font-weight: 600;
   pointer-events: none;
@@ -38,7 +45,7 @@
 }
 
 .mesa-canvas-capacidade {
-  fill: var(--text-secondary);
+  fill: #5a4a33;
   font-size: 10px;
   pointer-events: none;
   user-select: none;
@@ -74,25 +81,151 @@
 }
 
 .mesa-canvas-grupo.indisponivel .mesa-canvas-forma {
-  fill: var(--bg-elevated);
-  stroke: var(--border-subtle);
-  opacity: 0.45;
+  fill: #d9cca3;
+  stroke: #c9b98f;
+  opacity: 0.6;
 }
 
 .mesa-canvas-grupo.indisponivel .mesa-canvas-nome,
 .mesa-canvas-grupo.indisponivel .mesa-canvas-capacidade {
-  opacity: 0.45;
+  opacity: 0.6;
 }
 
 .mesa-canvas-alca-redimensionar {
   fill: var(--accent);
   cursor: nwse-resize;
   opacity: 0;
-  transition: opacity var(--duracao-micro) var(--ease-padrao);
+  transition: opacity 0.15s ease;
 }
 
 .mesa-canvas-grupo:hover .mesa-canvas-alca-redimensionar,
 .mesa-canvas-grupo.selecionada .mesa-canvas-alca-redimensionar {
+  opacity: 1;
+}
+
+/* Elementos decorativos/estruturais (parede, porta, janela, planta, balcao,
+   banheiro, cozinha, cadeira avulsa) --------------------------------------- */
+
+.elemento-canvas-grupo {
+  cursor: grab;
+}
+
+.elemento-canvas-grupo:active {
+  cursor: grabbing;
+}
+
+.elemento-forma-parede {
+  fill: #2b2118;
+}
+
+.elemento-forma-porta-arco {
+  fill: none;
+  stroke: #8a5a34;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.elemento-forma-porta-folha {
+  stroke: #8a5a34;
+  stroke-width: 2;
+}
+
+.elemento-forma-janela {
+  fill: #cfe0e0;
+  stroke: #2b2118;
+  stroke-width: 1.5;
+}
+
+.elemento-forma-janela-linha {
+  stroke: #2b2118;
+  stroke-width: 1.5;
+}
+
+.elemento-forma-planta-folha-clara {
+  fill: #7c8f5e;
+}
+
+.elemento-forma-planta-folha-escura {
+  fill: #5f7048;
+}
+
+.elemento-forma-balcao {
+  fill: #3b2a1c;
+  stroke: #241608;
+  stroke-width: 1.5;
+}
+
+.elemento-forma-balcao-banqueta {
+  fill: #6b4226;
+  stroke: #4a2c18;
+  stroke-width: 1;
+}
+
+.elemento-forma-zona {
+  fill: rgba(255, 255, 255, 0.45);
+  stroke: #b8a888;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+.elemento-forma-zona-icone {
+  fill: #8a7a5f;
+}
+
+.elemento-forma-zona-icone-claro {
+  fill: #cfc7ac;
+}
+
+.elemento-forma-cadeira {
+  fill: #6b4226;
+  stroke: #4a2c18;
+  stroke-width: 1.5;
+}
+
+.elemento-texto-claro {
+  fill: #f4ecd8;
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.elemento-texto-escuro {
+  fill: #5a4a33;
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.elemento-canvas-grupo.selecionada .elemento-forma-parede,
+.elemento-canvas-grupo.selecionada .elemento-forma-janela,
+.elemento-canvas-grupo.selecionada .elemento-forma-balcao,
+.elemento-canvas-grupo.selecionada .elemento-forma-zona,
+.elemento-canvas-grupo.selecionada .elemento-forma-cadeira {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.elemento-canvas-selecao {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.elemento-canvas-alca-redimensionar {
+  fill: var(--accent);
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.elemento-canvas-grupo:hover .elemento-canvas-alca-redimensionar,
+.elemento-canvas-grupo.selecionada .elemento-canvas-alca-redimensionar {
   opacity: 1;
 }
 
@@ -108,31 +241,45 @@
 .canvas-paleta {
   display: flex;
   gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 4px;
   margin-bottom: 0.75rem;
 }
 
 .canvas-paleta-item {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.6rem 0.9rem;
+  padding: 0.6rem 0.7rem;
   border: 1px dashed var(--border-subtle);
   border-radius: 10px;
   cursor: grab;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  text-align: center;
   color: var(--text-secondary);
   background: var(--bg-elevated);
+  width: 76px;
 }
 
 .canvas-paleta-item:active {
   cursor: grabbing;
 }
 
+.canvas-paleta-icone {
+  width: 40px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
 .canvas-paleta-forma {
-  width: 28px;
-  height: 20px;
-  border: 2px solid var(--text-secondary);
+  width: 26px;
+  height: 18px;
+  border: 2px solid #b97a4f;
 }
 
 .canvas-paleta-forma.redonda {
@@ -141,11 +288,64 @@
 
 .canvas-paleta-forma.quadrada {
   border-radius: 4px;
-  width: 22px;
+  width: 20px;
 }
 
 .canvas-paleta-forma.retangular {
   border-radius: 4px;
+}
+
+.canvas-paleta-cadeira {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: #6b4226;
+  border: 1px solid #4a2c18;
+}
+
+.canvas-paleta-balcao {
+  width: 32px;
+  height: 14px;
+  border-radius: 3px;
+  background: #3b2a1c;
+}
+
+.canvas-paleta-parede {
+  width: 32px;
+  height: 8px;
+  background: #2b2118;
+  border-radius: 1px;
+}
+
+.canvas-paleta-porta {
+  width: 22px;
+  height: 22px;
+  border: 1.5px dashed #8a5a34;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 22px 0 0 0;
+}
+
+.canvas-paleta-janela {
+  width: 30px;
+  height: 9px;
+  background: #cfe0e0;
+  border: 1.5px solid #2b2118;
+}
+
+.canvas-paleta-planta {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #7c8f5e, #5f7048);
+}
+
+.canvas-paleta-servico {
+  width: 24px;
+  height: 24px;
+  border: 1.5px dashed #8a7a5f;
+  border-radius: 4px;
+  background: rgba(138, 122, 95, 0.12);
 }
 
 .canvas-painel-lateral {

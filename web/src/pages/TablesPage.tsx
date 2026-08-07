@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
-import { atualizarSalao, criarSalao, listarMesas, listarSaloes } from "../api/resources.js";
-import type { Mesa, ModoConfiguracaoSalao, Salao } from "../types.js";
+import { atualizarSalao, criarSalao, listarElementosSalao, listarMesas, listarSaloes } from "../api/resources.js";
+import type { Mesa, ModoConfiguracaoSalao, Salao, SalaoElemento } from "../types.js";
 import { SalaoCanvasEditor } from "../components/salao-canvas/SalaoCanvasEditor.js";
 
 const MODO_LABEL: Record<ModoConfiguracaoSalao, string> = {
@@ -22,6 +22,7 @@ export function TablesPage() {
   const { unidade } = useAuth();
   const [saloes, setSaloes] = useState<Salao[]>([]);
   const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [elementosSalao, setElementosSalao] = useState<SalaoElemento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -41,9 +42,14 @@ export function TablesPage() {
     setCarregando(true);
     setErro(null);
     try {
-      const [listaSaloes, listaMesas] = await Promise.all([listarSaloes(unidade.id), listarMesas(unidade.id)]);
+      const [listaSaloes, listaMesas, listaElementos] = await Promise.all([
+        listarSaloes(unidade.id),
+        listarMesas(unidade.id),
+        listarElementosSalao(unidade.id),
+      ]);
       setSaloes(listaSaloes);
       setMesas(listaMesas);
+      setElementosSalao(listaElementos);
       const saloesMapaCarregados = listaSaloes.filter((s) => s.modoConfiguracao === "mapa");
       setSalaoVisualId((atual) => (saloesMapaCarregados.some((s) => s.id === atual) ? atual : saloesMapaCarregados[0]?.id ?? ""));
     } catch (err) {
@@ -264,17 +270,21 @@ export function TablesPage() {
                 ))}
               </select>
             </label>
-            {carregando ? (
-              <p>Carregando...</p>
+            {salaoVisualId ? (
+              // key={salaoVisualId}: remonta (estado local limpo) so ao trocar de salão -
+              // recarregamentos em segundo plano (apos criar/duplicar/excluir um item, via
+              // onAlterado) NAO devem desmontar o editor, ou perderiam qualquer edicao local
+              // ainda pendente (nome/rotacao/posicao arrastada) que o dono nao salvou ainda.
+              <SalaoCanvasEditor
+                key={salaoVisualId}
+                unidadeId={unidade.id}
+                salaoId={salaoVisualId}
+                mesasDoSalao={mesas.filter((m) => m.salaoId === salaoVisualId)}
+                elementosDoSalao={elementosSalao.filter((e) => e.salaoId === salaoVisualId)}
+                onAlterado={carregar}
+              />
             ) : (
-              salaoVisualId && (
-                <SalaoCanvasEditor
-                  unidadeId={unidade.id}
-                  salaoId={salaoVisualId}
-                  mesasDoSalao={mesas.filter((m) => m.salaoId === salaoVisualId)}
-                  onAlterado={carregar}
-                />
-              )
+              carregando && <p>Carregando...</p>
             )}
           </>
         )}

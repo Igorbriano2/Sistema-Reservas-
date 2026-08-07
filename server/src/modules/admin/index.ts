@@ -4,6 +4,7 @@ import { requireAssinaturaAtiva } from "../../middleware/assinatura.middleware.j
 import { resolveUnidade } from "./unidade.middleware.js";
 import { saloesRouter } from "./saloes.routes.js";
 import { mesasRouter } from "./mesas.routes.js";
+import { salaoElementosRouter } from "./salao-elementos.routes.js";
 import { regrasHorarioRouter } from "./regras-horario.routes.js";
 import { availabilityRouter } from "./availability.routes.js";
 import { reservationsRouter } from "./reservations.routes.js";
@@ -40,6 +41,7 @@ const unidadeRouter = Router({ mergeParams: true });
 unidadeRouter.use(resolveUnidade);
 unidadeRouter.use("/saloes", requireRole("owner"), saloesRouter);
 unidadeRouter.use("/mesas", requireRole("owner"), mesasRouter);
+unidadeRouter.use("/salao-elementos", requireRole("owner"), salaoElementosRouter);
 unidadeRouter.use("/regras-horario", requireRole("owner"), regrasHorarioRouter);
 unidadeRouter.use("/bloqueios", requireRole("owner"), bloqueiosRouter);
 unidadeRouter.use("/relatorios", requireRole("owner"), relatoriosRouter);

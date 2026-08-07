@@ -4,6 +4,7 @@ export * from "./usuarios.js";
 export * from "./instagram-connections.js";
 export * from "./saloes.js";
 export * from "./mesas.js";
+export * from "./salao-elementos.js";
 export * from "./regras-horario.js";
 export * from "./excecoes-horario.js";
 export * from "./reservas.js";

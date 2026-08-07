@@ -5,6 +5,7 @@ import { db } from "../../db/client.js";
 import { mesaFormatoEnum, mesas, saloes } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
+import { validarSalaoDaUnidade } from "../../lib/salao-helpers.js";
 
 export const mesasRouter = Router({ mergeParams: true });
 
@@ -28,15 +29,6 @@ const criarMesaSchema = z.object({
 const atualizarMesaSchema = criarMesaSchema
   .partial()
   .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar");
-
-async function validarSalaoDaUnidade(salaoId: string, unidadeId: string): Promise<void> {
-  const [salao] = await db
-    .select({ id: saloes.id })
-    .from(saloes)
-    .where(and(eq(saloes.id, salaoId), eq(saloes.unidadeId, unidadeId)))
-    .limit(1);
-  if (!salao) throw new RequisicaoInvalidaError("Salao nao encontrado nesta unidade");
-}
 
 mesasRouter.get(
   "/",

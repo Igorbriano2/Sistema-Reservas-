@@ -55,6 +55,33 @@ export interface Mesa {
   altura: number | null;
 }
 
+// Objetos decorativos/estruturais do editor visual do salao (doc 11) - nao sao
+// reservaveis, so compoem o desenho (parede, porta, janela, planta, balcao/bar,
+// banheiro, cozinha, cadeira avulsa).
+export type TipoElementoSalao =
+  | "parede"
+  | "porta"
+  | "janela"
+  | "planta"
+  | "balcao"
+  | "banheiro"
+  | "cozinha"
+  | "cadeira";
+
+export interface SalaoElemento {
+  id: string;
+  salaoId: string;
+  tipo: TipoElementoSalao;
+  nome: string;
+  posX: number;
+  posY: number;
+  largura: number;
+  altura: number;
+  rotacao: number;
+  // So usado por "balcao" (numero de banquetas exibidas no desenho).
+  capacidade: number | null;
+}
+
 export interface Bloqueio {
   id: string;
   unidadeId: string;

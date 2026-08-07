@@ -9,6 +9,8 @@ import type {
   Relatorio,
   Reserva,
   Salao,
+  SalaoElemento,
+  TipoElementoSalao,
   Unidade,
   Usuario,
 } from "../types.js";
@@ -65,6 +67,34 @@ export function atualizarMesa(unidadeId: string, mesaId: string, dados: Partial<
 
 export function excluirMesa(unidadeId: string, mesaId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/mesas/${mesaId}`);
+}
+
+export function listarElementosSalao(unidadeId: string) {
+  return api.get<SalaoElemento[]>(`/admin/unidades/${unidadeId}/salao-elementos`);
+}
+
+export interface DadosElementoSalao {
+  salaoId: string;
+  tipo: TipoElementoSalao;
+  nome: string;
+  posX: number;
+  posY: number;
+  largura: number;
+  altura: number;
+  rotacao?: number;
+  capacidade?: number;
+}
+
+export function criarElementoSalao(unidadeId: string, dados: DadosElementoSalao) {
+  return api.post<SalaoElemento>(`/admin/unidades/${unidadeId}/salao-elementos`, dados);
+}
+
+export function atualizarElementoSalao(unidadeId: string, elementoId: string, dados: Partial<DadosElementoSalao>) {
+  return api.patch<SalaoElemento>(`/admin/unidades/${unidadeId}/salao-elementos/${elementoId}`, dados);
+}
+
+export function excluirElementoSalao(unidadeId: string, elementoId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/salao-elementos/${elementoId}`);
 }
 
 export function listarBloqueios(unidadeId: string) {

@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent as ReactPointerEvent, type DragEvent as ReactDragEvent } from "react";
-import type { MesaFormato } from "../../types.js";
+import type { MesaFormato, TipoElementoSalao } from "../../types.js";
 import "./salao-canvas.css";
 
 // Unidades do canvas (nao pixels de tela) - o mesmo viewBox e reaproveitado pela
@@ -19,18 +19,40 @@ export interface MesaCanvas {
   altura: number;
 }
 
+// Objetos decorativos/estruturais (parede, porta, janela, planta, balcao, banheiro,
+// cozinha, cadeira avulsa) - nunca reservaveis, so compoem o desenho do salao.
+export interface ElementoCanvas {
+  id: string;
+  tipo: TipoElementoSalao;
+  nome: string;
+  posX: number;
+  posY: number;
+  largura: number;
+  altura: number;
+  rotacao: number;
+  capacidade: number | null;
+}
+
+type PayloadPaleta = { kind: "mesa"; formato: MesaFormato } | { kind: "elemento"; tipo: TipoElementoSalao };
+
 interface SalaoCanvasSvgProps {
   mesas: MesaCanvas[];
+  elementos: ElementoCanvas[];
   // "edicao": dono arrasta/redimensiona/solta mesas novas da paleta (TablesPage).
   // "selecao": cliente so pode clicar numa mesa disponivel pra escolhe-la (Parte 2,
-  // pagina publica) - nada e arrastavel.
+  // pagina publica) - elementos so aparecem como cenario, nunca sao interativos.
   modo: "edicao" | "selecao";
   mesaSelecionadaId?: string | null;
+  elementoSelecionadoId?: string | null;
   mesasIndisponiveisIds?: Set<string>;
   onSelecionarMesa?: (id: string) => void;
+  onSelecionarElemento?: (id: string) => void;
   onMoverMesa?: (id: string, posX: number, posY: number) => void;
+  onMoverElemento?: (id: string, posX: number, posY: number) => void;
   onRedimensionarMesa?: (id: string, largura: number, altura: number) => void;
+  onRedimensionarElemento?: (id: string, largura: number, altura: number) => void;
   onSoltarNovaMesa?: (formato: MesaFormato, posX: number, posY: number) => void;
+  onSoltarNovoElemento?: (tipo: TipoElementoSalao, posX: number, posY: number) => void;
 }
 
 function pontoNoCanvas(svg: SVGSVGElement, clientX: number, clientY: number): { x: number; y: number } {
@@ -54,39 +76,94 @@ function posicoesDasCadeiras(cx: number, cy: number, raioX: number, raioY: numbe
   return posicoes;
 }
 
+// Banquetas do balcao, em linha reta ao longo da borda inferior.
+function posicoesDasBanquetas(largura: number, altura: number, quantidade: number) {
+  const posicoes: { x: number; y: number }[] = [];
+  for (let i = 0; i < quantidade; i++) {
+    posicoes.push({ x: ((i + 0.5) / quantidade) * largura, y: altura + 11 });
+  }
+  return posicoes;
+}
+
+// Folhas da planta, derivadas deterministicamente do id (mesma planta sempre desenha
+// igual, sem precisar guardar coluna extra no banco pra isso).
+function folhasDaPlanta(id: string, largura: number, altura: number) {
+  let semente = 0;
+  for (let i = 0; i < id.length; i++) semente = (semente * 31 + id.charCodeAt(i)) >>> 0;
+  const proximo = () => {
+    semente = (semente * 1103515245 + 12345) >>> 0;
+    return (semente % 10000) / 10000;
+  };
+  const quantidade = 3 + Math.floor(proximo() * 2);
+  const folhas: { cx: number; cy: number; r: number; clara: boolean }[] = [];
+  for (let i = 0; i < quantidade; i++) {
+    folhas.push({
+      cx: largura * 0.3 + proximo() * largura * 0.4,
+      cy: altura * 0.3 + proximo() * altura * 0.4,
+      r: 9 + proximo() * 6,
+      clara: i % 2 === 0,
+    });
+  }
+  return folhas;
+}
+
+interface ItemArrastavel {
+  id: string;
+  posX: number;
+  posY: number;
+  largura: number;
+  altura: number;
+}
+
 interface ArrasteAtual {
   tipo: "mover" | "redimensionar";
-  mesaId: string;
+  alvo: "mesa" | "elemento";
+  itemId: string;
   inicioPonteiro: { x: number; y: number };
-  inicioMesa: { posX: number; posY: number; largura: number; altura: number };
+  inicioItem: { posX: number; posY: number; largura: number; altura: number };
 }
 
 const TAMANHO_MIN_MESA = 40;
+const LARGURA_MIN_ELEMENTO = 30;
+
+const TIPOS_REDIMENSIONAVEIS: TipoElementoSalao[] = ["parede", "balcao", "janela"];
 
 export function SalaoCanvasSvg({
   mesas,
+  elementos,
   modo,
   mesaSelecionadaId,
+  elementoSelecionadoId,
   mesasIndisponiveisIds,
   onSelecionarMesa,
+  onSelecionarElemento,
   onMoverMesa,
+  onMoverElemento,
   onRedimensionarMesa,
+  onRedimensionarElemento,
   onSoltarNovaMesa,
+  onSoltarNovoElemento,
 }: SalaoCanvasSvgProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const arraste = useRef<ArrasteAtual | null>(null);
 
-  function iniciarArraste(e: ReactPointerEvent, mesa: MesaCanvas, tipo: "mover" | "redimensionar") {
+  function iniciarArraste(
+    e: ReactPointerEvent,
+    item: ItemArrastavel,
+    tipoArraste: "mover" | "redimensionar",
+    alvo: "mesa" | "elemento",
+  ) {
     if (modo !== "edicao") return;
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     const svg = svgRef.current;
     if (!svg) return;
     arraste.current = {
-      tipo,
-      mesaId: mesa.id,
+      tipo: tipoArraste,
+      alvo,
+      itemId: item.id,
       inicioPonteiro: pontoNoCanvas(svg, e.clientX, e.clientY),
-      inicioMesa: { posX: mesa.posX, posY: mesa.posY, largura: mesa.largura, altura: mesa.altura },
+      inicioItem: { posX: item.posX, posY: item.posY, largura: item.largura, altura: item.altura },
     };
   }
 
@@ -98,12 +175,23 @@ export function SalaoCanvasSvg({
     const dy = ponto.y - atual.inicioPonteiro.y;
 
     if (atual.tipo === "mover") {
-      onMoverMesa?.(atual.mesaId, atual.inicioMesa.posX + dx, atual.inicioMesa.posY + dy);
-    } else {
+      const novaPosX = atual.inicioItem.posX + dx;
+      const novaPosY = atual.inicioItem.posY + dy;
+      if (atual.alvo === "mesa") onMoverMesa?.(atual.itemId, novaPosX, novaPosY);
+      else onMoverElemento?.(atual.itemId, novaPosX, novaPosY);
+    } else if (atual.alvo === "mesa") {
       onRedimensionarMesa?.(
-        atual.mesaId,
-        Math.max(TAMANHO_MIN_MESA, atual.inicioMesa.largura + dx),
-        Math.max(TAMANHO_MIN_MESA, atual.inicioMesa.altura + dy),
+        atual.itemId,
+        Math.max(TAMANHO_MIN_MESA, atual.inicioItem.largura + dx),
+        Math.max(TAMANHO_MIN_MESA, atual.inicioItem.altura + dy),
+      );
+    } else {
+      // Elementos redimensionaveis (parede/balcao/janela) so ajustam a largura -
+      // a altura fica fixa no valor inicial.
+      onRedimensionarElemento?.(
+        atual.itemId,
+        Math.max(LARGURA_MIN_ELEMENTO, atual.inicioItem.largura + dx),
+        atual.inicioItem.altura,
       );
     }
   }
@@ -118,12 +206,19 @@ export function SalaoCanvasSvg({
   }
 
   function aoSoltarNaPaleta(e: ReactDragEvent<SVGSVGElement>) {
-    if (modo !== "edicao" || !onSoltarNovaMesa) return;
-    const formato = e.dataTransfer.getData("formato") as MesaFormato;
-    if (!formato || !svgRef.current) return;
+    if (modo !== "edicao") return;
+    const bruto = e.dataTransfer.getData("text/plain");
+    if (!bruto || !svgRef.current) return;
+    let payload: PayloadPaleta;
+    try {
+      payload = JSON.parse(bruto);
+    } catch {
+      return;
+    }
     e.preventDefault();
     const ponto = pontoNoCanvas(svgRef.current, e.clientX, e.clientY);
-    onSoltarNovaMesa(formato, ponto.x, ponto.y);
+    if (payload.kind === "mesa") onSoltarNovaMesa?.(payload.formato, ponto.x, ponto.y);
+    else onSoltarNovoElemento?.(payload.tipo, ponto.x, ponto.y);
   }
 
   return (
@@ -144,6 +239,119 @@ export function SalaoCanvasSvg({
       </defs>
       <rect width={CANVAS_LARGURA} height={CANVAS_ALTURA} fill="url(#grade-canvas)" />
 
+      {elementos.map((el) => {
+        const selecionado = elementoSelecionadoId === el.id;
+        const cx = el.posX + el.largura / 2;
+        const cy = el.posY + el.altura / 2;
+        const podeRedimensionar = modo === "edicao" && TIPOS_REDIMENSIONAVEIS.includes(el.tipo);
+
+        return (
+          <g
+            key={el.id}
+            className={["elemento-canvas-grupo", `tipo-${el.tipo}`, selecionado ? "selecionada" : ""].filter(Boolean).join(" ")}
+            transform={`rotate(${el.rotacao}, ${cx}, ${cy})`}
+            onPointerDown={(e) => iniciarArraste(e, el, "mover", "elemento")}
+            onClick={() => {
+              if (modo === "edicao") onSelecionarElemento?.(el.id);
+            }}
+          >
+            {el.tipo === "parede" && (
+              <rect x={el.posX} y={el.posY} width={el.largura} height={el.altura} className="elemento-forma-parede" />
+            )}
+
+            {el.tipo === "porta" && (
+              <>
+                <path
+                  d={`M ${el.posX} ${el.posY + el.altura} A ${el.altura} ${el.altura} 0 0 1 ${el.posX + el.altura} ${el.posY}`}
+                  className="elemento-forma-porta-arco"
+                />
+                <line x1={el.posX} y1={el.posY + el.altura} x2={el.posX} y2={el.posY} className="elemento-forma-porta-folha" />
+              </>
+            )}
+
+            {el.tipo === "janela" && (
+              <>
+                <rect x={el.posX} y={el.posY} width={el.largura} height={el.altura} className="elemento-forma-janela" />
+                <line x1={cx} y1={el.posY} x2={cx} y2={el.posY + el.altura} className="elemento-forma-janela-linha" />
+              </>
+            )}
+
+            {el.tipo === "planta" &&
+              folhasDaPlanta(el.id, el.largura, el.altura).map((f, i) => (
+                <circle
+                  key={i}
+                  cx={el.posX + f.cx}
+                  cy={el.posY + f.cy}
+                  r={f.r}
+                  className={f.clara ? "elemento-forma-planta-folha-clara" : "elemento-forma-planta-folha-escura"}
+                />
+              ))}
+
+            {el.tipo === "balcao" && (
+              <>
+                {posicoesDasBanquetas(el.largura, el.altura, el.capacidade ?? 6).map((p, i) => (
+                  <circle key={i} cx={el.posX + p.x} cy={el.posY + p.y} r={7} className="elemento-forma-balcao-banqueta" />
+                ))}
+                <rect x={el.posX} y={el.posY} width={el.largura} height={el.altura} rx={4} className="elemento-forma-balcao" />
+                <text x={cx} y={el.posY + 18} textAnchor="middle" className="elemento-texto-claro">
+                  {el.nome}
+                </text>
+              </>
+            )}
+
+            {(el.tipo === "banheiro" || el.tipo === "cozinha") && (
+              <>
+                <rect x={el.posX} y={el.posY} width={el.largura} height={el.altura} rx={4} className="elemento-forma-zona" />
+                {el.tipo === "banheiro" ? (
+                  <>
+                    <rect x={cx - 12} y={el.posY + 16} width={24} height={12} rx={2} className="elemento-forma-zona-icone" />
+                    <rect x={cx - 15} y={el.posY + 30} width={30} height={22} rx={13} className="elemento-forma-zona-icone-claro" />
+                  </>
+                ) : (
+                  <>
+                    <rect x={cx - 28} y={cy - 28} width={56} height={56} rx={4} className="elemento-forma-zona-icone" />
+                    <circle cx={cx - 14} cy={cy - 14} r={6} className="elemento-forma-zona-icone-claro" />
+                    <circle cx={cx + 14} cy={cy - 14} r={6} className="elemento-forma-zona-icone-claro" />
+                    <circle cx={cx - 14} cy={cy + 14} r={6} className="elemento-forma-zona-icone-claro" />
+                    <circle cx={cx + 14} cy={cy + 14} r={6} className="elemento-forma-zona-icone-claro" />
+                  </>
+                )}
+                <text x={cx} y={el.posY + el.altura - 10} textAnchor="middle" className="elemento-texto-escuro">
+                  {el.nome}
+                </text>
+              </>
+            )}
+
+            {el.tipo === "cadeira" && (
+              <rect x={el.posX} y={el.posY} width={el.largura} height={el.altura} rx={6} className="elemento-forma-cadeira" />
+            )}
+
+            {podeRedimensionar && (
+              <rect
+                x={el.posX + el.largura - 6}
+                y={cy - 6}
+                width={12}
+                height={12}
+                rx={3}
+                className="elemento-canvas-alca-redimensionar"
+                onPointerDown={(e) => iniciarArraste(e, el, "redimensionar", "elemento")}
+              />
+            )}
+
+            {selecionado && (
+              <rect
+                x={el.posX - 4}
+                y={el.posY - 4}
+                width={el.largura + 8}
+                height={el.altura + 8}
+                rx={4}
+                className="elemento-canvas-selecao"
+              />
+            )}
+          </g>
+        );
+      })}
+
       {mesas.map((mesa) => {
         const indisponivel = mesasIndisponiveisIds?.has(mesa.id) ?? false;
         const selecionada = mesaSelecionadaId === mesa.id;
@@ -163,7 +371,7 @@ export function SalaoCanvasSvg({
             ]
               .filter(Boolean)
               .join(" ")}
-            onPointerDown={(e) => iniciarArraste(e, mesa, "mover")}
+            onPointerDown={(e) => iniciarArraste(e, mesa, "mover", "mesa")}
             onClick={() => {
               if (!clicavel) return;
               onSelecionarMesa?.(mesa.id);
@@ -191,7 +399,7 @@ export function SalaoCanvasSvg({
                 height={16}
                 rx={3}
                 className="mesa-canvas-alca-redimensionar"
-                onPointerDown={(e) => iniciarArraste(e, mesa, "redimensionar")}
+                onPointerDown={(e) => iniciarArraste(e, mesa, "redimensionar", "mesa")}
               />
             )}
           </g>
