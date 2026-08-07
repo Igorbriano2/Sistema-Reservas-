@@ -15,6 +15,17 @@ const envSchema = z.object({
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-5"),
   INSTAGRAM_APP_SECRET: z.string().optional(),
   INSTAGRAM_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  // Conexao self-service (doc 14, "Meta Login for Business") - alternativa ao
+  // instagram:connect manual, os dois coexistem. APP_ID e o client_id publico do app
+  // no Meta for Developers; APP_SECRET (acima) e reaproveitado tambem pra trocar o
+  // code por token (mesmo app, mesmo segredo usado na assinatura do webhook).
+  INSTAGRAM_APP_ID: z.string().optional(),
+  // URL exata cadastrada no painel da Meta como redirect_uri valido (precisa bater
+  // caractere por caractere - normalmente "<API_BASE_URL>/auth/instagram/callback").
+  INSTAGRAM_OAUTH_REDIRECT_URI: z.string().optional(),
+  // Segredo do state assinado (protecao CSRF do OAuth) - cai para JWT_SECRET se nao
+  // definido, mesmo esquema do RESERVATION_LINK_SECRET.
+  INSTAGRAM_OAUTH_STATE_SECRET: z.string().optional(),
   // Chave AES-256 em hex (64 caracteres = 32 bytes), gerada com `openssl rand -hex 32`.
   // Usada para cifrar/decifrar instagram_connections.access_token_encrypted.
   TOKEN_ENCRYPTION_KEY: z

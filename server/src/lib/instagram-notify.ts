@@ -1,8 +1,9 @@
+import { eq } from "drizzle-orm";
 import type { Database } from "../db/client.js";
-import { mensagens } from "../db/schema/index.js";
+import { instagramConnections, mensagens } from "../db/schema/index.js";
 import { env } from "../config/env.js";
 import { decrypt } from "./crypto.js";
-import { enviarMensagemInstagram } from "./instagram-api.js";
+import { enviarMensagemInstagram, InstagramAuthError } from "./instagram-api.js";
 import { buscarConexaoAtivaDaUnidade } from "./instagram-connection.js";
 
 export interface EnviarRespostaDoAgenteParams {
@@ -29,7 +30,19 @@ export async function enviarRespostaDoAgente(db: Database, params: EnviarRespost
   }
 
   const accessToken = decrypt(conexao.accessTokenEncrypted, env.TOKEN_ENCRYPTION_KEY);
-  const igMessageId = await enviarMensagemInstagram(accessToken, params.igSenderId, params.texto);
+
+  let igMessageId: string;
+  try {
+    igMessageId = await enviarMensagemInstagram(accessToken, params.igSenderId, params.texto);
+  } catch (err) {
+    if (err instanceof InstagramAuthError) {
+      // Marca a conexao como expirada pro painel mostrar "Reconectar" - nao impede o
+      // erro de continuar subindo pro chamador (mesmo comportamento de antes, so com
+      // esse efeito colateral a mais).
+      await db.update(instagramConnections).set({ status: "expirada" }).where(eq(instagramConnections.id, conexao.id));
+    }
+    throw err;
+  }
 
   await db.insert(mensagens).values({
     conversaId: params.conversaId,

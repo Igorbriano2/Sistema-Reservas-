@@ -1,6 +1,89 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client.js";
-import { atualizarAgenteConfig, obterAgenteConfig } from "../api/resources.js";
+import { atualizarAgenteConfig, obterAgenteConfig, obterConexaoInstagram, urlConectarInstagram } from "../api/resources.js";
+import type { InstagramConnection } from "../types.js";
+
+const MENSAGENS_ERRO_INSTAGRAM: Record<string, string> = {
+  nao_autorizado: "Voce precisa ser o dono da empresa pra conectar o Instagram.",
+  nao_configurado: "A conexao self-service com o Instagram ainda nao foi configurada. Use o comando manual por enquanto.",
+  cancelado: "Voce cancelou o login com o Instagram antes de terminar.",
+  parametros_invalidos: "Resposta invalida da Meta. Tente novamente.",
+  state_invalido: "A tentativa de conexao expirou ou e invalida. Tente novamente.",
+  falha_troca_token: "Nao foi possivel concluir a conexao com o Instagram. Tente novamente em alguns minutos.",
+};
+
+// Doc 14 - conexao self-service via OAuth (Meta Login for Business), alternativa ao
+// comando manual instagram:connect (os dois coexistem, gravam na mesma tabela).
+function ConexaoInstagram() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [conexao, setConexao] = useState<InstagramConnection | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  // Capturado uma unica vez na montagem (nao lido direto de searchParams em todo
+  // render): assim que limpamos a URL logo abaixo, um `.get()` ao vivo voltaria null
+  // e o aviso sumiria no mesmo instante em que apareceu.
+  const [avisoConectado, setAvisoConectado] = useState(false);
+  const [codigoErro, setCodigoErro] = useState<string | null>(null);
+
+  function carregar() {
+    setCarregando(true);
+    obterConexaoInstagram()
+      .then(setConexao)
+      .catch(() => setConexao(null))
+      .finally(() => setCarregando(false));
+  }
+
+  useEffect(() => {
+    carregar();
+
+    const conectado = searchParams.get("instagram_conectado") === "1";
+    const erro = searchParams.get("instagram_erro");
+    if (conectado || erro) {
+      setAvisoConectado(conectado);
+      setCodigoErro(erro);
+      // Limpa os query params depois de ler, pra um refresh nao mostrar o aviso de novo.
+      const proximo = new URLSearchParams(searchParams);
+      proximo.delete("instagram_conectado");
+      proximo.delete("instagram_erro");
+      setSearchParams(proximo, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const conectado = conexao?.conectado && conexao.status === "ativo";
+  const expirado = conexao?.conectado && conexao.status === "expirada";
+
+  return (
+    <div className="cartao">
+      <h3 style={{ marginTop: 0 }}>Conexao com o Instagram</h3>
+      <p className="texto-secundario" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+        Conecte a conta comercial do Instagram do restaurante pra o agente de IA conseguir responder no Direct.
+      </p>
+
+      {avisoConectado && <p className="sucesso" style={{ fontSize: "0.85rem" }}>Instagram conectado com sucesso!</p>}
+      {codigoErro && (
+        <p className="erro">{MENSAGENS_ERRO_INSTAGRAM[codigoErro] ?? "Nao foi possivel conectar o Instagram. Tente novamente."}</p>
+      )}
+
+      {carregando ? (
+        <p>Carregando...</p>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          {conectado ? (
+            <span className="badge badge-confirmada">Conectado ✅ {conexao?.handle ? `@${conexao.handle}` : ""}</span>
+          ) : expirado ? (
+            <span className="badge badge-pendente">Conexao expirada</span>
+          ) : (
+            <span className="badge badge-cancelada">Desconectado</span>
+          )}
+          <a className="btn btn-secundario" href={urlConectarInstagram()}>
+            {conectado ? "Reconectar" : expirado ? "Reconectar" : "Conectar Instagram"}
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface FormState {
   nomeDoAgente: string;
@@ -80,9 +163,18 @@ export function AgentConfigPage() {
     }
   }
 
-  if (carregando) return <p>Carregando...</p>;
+  if (carregando) {
+    return (
+      <>
+        <ConexaoInstagram />
+        <p>Carregando...</p>
+      </>
+    );
+  }
 
   return (
+    <>
+    <ConexaoInstagram />
     <div className="cartao">
       <h3 style={{ marginTop: 0 }}>Personalizacao do agente de IA</h3>
       <p className="texto-secundario" style={{ marginTop: 0, fontSize: "0.85rem" }}>
@@ -160,5 +252,6 @@ export function AgentConfigPage() {
         </button>
       </form>
     </div>
+    </>
   );
 }

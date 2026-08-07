@@ -24,6 +24,14 @@ export interface AgenteConfig {
   facebookPixelId: string | null;
 }
 
+export interface InstagramConnection {
+  conectado: boolean;
+  id?: string;
+  igBusinessAccountId?: string;
+  handle?: string | null;
+  status?: "ativo" | "inativo" | "expirada";
+}
+
 export interface WhatsappConnection {
   id: string;
   unidadeId: string | null;

@@ -1,8 +1,9 @@
-import { api } from "./client.js";
+import { API_URL, api } from "./client.js";
 import type {
   AgenteConfig,
   Bloqueio,
   Feedback,
+  InstagramConnection,
   Mesa,
   MesaFormato,
   ModoConfiguracaoSalao,
@@ -215,6 +216,19 @@ export function obterAgenteConfig() {
 
 export function atualizarAgenteConfig(dados: Partial<Omit<AgenteConfig, "empresaId">>) {
   return api.patch<AgenteConfig>("/admin/agente-config", dados);
+}
+
+// Conexao self-service do Instagram via OAuth (doc 14) - o comando manual
+// instagram:connect continua existindo em paralelo (mesmo padrao do WhatsApp).
+export function obterConexaoInstagram() {
+  return api.get<InstagramConnection>("/admin/instagram/connection");
+}
+
+// E uma navegacao de pagina inteira (redirect pra Meta), nao um fetch - o token de
+// sessao viaja como query param so pra essa etapa (ver instagram-oauth.routes.ts).
+export function urlConectarInstagram(): string {
+  const token = localStorage.getItem("token") ?? "";
+  return `${API_URL}/auth/instagram/connect?token=${encodeURIComponent(token)}`;
 }
 
 // WhatsApp Business (doc 16) - conexao e feita fora do painel via o comando

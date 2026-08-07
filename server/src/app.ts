@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { env } from "./config/env.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { instagramOAuthRouter } from "./modules/auth/instagram-oauth.routes.js";
 import { adminRouter } from "./modules/admin/index.js";
 import { webhookRouter } from "./modules/agent/webhook.routes.js";
 import { whatsappWebhookRouter } from "./modules/whatsapp/webhook.routes.js";
@@ -34,6 +35,7 @@ export function createApp() {
   });
 
   app.use("/auth", authRouter);
+  app.use("/auth/instagram", instagramOAuthRouter);
   app.use("/admin", adminRouter);
   app.use("/agent/webhook", webhookRouter);
   app.use("/whatsapp/webhook", whatsappWebhookRouter);
