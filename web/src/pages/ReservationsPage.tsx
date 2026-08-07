@@ -10,14 +10,24 @@ import {
   atualizarReserva,
   type DadosNovaReserva,
 } from "../api/resources.js";
+import { CalendarioMes } from "../components/CalendarioMes.js";
 import type { Mesa, Reserva, Salao } from "../types.js";
 
-function hojeLocal(): string {
+function dataLocal(offsetDias = 0): string {
   const agora = new Date();
+  agora.setDate(agora.getDate() + offsetDias);
   const ano = agora.getFullYear();
   const mes = String(agora.getMonth() + 1).padStart(2, "0");
   const dia = String(agora.getDate()).padStart(2, "0");
   return `${ano}-${mes}-${dia}`;
+}
+
+function hojeLocal(): string {
+  return dataLocal(0);
+}
+
+function dataFormatada(data: string): string {
+  return data.split("-").reverse().join("/");
 }
 
 const STATUS_LABEL: Record<Reserva["status"], string> = {
@@ -79,6 +89,7 @@ export function ReservationsPage() {
   const [form, setForm] = useState<FormState>(FORM_VAZIO);
   const [salvando, setSalvando] = useState(false);
   const [erroForm, setErroForm] = useState<string | null>(null);
+  const [calendarioAberto, setCalendarioAberto] = useState(false);
 
   const mesasPorId = useMemo(() => new Map(mesas.map((m) => [m.id, m])), [mesas]);
   const saloesPorId = useMemo(() => new Map(saloes.map((s) => [s.id, s])), [saloes]);
@@ -225,11 +236,53 @@ export function ReservationsPage() {
   return (
     <div>
       <div className="cartao">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
-          <label style={{ maxWidth: 220 }}>
-            Data
-            <input type="date" value={data} onChange={(e) => setData(e.target.value)} />
-          </label>
+        <div className="seletor-data">
+          <div className="pilulas-data">
+            <button
+              type="button"
+              className={`pilula-data ${data === dataLocal(-1) ? "ativa" : ""}`}
+              onClick={() => setData(dataLocal(-1))}
+            >
+              Ontem
+            </button>
+            <button
+              type="button"
+              className={`pilula-data ${data === hojeLocal() ? "ativa" : ""}`}
+              onClick={() => setData(hojeLocal())}
+            >
+              Hoje
+            </button>
+            <button
+              type="button"
+              className={`pilula-data ${data === dataLocal(1) ? "ativa" : ""}`}
+              onClick={() => setData(dataLocal(1))}
+            >
+              Amanha
+            </button>
+          </div>
+          <div className="seletor-data-calendario">
+            <button
+              type="button"
+              className="btn btn-secundario"
+              onClick={() => setCalendarioAberto((a) => !a)}
+              aria-expanded={calendarioAberto}
+            >
+              {dataFormatada(data)} 📅
+            </button>
+            {calendarioAberto && (
+              <div className="calendario-mes-flutuante">
+                <CalendarioMes
+                  unidadeId={unidade.id}
+                  dataSelecionada={data}
+                  onSelecionarData={(novaData) => {
+                    setData(novaData);
+                    setCalendarioAberto(false);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          <span style={{ flex: 1 }} />
           <button className="btn" onClick={abrirNovaReserva}>
             + Nova reserva
           </button>
@@ -328,7 +381,43 @@ export function ReservationsPage() {
         ) : reservasFiltradas.length === 0 ? (
           <p className="texto-secundario">Nenhuma reserva com esse status.</p>
         ) : (
-          <table>
+          <>
+          <div className="reservas-mobile">
+            {reservasFiltradas.map((reserva) => (
+              <div key={reserva.id} className="reserva-card-mobile">
+                <div className="reserva-card-mobile-topo">
+                  <span className="reserva-card-mobile-hora">{reserva.horaInicio.slice(0, 5)}</span>
+                  <span className={`badge badge-${reserva.status}`}>{STATUS_LABEL[reserva.status]}</span>
+                </div>
+                <strong className="reserva-card-mobile-nome">{reserva.clienteNome}</strong>
+                <div className="texto-secundario reserva-card-mobile-detalhes">
+                  {reserva.numPessoas} pessoa(s) - {nomeDoLocal(reserva)}
+                  {reserva.clienteTelefone && <> - {reserva.clienteTelefone}</>}
+                </div>
+                {STATUS_ATIVOS.has(reserva.status) && (
+                  <div className="reserva-card-mobile-acoes">
+                    <button className="btn" onClick={() => marcarStatus(reserva, "concluida")}>
+                      Marcar como sentada
+                    </button>
+                    <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "no_show")}>
+                      Nao compareceu
+                    </button>
+                  </div>
+                )}
+                {reserva.status !== "cancelada" && (
+                  <div className="reserva-card-mobile-acoes reserva-card-mobile-acoes-secundarias">
+                    <button className="btn btn-secundario" onClick={() => abrirEdicao(reserva)}>
+                      Editar
+                    </button>
+                    <button className="btn btn-perigo" onClick={() => cancelar(reserva)}>
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <table className="tabela-reservas">
             <thead>
               <tr>
                 <th>Hora</th>
@@ -380,6 +469,7 @@ export function ReservationsPage() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </div>
     </div>

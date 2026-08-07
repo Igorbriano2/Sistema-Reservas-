@@ -397,6 +397,79 @@ label {
   font-size: 0.85rem;
 }
 
+/* Painel mobile (doc 15) - a barra lateral vira uma barra de abas fixa embaixo
+   (padrao de app mobile), o topo/conteudo ganham menos respiro, e a tabela de
+   reservas cede lugar aos cards grandes de toque (.reservas-mobile). */
+@media (max-width: 720px) {
+  .barra-lateral {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    padding: 0.4rem 0.5rem;
+    gap: 0;
+    border-right: none;
+    border-top: 1px solid var(--border-subtle);
+    z-index: 50;
+    overflow-x: auto;
+  }
+
+  .barra-lateral .marca,
+  .barra-lateral-alternar {
+    display: none;
+  }
+
+  .barra-lateral nav {
+    flex-direction: row;
+    flex: 1;
+    justify-content: space-around;
+    gap: 0;
+  }
+
+  .barra-lateral nav a {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.4rem 0.3rem;
+    font-size: 0.62rem;
+    text-align: center;
+  }
+
+  .area-principal {
+    padding-bottom: 64px;
+  }
+
+  .topo {
+    padding: 0.65rem 1rem;
+    flex-wrap: wrap;
+  }
+
+  .conteudo {
+    padding: 1rem 0.75rem;
+  }
+
+  .rodape {
+    display: none;
+  }
+
+  .reservas-mobile {
+    display: block;
+  }
+
+  .tabela-reservas {
+    display: none;
+  }
+
+  .calendario-mes-flutuante {
+    left: auto;
+    right: 0;
+  }
+}
+
 /* Cartoes / tabelas ------------------------------------------------------- */
 
 .cartao {
@@ -625,6 +698,185 @@ tbody tr:hover {
 .acoes {
   display: flex;
   gap: 0.5rem;
+}
+
+/* Seletor de data (Reservas do dia) - pilulas hoje/ontem/amanha + calendario do mes. */
+.seletor-data {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pilulas-data {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.pilula-data {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: border-color var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao),
+    background var(--duracao-micro) var(--ease-padrao);
+}
+
+.pilula-data:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.pilula-data.ativa {
+  background: rgba(var(--accent-rgb), 0.14);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.seletor-data-calendario {
+  position: relative;
+}
+
+.calendario-mes-flutuante {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 30;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  width: min(320px, 90vw);
+  animation: entrada-cartao var(--duracao-painel) var(--ease-padrao) both;
+}
+
+.calendario-mes-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.calendario-mes-semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.3rem;
+}
+
+.calendario-mes-grade {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.2rem;
+  transition: opacity var(--duracao-micro) var(--ease-padrao);
+}
+
+.calendario-mes-grade.carregando {
+  opacity: 0.5;
+}
+
+.calendario-mes-dia {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--duracao-micro) var(--ease-padrao);
+}
+
+.calendario-mes-dia:hover:not(.vazio) {
+  background: var(--bg-elevated-hover);
+}
+
+.calendario-mes-dia.vazio {
+  cursor: default;
+}
+
+.calendario-mes-dia.hoje {
+  border: 1px solid var(--accent);
+}
+
+.calendario-mes-dia.selecionado {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.calendario-mes-contagem {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.calendario-mes-dia.selecionado .calendario-mes-contagem {
+  color: var(--text-on-accent);
+}
+
+/* Lista mobile de reservas do dia (cards grandes, botoes de toque) - escondida no
+   desktop, onde a tabela (.tabela-reservas) continua sendo a visao principal. */
+.reservas-mobile {
+  display: none;
+}
+
+.reserva-card-mobile {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.reserva-card-mobile-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reserva-card-mobile-hora {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+.reserva-card-mobile-nome {
+  font-size: 1.05rem;
+}
+
+.reserva-card-mobile-detalhes {
+  font-size: 0.85rem;
+}
+
+.reserva-card-mobile-acoes {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.reserva-card-mobile-acoes .btn {
+  flex: 1;
+  min-height: 44px;
+  font-size: 0.9rem;
+}
+
+.reserva-card-mobile-acoes-secundarias .btn {
+  min-height: 40px;
+  font-size: 0.82rem;
 }
 
 .erro {
