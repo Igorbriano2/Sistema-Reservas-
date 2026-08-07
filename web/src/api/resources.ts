@@ -13,6 +13,8 @@ import type {
   ModoConfiguracaoSalao,
   PapelUsuario,
   Permissao,
+  PesquisaPergunta,
+  PesquisaPerguntaTipo,
   RegraHorario,
   Relatorio,
   Reserva,
@@ -370,6 +372,30 @@ export function atualizarWhatsappConfig(dados: Partial<Omit<WhatsappConfig, "emp
   return api.patch<WhatsappConfig>("/admin/whatsapp/config", dados);
 }
 
+// NPS customizavel (doc 21) - owner apenas.
+export function listarPesquisaPerguntas() {
+  return api.get<PesquisaPergunta[]>("/admin/pesquisa-perguntas");
+}
+
+export interface DadosPesquisaPergunta {
+  tipo: PesquisaPerguntaTipo;
+  texto: string;
+  ordem?: number;
+  ativa?: boolean;
+}
+
+export function criarPesquisaPergunta(dados: DadosPesquisaPergunta) {
+  return api.post<PesquisaPergunta>("/admin/pesquisa-perguntas", dados);
+}
+
+export function atualizarPesquisaPergunta(perguntaId: string, dados: Partial<DadosPesquisaPergunta>) {
+  return api.patch<PesquisaPergunta>(`/admin/pesquisa-perguntas/${perguntaId}`, dados);
+}
+
+export function excluirPesquisaPergunta(perguntaId: string) {
+  return api.delete<void>(`/admin/pesquisa-perguntas/${perguntaId}`);
+}
+
 export function listarFeedbacks() {
   return api.get<Feedback[]>("/admin/whatsapp/feedbacks");
 }
@@ -516,6 +542,28 @@ export function criarReservaWidget(unidadeId: string, dados: DadosReservaWidget)
 
 export function urlEmbedDoWidget(unidadeId: string): string {
   return `${API_URL}/public/widget/${unidadeId}/embed.js`;
+}
+
+// Pagina publica da pesquisa de satisfacao customizada (doc 21) - link enviado por
+// WhatsApp apos a reserva, quando a empresa configurou perguntas customizadas.
+export interface InfoDaPesquisa {
+  unidadeNome: string;
+  jaRespondida: boolean;
+  perguntas: Array<{ id: string; tipo: PesquisaPerguntaTipo; texto: string }>;
+}
+
+export function obterInfoDaPesquisa(token: string) {
+  return api.get<InfoDaPesquisa>(`/public/pesquisa/${token}`);
+}
+
+export interface RespostaPesquisa {
+  perguntaId: string;
+  valorEscala?: number;
+  valorTexto?: string;
+}
+
+export function enviarRespostasPesquisa(token: string, respostas: RespostaPesquisa[]) {
+  return api.post<{ respondida: boolean }>(`/public/pesquisa/${token}`, { respostas });
 }
 
 // Formulario de contato/lista de espera da landing page (secao de preco) - ainda

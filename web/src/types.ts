@@ -71,6 +71,25 @@ export interface WhatsappConfig {
   diasInatividadeRecuperacao: number;
 }
 
+// NPS customizavel (doc 21) - perguntas que substituem a pesquisa fixa de nota+
+// comentario livre quando a empresa configura pelo menos uma.
+export type PesquisaPerguntaTipo = "escala" | "texto_curto";
+
+export interface PesquisaPergunta {
+  id: string;
+  empresaId: string;
+  ordem: number;
+  tipo: PesquisaPerguntaTipo;
+  texto: string;
+  ativa: boolean;
+}
+
+export interface PesquisaRespostaCustomizada {
+  perguntaTexto: string;
+  valorEscala: number | null;
+  valorTexto: string | null;
+}
+
 export interface Feedback {
   id: string;
   reservaId: string;
@@ -82,6 +101,7 @@ export interface Feedback {
   reservaData: string;
   reservaHoraInicio: string;
   unidadeNome: string;
+  respostasCustomizadas: PesquisaRespostaCustomizada[];
 }
 
 export interface Unidade {

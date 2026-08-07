@@ -21,6 +21,7 @@ import { usuariosRouter } from "./usuarios.routes.js";
 import { assinaturaRouter } from "./assinatura.routes.js";
 import { cardapioRouter } from "./cardapio.routes.js";
 import { filaEsperaRouter } from "./fila-espera.routes.js";
+import { pesquisaRouter } from "./pesquisa.routes.js";
 
 export const adminRouter = Router();
 
@@ -50,6 +51,9 @@ adminRouter.use("/agente-config", requirePermissaoEmpresa("editar_agente"), agen
 adminRouter.use("/whatsapp", whatsappRouter);
 adminRouter.use("/instagram", requireRole("owner"), instagramRouter);
 adminRouter.use("/usuarios", requirePermissaoEmpresa("criar_usuarios"), usuariosRouter);
+// NPS customizavel (doc 21) - mesmo nivel de config estrutural do whatsappRouter
+// /config (so owner).
+adminRouter.use("/pesquisa-perguntas", requireRole("owner"), pesquisaRouter);
 
 const unidadeRouter = Router({ mergeParams: true });
 unidadeRouter.use(resolveUnidade);

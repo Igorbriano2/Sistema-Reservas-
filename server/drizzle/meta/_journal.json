@@ -169,6 +169,13 @@
       "when": 1786129164967,
       "tag": "0023_sweet_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786130123887,
+      "tag": "0024_awesome_stature",
+      "breakpoints": true
     }
   ]
 }

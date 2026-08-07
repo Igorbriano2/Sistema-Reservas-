@@ -4,6 +4,7 @@ import type { Database } from "../db/client.js";
 import {
   clientes,
   mensagensMarketingLog,
+  pesquisaPerguntas,
   reservas,
   unidades,
   whatsappConfig,
@@ -12,7 +13,8 @@ import {
 } from "../db/schema/index.js";
 import { env } from "../config/env.js";
 import { decrypt } from "./crypto.js";
-import { enviarTemplateWhatsapp } from "./whatsapp-api.js";
+import { enviarTemplateWhatsapp, type ComponenteTemplate } from "./whatsapp-api.js";
+import { gerarTokenDePesquisa } from "./pesquisa-link.js";
 
 // "Ontem" em UTC - mesma logica simples usada no resto do app pra data local do
 // servidor (ver dataLocal() das paginas de dashboard/reservas no frontend).
@@ -51,6 +53,10 @@ async function enviarParaCliente(
     tipo: TipoCampanhaMarketing;
     nomeDoTemplate: string;
     reservaId?: string;
+    // Doc 21 - link da pesquisa customizada, quando a empresa tem perguntas
+    // configuradas. Vai como variavel {{1}} do corpo do template (o dono precisa ter
+    // criado o template na Meta com um placeholder de link pra isso aparecer).
+    componentes?: ComponenteTemplate[];
   },
 ): Promise<boolean> {
   const conexao = await conexaoAtivaDaEmpresa(db, params.empresaId, params.unidadeId);
@@ -74,6 +80,7 @@ async function enviarParaCliente(
       telefoneDestino: params.telefone,
       nomeDoTemplate: params.nomeDoTemplate,
       idioma: env.WHATSAPP_TEMPLATE_LANG,
+      componentes: params.componentes,
     });
     await db.insert(mensagensMarketingLog).values({
       empresaId: params.empresaId,
@@ -135,6 +142,29 @@ export async function executarRotinaFeedback(db: Database): Promise<ResultadoRot
       .limit(1);
     if (jaEnviado) continue;
 
+    // Doc 21 - se a empresa configurou pelo menos uma pergunta customizada de NPS,
+    // manda o link da pesquisa como variavel do template em vez do fluxo antigo (nota
+    // 1-5 por resposta livre); sem perguntas configuradas, comportamento inalterado.
+    const [perguntaAtiva] = await db
+      .select({ id: pesquisaPerguntas.id })
+      .from(pesquisaPerguntas)
+      .where(and(eq(pesquisaPerguntas.empresaId, c.empresaId), eq(pesquisaPerguntas.ativa, true)))
+      .limit(1);
+
+    const componentes: ComponenteTemplate[] | undefined = perguntaAtiva
+      ? [
+          {
+            type: "body",
+            parameters: [
+              {
+                type: "text",
+                text: `${env.WEB_APP_URL ?? ""}/pesquisa/${gerarTokenDePesquisa({ empresaId: c.empresaId, reservaId: c.reservaId, clienteTelefone: c.telefone })}`,
+              },
+            ],
+          },
+        ]
+      : undefined;
+
     const ok = await enviarParaCliente(db, {
       empresaId: c.empresaId,
       unidadeId: c.unidadeId,
@@ -142,6 +172,7 @@ export async function executarRotinaFeedback(db: Database): Promise<ResultadoRot
       tipo: "feedback",
       nomeDoTemplate: env.WHATSAPP_TEMPLATE_FEEDBACK,
       reservaId: c.reservaId,
+      componentes,
     });
     if (ok) enviados++;
     else falhas++;

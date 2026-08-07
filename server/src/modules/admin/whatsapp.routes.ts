@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
-import { feedbacks, reservas, unidades, whatsappConfig, whatsappConnections } from "../../db/schema/index.js";
+import { feedbacks, pesquisaPerguntas, pesquisaRespostas, reservas, unidades, whatsappConfig, whatsappConnections } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { requireRole } from "../../middleware/auth.middleware.js";
 
@@ -104,6 +104,29 @@ whatsappRouter.get(
       .innerJoin(unidades, eq(unidades.id, reservas.unidadeId))
       .where(eq(feedbacks.empresaId, req.auth!.empresaId))
       .orderBy(desc(feedbacks.recebidoEm));
-    res.json(lista);
+
+    // Doc 21 - respostas da pesquisa customizada (quando o cliente respondeu pelo
+    // link em vez do fluxo antigo de nota+comentario livre), agrupadas por feedback.
+    const feedbackIds = lista.map((f) => f.id);
+    const respostasCustomizadas =
+      feedbackIds.length === 0
+        ? []
+        : await db
+            .select({
+              feedbackId: pesquisaRespostas.feedbackId,
+              perguntaTexto: pesquisaPerguntas.texto,
+              valorEscala: pesquisaRespostas.valorEscala,
+              valorTexto: pesquisaRespostas.valorTexto,
+            })
+            .from(pesquisaRespostas)
+            .innerJoin(pesquisaPerguntas, eq(pesquisaPerguntas.id, pesquisaRespostas.perguntaId))
+            .where(inArray(pesquisaRespostas.feedbackId, feedbackIds));
+
+    res.json(
+      lista.map((f) => ({
+        ...f,
+        respostasCustomizadas: respostasCustomizadas.filter((r) => r.feedbackId === f.id),
+      })),
+    );
   }),
 );

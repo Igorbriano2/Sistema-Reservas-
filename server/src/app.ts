@@ -12,6 +12,7 @@ import { waitlistRouter } from "./modules/public/waitlist.routes.js";
 import { checkoutRouter } from "./modules/public/checkout.routes.js";
 import { cardapioPublicRouter } from "./modules/public/cardapio.routes.js";
 import { widgetRouter } from "./modules/public/widget.routes.js";
+import { pesquisaPublicRouter } from "./modules/public/pesquisa.routes.js";
 import { plataformaRouter } from "./modules/plataforma/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
@@ -46,6 +47,7 @@ export function createApp() {
   app.use("/public/checkout", checkoutRouter);
   app.use("/public/cardapio", cardapioPublicRouter);
   app.use("/public/widget", widgetRouter);
+  app.use("/public/pesquisa", pesquisaPublicRouter);
   app.use("/plataforma", plataformaRouter);
 
   app.use(errorHandler);
