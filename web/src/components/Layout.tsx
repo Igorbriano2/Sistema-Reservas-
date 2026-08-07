@@ -96,7 +96,7 @@ function sairDoModoTeste() {
 }
 
 export function Layout() {
-  const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout } = useAuth();
+  const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout, assinaturaComAviso } = useAuth();
   const emModoTeste = localStorage.getItem(MODO_TESTE_ATIVO_KEY) === "true";
 
   return (
@@ -119,6 +119,11 @@ export function Layout() {
             <button className="btn btn-secundario" onClick={sairDoModoTeste}>
               Voltar ao meu painel
             </button>
+          </div>
+        )}
+        {assinaturaComAviso && (
+          <div className="faixa-aviso-assinatura">
+            O pagamento da sua assinatura está atrasado. Regularize para não perder o acesso ao painel.
           </div>
         )}
         <header className="topo">

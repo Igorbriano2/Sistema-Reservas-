@@ -18,6 +18,27 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
   onUnauthorized = handler;
 }
 
+export interface AssinaturaBloqueadaInfo {
+  mensagem: string;
+  motivo?: string;
+}
+
+let onAssinaturaBloqueada: ((info: AssinaturaBloqueadaInfo) => void) | null = null;
+let onAssinaturaAviso: (() => void) | null = null;
+
+// 402 = middleware de acesso (ver assinatura.middleware.ts no backend) bloqueou por
+// causa do status da assinatura - diferente de 401, NAO desloga (o dono continua
+// autenticado, so nao pode usar o resto do painel ate resolver).
+export function setAssinaturaBloqueadaHandler(handler: ((info: AssinaturaBloqueadaInfo) => void) | null): void {
+  onAssinaturaBloqueada = handler;
+}
+
+// Header X-Assinatura-Aviso: acesso liberado mas dentro do periodo de graca de uma
+// cobranca atrasada - mostra um aviso nao bloqueante.
+export function setAssinaturaAvisoHandler(handler: (() => void) | null): void {
+  onAssinaturaAviso = handler;
+}
+
 function getToken(): string | null {
   return localStorage.getItem("token");
 }
@@ -38,8 +59,15 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     onUnauthorized?.();
   }
 
+  if (res.headers.get("x-assinatura-aviso")) {
+    onAssinaturaAviso?.();
+  }
+
   if (!res.ok) {
     const corpo = await res.json().catch(() => ({}));
+    if (res.status === 402) {
+      onAssinaturaBloqueada?.({ mensagem: corpo.error ?? "Assinatura inativa.", motivo: corpo.motivo });
+    }
     throw new ApiError(corpo.error ?? `Erro na requisicao (${res.status})`, res.status);
   }
 

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../../middleware/auth.middleware.js";
+import { requireAssinaturaAtiva } from "../../middleware/assinatura.middleware.js";
 import { resolveUnidade } from "./unidade.middleware.js";
 import { saloesRouter } from "./saloes.routes.js";
 import { mesasRouter } from "./mesas.routes.js";
@@ -12,10 +13,18 @@ import { conversasRouter } from "./conversas.routes.js";
 import { unidadesRouter } from "./unidades.routes.js";
 import { agenteConfigRouter } from "./agente-config.routes.js";
 import { usuariosRouter } from "./usuarios.routes.js";
+import { assinaturaRouter } from "./assinatura.routes.js";
 
 export const adminRouter = Router();
 
 adminRouter.use(requireAuth);
+
+// Antes do middleware de bloqueio de proposito: o dono precisa sempre conseguir ver
+// o proprio status de assinatura e cancelar durante o trial, mesmo com acesso ao
+// resto do painel bloqueado (assinatura atrasada alem da graca, ou cancelada).
+adminRouter.use("/assinatura", requireRole("owner"), assinaturaRouter);
+
+adminRouter.use(requireAssinaturaAtiva);
 
 // Acessiveis por owner e funcionario: descobrir a propria unidade e trabalhar com
 // reservas do dia (ver/criar/editar/cancelar) e disponibilidade (necessaria pra

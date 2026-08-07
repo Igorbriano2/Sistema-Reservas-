@@ -47,6 +47,9 @@ const envSchema = z.object({
   // Obtido so depois de registrar o endpoint de webhook no dashboard da Stripe -
   // usado pra verificar a assinatura (Stripe-Signature) dos eventos recebidos.
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Dias de tolerancia com uma assinatura "atrasada" (cobranca recorrente falhou)
+  // antes do middleware de acesso bloquear o painel da empresa.
+  ASSINATURA_ATRASO_GRACE_DIAS: z.coerce.number().int().positive().default(5),
 });
 
 export const env = envSchema.parse(process.env);

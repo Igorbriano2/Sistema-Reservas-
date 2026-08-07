@@ -295,6 +295,15 @@ label {
   font-weight: 600;
 }
 
+.faixa-aviso-assinatura {
+  background: var(--status-pendente-bg);
+  border-bottom: 1px solid var(--status-pendente);
+  color: var(--text-primary);
+  padding: 0.6rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .topo select {
   width: auto;
 }

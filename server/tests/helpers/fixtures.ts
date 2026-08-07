@@ -1,5 +1,5 @@
 import { db } from "../../src/db/client.js";
-import { agenteConfig, conversas, instagramConnections, mesas, regrasHorario, saloes } from "../../src/db/schema/index.js";
+import { agenteConfig, assinaturas, conversas, instagramConnections, mesas, regrasHorario, saloes, type Assinatura } from "../../src/db/schema/index.js";
 import { encrypt } from "../../src/lib/crypto.js";
 import { criarReserva } from "../../src/lib/reservations.js";
 
@@ -132,4 +132,27 @@ export async function criarConexaoInstagram(
     })
     .returning();
   return conexao;
+}
+
+export async function criarAssinatura(
+  empresaId: string,
+  overrides: Partial<{
+    status: Assinatura["status"];
+    subscriptionIdGateway: string;
+    customerIdGateway: string;
+    atrasadaDesde: Date | null;
+  }> = {},
+) {
+  const [assinatura] = await db
+    .insert(assinaturas)
+    .values({
+      empresaId,
+      gateway: "stripe",
+      customerIdGateway: overrides.customerIdGateway ?? "cus_teste",
+      subscriptionIdGateway: overrides.subscriptionIdGateway ?? `sub_teste_${empresaId}`,
+      status: overrides.status ?? "trialing",
+      atrasadaDesde: overrides.atrasadaDesde,
+    })
+    .returning();
+  return assinatura;
 }

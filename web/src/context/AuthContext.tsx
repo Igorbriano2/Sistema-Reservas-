@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { setUnauthorizedHandler } from "../api/client.js";
+import {
+  setAssinaturaAvisoHandler,
+  setAssinaturaBloqueadaHandler,
+  setUnauthorizedHandler,
+  type AssinaturaBloqueadaInfo,
+} from "../api/client.js";
 import { listarUnidades, login as apiLogin } from "../api/resources.js";
 import type { Unidade, Usuario } from "../types.js";
 
@@ -10,6 +15,8 @@ interface AuthContextValue {
   carregando: boolean;
   erroInicial: string | null;
   isOwner: boolean;
+  assinaturaBloqueada: AssinaturaBloqueadaInfo | null;
+  assinaturaComAviso: boolean;
   login: (email: string, senha: string) => Promise<void>;
   logout: () => void;
   selecionarUnidade: (unidade: Unidade) => void;
@@ -26,6 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [unidade, setUnidade] = useState<Unidade | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erroInicial, setErroInicial] = useState<string | null>(null);
+  const [assinaturaBloqueada, setAssinaturaBloqueada] = useState<AssinaturaBloqueadaInfo | null>(null);
+  const [assinaturaComAviso, setAssinaturaComAviso] = useState(false);
 
   function limparSessao() {
     localStorage.removeItem("token");
@@ -33,11 +42,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null);
     setUnidades([]);
     setUnidade(null);
+    setAssinaturaBloqueada(null);
   }
 
   useEffect(() => {
     setUnauthorizedHandler(limparSessao);
-    return () => setUnauthorizedHandler(null);
+    // 402 nao desloga (o dono continua autenticado) - so guarda o motivo pra a tela
+    // de bloqueio aparecer no lugar do painel (ver RequireAuth em App.tsx).
+    setAssinaturaBloqueadaHandler(setAssinaturaBloqueada);
+    setAssinaturaAvisoHandler(() => setAssinaturaComAviso(true));
+    return () => {
+      setUnauthorizedHandler(null);
+      setAssinaturaBloqueadaHandler(null);
+      setAssinaturaAvisoHandler(null);
+    };
   }, []);
 
   useEffect(() => {
@@ -59,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { token, usuario: usuarioLogado } = await apiLogin(email, senha);
     localStorage.setItem("token", token);
     localStorage.setItem("usuario", JSON.stringify(usuarioLogado));
+    setAssinaturaBloqueada(null);
     setUsuario(usuarioLogado);
   }
 
@@ -70,11 +89,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       carregando,
       erroInicial,
       isOwner: usuario?.papel === "owner",
+      assinaturaBloqueada,
+      assinaturaComAviso,
       login,
       logout: limparSessao,
       selecionarUnidade: setUnidade,
     }),
-    [usuario, unidade, unidades, carregando, erroInicial],
+    [usuario, unidade, unidades, carregando, erroInicial, assinaturaBloqueada, assinaturaComAviso],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

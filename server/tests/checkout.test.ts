@@ -110,3 +110,20 @@ describe("POST /public/checkout/criar-conta (assistente de assinatura - Etapa 3)
     expect(resposta.status).toBe(400);
   });
 });
+
+describe("POST /public/checkout/webhook", () => {
+  it("rejeita sem o header stripe-signature", async () => {
+    const resposta = await request(app).post("/public/checkout/webhook").send({ id: "evt_1", type: "invoice.payment_succeeded" });
+    expect(resposta.status).toBe(400);
+  });
+
+  it("rejeita sem STRIPE_WEBHOOK_SECRET configurado, mesmo com um header de assinatura qualquer", async () => {
+    // Ambiente de teste nao define STRIPE_WEBHOOK_SECRET de proposito - confirma que
+    // o endpoint nunca tenta processar um evento sem poder validar a origem.
+    const resposta = await request(app)
+      .post("/public/checkout/webhook")
+      .set("stripe-signature", "t=1,v1=assinatura-forjada")
+      .send({ id: "evt_1", type: "invoice.payment_succeeded" });
+    expect(resposta.status).toBe(400);
+  });
+});

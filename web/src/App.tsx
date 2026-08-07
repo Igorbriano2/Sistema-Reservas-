@@ -12,6 +12,7 @@ import { UsersPage } from "./pages/UsersPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
 import { CheckoutPage } from "./pages/CheckoutPage.js";
+import { AssinaturaBloqueadaPage } from "./pages/AssinaturaBloqueadaPage.js";
 import { PlataformaAuthProvider, usePlataformaAuth } from "./plataforma/PlataformaAuthContext.js";
 import { PlataformaLoginPage } from "./plataforma/PlataformaLoginPage.js";
 import { PlataformaLayout } from "./plataforma/PlataformaLayout.js";
@@ -19,13 +20,18 @@ import { ClientesPage } from "./plataforma/ClientesPage.js";
 import { LeadsPage } from "./plataforma/LeadsPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { usuario, carregando } = useAuth();
+  const { usuario, carregando, assinaturaBloqueada } = useAuth();
 
   if (carregando) {
     return <p style={{ padding: "2rem" }}>Carregando...</p>;
   }
   if (!usuario) {
     return <Navigate to="/admin/login" replace />;
+  }
+  // Continua autenticado (nao e um 401), so a assinatura da empresa nao esta em dia -
+  // mostra a tela de bloqueio no lugar do painel, mas sem derrubar a sessao.
+  if (assinaturaBloqueada) {
+    return <AssinaturaBloqueadaPage />;
   }
   return <>{children}</>;
 }

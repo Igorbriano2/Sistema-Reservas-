@@ -5,11 +5,13 @@ import { empresas } from "./empresas.js";
 // poderia entrar aqui no futuro sem migrar dado antigo.
 export const assinaturaGatewayEnum = pgEnum("assinatura_gateway", ["stripe"]);
 
-// Status AUTOMATICO, dirigido pelos eventos de webhook da Stripe (proximo passo) -
+// Status AUTOMATICO, dirigido pelos eventos de webhook da Stripe (ver lib/stripe-webhook.ts) -
 // distinto de empresas.assinatura_status, que e o status MANUAL que o dono da
 // plataforma edita a mao no /painel. Os dois convivem: o campo manual funciona como
-// override/excecao (ex: suspender por abuso mesmo com assinatura ativa na Stripe),
-// e o middleware de acesso (proximo passo) checa os dois.
+// override/excecao (ex: suspender por abuso mesmo com assinatura ativa na Stripe) e
+// SEMPRE vence, e o middleware de acesso (middleware/assinatura.middleware.ts) checa
+// os dois - nunca escrevemos em empresas.assinatura_status automaticamente, esse
+// campo fica 100% sob controle manual do dono da plataforma.
 export const assinaturaStatusGatewayEnum = pgEnum("assinatura_status_gateway", [
   "trialing",
   "ativa",
@@ -30,6 +32,10 @@ export const assinaturas = pgTable(
     status: assinaturaStatusGatewayEnum("status").notNull().default("trialing"),
     trialTerminaEm: timestamp("trial_termina_em", { withTimezone: true }),
     proximaCobrancaEm: timestamp("proxima_cobranca_em", { withTimezone: true }),
+    // Preenchido so quando o status vira "atrasada" pela primeira vez (nao reseta em
+    // tentativas de cobranca repetidas) - o middleware de acesso usa isso pra calcular
+    // o periodo de graca antes de bloquear.
+    atrasadaDesde: timestamp("atrasada_desde", { withTimezone: true }),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

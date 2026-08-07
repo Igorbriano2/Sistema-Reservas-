@@ -1,7 +1,8 @@
+import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import type { Database } from "../db/client.js";
-import { assinaturas } from "../db/schema/index.js";
-import { RequisicaoInvalidaError } from "./errors.js";
+import { assinaturas, type Assinatura } from "../db/schema/index.js";
+import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
 import { criarEmpresaComOwner } from "./empresas.js";
 
 export interface DadosCriarConta {
@@ -61,4 +62,38 @@ export async function provisionarContaAposPagamento(
   }
 
   return { empresaId: empresa.id };
+}
+
+// So durante o trial: cancela na Stripe sem gerar cobranca nenhuma. Depois do trial
+// (status "ativa"/"atrasada"), o cancelamento self-service fica fora de escopo por
+// enquanto - o dono precisa falar com o suporte. "obterStripeClient" e uma funcao (nao
+// um client ja resolvido) de proposito: so precisamos de STRIPE_SECRET_KEY configurada
+// quando o cancelamento realmente vai acontecer, depois das validacoes acima - assim
+// "sem assinatura"/"nao esta mais em trial" nunca esbarram num erro de configuracao
+// que nem chegaria a usar a Stripe. Injetavel pra testes (passa uma funcao fake).
+export async function cancelarAssinaturaDoTrial(
+  db: Database,
+  obterStripeClient: () => Stripe,
+  empresaId: string,
+): Promise<Assinatura> {
+  const [assinatura] = await db.select().from(assinaturas).where(eq(assinaturas.empresaId, empresaId)).limit(1);
+  if (!assinatura) {
+    throw new RecursoNaoEncontradoError("Nenhuma assinatura encontrada para esta empresa");
+  }
+  if (assinatura.status !== "trialing") {
+    throw new RequisicaoInvalidaError(
+      "Cancelamento automatico so esta disponivel durante o periodo de teste gratis. Fale com o suporte.",
+    );
+  }
+
+  const stripe = obterStripeClient();
+  await stripe.subscriptions.cancel(assinatura.subscriptionIdGateway);
+
+  const [atualizada] = await db
+    .update(assinaturas)
+    .set({ status: "cancelada" })
+    .where(eq(assinaturas.id, assinatura.id))
+    .returning();
+
+  return atualizada;
 }

@@ -28,6 +28,11 @@
 #        INSTAGRAM_BUSINESS_ACCOUNT_ID=... INSTAGRAM_ACCESS_TOKEN=... \
 #        TOKEN_ENCRYPTION_KEY=... DATABASE_URL=<supabase> \
 #          npm --prefix server run instagram:connect -- --empresa-id <uuid>
+#   5. Depois que a API estiver no ar, registre o webhook da Stripe (Developers >
+#      Webhooks > Add endpoint) apontando pra <URL da API>/public/checkout/webhook,
+#      selecionando os eventos invoice.payment_succeeded, invoice.payment_failed,
+#      customer.subscription.updated e customer.subscription.deleted. Copie o
+#      "Signing secret" (whsec_...) gerado e preencha STRIPE_WEBHOOK_SECRET abaixo.
 
 name: sistema-reservas-api
 region: nyc

@@ -14,3 +14,4 @@ export * from "./waitlist-leads.js";
 export * from "./bloqueios.js";
 export * from "./plataforma-admins.js";
 export * from "./assinaturas.js";
+export * from "./stripe-webhook-eventos.js";
