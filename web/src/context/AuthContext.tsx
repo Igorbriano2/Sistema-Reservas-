@@ -30,6 +30,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const UNIDADE_SELECIONADA_KEY = "unidade_selecionada";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(() => {
     const salvo = localStorage.getItem("usuario");
@@ -72,12 +74,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     listarUnidades()
       .then((lista) => {
         setUnidades(lista);
-        if (lista.length > 0) setUnidade(lista[0]);
+        // Doc 17, parte 6: lembra a ultima unidade escolhida (por login) - se ela nao
+        // existir mais na lista (ex: perdeu acesso), cai pra primeira da lista.
+        const salvaId = localStorage.getItem(`${UNIDADE_SELECIONADA_KEY}:${usuario.id}`);
+        const salva = salvaId ? lista.find((u) => u.id === salvaId) : undefined;
+        if (salva) setUnidade(salva);
+        else if (lista.length > 0) setUnidade(lista[0]);
       })
       .catch(() => setErroInicial("Nao foi possivel carregar as unidades da empresa."))
       .finally(() => setCarregando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.id]);
+
+  function selecionarUnidade(nova: Unidade) {
+    setUnidade(nova);
+    if (usuario) localStorage.setItem(`${UNIDADE_SELECIONADA_KEY}:${usuario.id}`, nova.id);
+  }
 
   async function login(identificador: string, senha: string) {
     const { token, usuario: usuarioLogado } = await apiLogin(identificador, senha);
@@ -111,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       assinaturaComAviso,
       login,
       logout: limparSessao,
-      selecionarUnidade: setUnidade,
+      selecionarUnidade,
       temPermissaoNaUnidade,
       temPermissaoNaEmpresa,
     }),

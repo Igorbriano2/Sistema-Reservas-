@@ -194,9 +194,10 @@ export function Layout() {
           </div>
         )}
         <header className="topo">
-          <span className="texto-secundario">{unidade?.nome ?? ""}</span>
-          {unidades.length > 1 && (
+          {unidades.length > 1 ? (
             <select
+              className="seletor-unidade"
+              aria-label="Unidade"
               value={unidade?.id ?? ""}
               onChange={(e) => {
                 const selecionada = unidades.find((u) => u.id === e.target.value);
@@ -209,6 +210,8 @@ export function Layout() {
                 </option>
               ))}
             </select>
+          ) : (
+            <span className="texto-secundario">{unidade?.nome ?? ""}</span>
           )}
           <span style={{ flex: 1 }} />
           <InstalarAppButton />
