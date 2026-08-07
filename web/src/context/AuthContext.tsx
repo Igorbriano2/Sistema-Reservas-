@@ -6,6 +6,7 @@ import {
   type AssinaturaBloqueadaInfo,
 } from "../api/client.js";
 import { listarUnidades, login as apiLogin } from "../api/resources.js";
+import { limparFluxoEscolha } from "../lib/escolhaPainel.js";
 import type { Permissao, Unidade, Usuario } from "../types.js";
 
 interface AuthContextValue {
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function limparSessao() {
     localStorage.removeItem("token");
     localStorage.removeItem("usuario");
+    limparFluxoEscolha();
     setUsuario(null);
     setUnidades([]);
     setUnidade(null);

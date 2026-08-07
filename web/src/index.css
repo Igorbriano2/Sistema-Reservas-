@@ -364,6 +364,67 @@ label {
   opacity: 1;
 }
 
+/* Submenus (Part B) - grupo com cabecalho clicavel (mesma cara de um item de nav)
+   que expande uma lista recuada de links reais. */
+.grupo-nav-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: background var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao);
+}
+
+.grupo-nav-cabecalho:hover {
+  background: var(--bg-elevated-hover);
+  color: var(--text-primary);
+}
+
+.grupo-nav-cabecalho.ativo {
+  color: var(--accent);
+}
+
+.grupo-nav-cabecalho svg:first-child {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.grupo-nav-cabecalho .rotulo-nav {
+  flex: 1;
+  text-align: left;
+}
+
+.grupo-nav-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transform: rotate(-90deg);
+}
+
+.grupo-nav-chevron.fechado {
+  transform: rotate(180deg);
+}
+
+.subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-left: 1.1rem;
+  border-left: 1px solid var(--border-subtle);
+  margin: 0.1rem 0 0.1rem 1.2rem;
+}
+
+.barra-lateral.recolhida .subnav {
+  padding-left: 0;
+  margin-left: 0;
+  border-left: none;
+}
+
 .area-principal {
   flex: 1;
   min-width: 0;
@@ -404,6 +465,22 @@ label {
 
 .topo select {
   width: auto;
+}
+
+.link-trocar-painel {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  transition: color var(--duracao-micro) var(--ease-padrao), background var(--duracao-micro) var(--ease-padrao);
+}
+
+.link-trocar-painel:hover {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
 }
 
 .conteudo {
@@ -923,6 +1000,77 @@ tbody tr:hover {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Escolha de painel/loja pos-login (estilo GetIn, Part A) ------------------- */
+
+.escolha-painel {
+  width: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  text-align: center;
+  animation: entrada-login var(--duracao-painel) var(--ease-padrao) both;
+}
+
+.escolha-painel h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.cartoes-escolha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.cartao-escolha,
+.cartao-loja {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 1.75rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  color: var(--text-primary);
+  transition: border-color var(--duracao-micro) var(--ease-padrao), box-shadow var(--duracao-micro) var(--ease-padrao),
+    transform var(--duracao-micro) var(--ease-padrao);
+}
+
+.cartao-escolha svg,
+.cartao-loja svg {
+  color: var(--accent);
+  margin-bottom: 0.25rem;
+}
+
+.cartao-escolha strong,
+.cartao-loja strong {
+  font-size: 1.05rem;
+}
+
+.cartao-escolha span,
+.cartao-loja span {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.cartao-escolha:hover,
+.cartao-loja:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  transform: translateY(-2px);
+}
+
+.grade-lojas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  width: 100%;
 }
 
 /* Banner de consentimento de cookies (pagina publica de reserva, doc 13) ----- */

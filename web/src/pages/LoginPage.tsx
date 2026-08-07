@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import { Marca } from "../components/Marca.js";
+import { fluxoEscolhaCompleto } from "../lib/escolhaPainel.js";
 
 export function LoginPage() {
   const { usuario, login } = useAuth();
@@ -12,7 +13,9 @@ export function LoginPage() {
   const [enviando, setEnviando] = useState(false);
 
   if (usuario) {
-    return <Navigate to="/admin/reservas" replace />;
+    // Login novo (ou primeira carga da sessao): passa pela escolha de painel/loja
+    // (estilo GetIn). Se a aba ja tinha escolhido nesta sessao, pula direto.
+    return <Navigate to={fluxoEscolhaCompleto() ? "/admin/reservas" : "/admin/escolher-painel"} replace />;
   }
 
   async function handleSubmit(e: FormEvent) {

@@ -4,6 +4,9 @@ import type { Permissao } from "./types.js";
 import { Layout } from "./components/Layout.js";
 import { LandingPage } from "./pages/LandingPage.js";
 import { LoginPage } from "./pages/LoginPage.js";
+import { EscolherPainelPage } from "./pages/EscolherPainelPage.js";
+import { EscolherLojaPage } from "./pages/EscolherLojaPage.js";
+import { fluxoEscolhaCompleto } from "./lib/escolhaPainel.js";
 import { DashboardPage } from "./pages/DashboardPage.js";
 import { ReservationsPage } from "./pages/ReservationsPage.js";
 import { TablesPage } from "./pages/TablesPage.js";
@@ -73,6 +76,16 @@ function RequirePermissaoNaEmpresa({ permissao, children }: { permissao: Permiss
   return <>{children}</>;
 }
 
+// Ganha do GetIn: depois do login, o usuario passa por "escolher painel" (e "escolher
+// loja", se tiver mais de uma) antes de cair no painel de verdade - RequireAuth ja
+// garante usuario logado, esse guard so garante que o fluxo foi concluido nesta aba.
+function RequirePainelEscolhido({ children }: { children: React.ReactNode }) {
+  if (!fluxoEscolhaCompleto()) {
+    return <Navigate to="/admin/escolher-painel" replace />;
+  }
+  return <>{children}</>;
+}
+
 function RequirePlataformaAuth({ children }: { children: React.ReactNode }) {
   const { admin } = usePlataformaAuth();
   if (!admin) {
@@ -93,6 +106,22 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={window.location.hostname.startsWith("painel.") ? <Navigate to="/painel" replace /> : <LandingPage />} />
       <Route path="/admin/login" element={<LoginPage />} />
+      <Route
+        path="/admin/escolher-painel"
+        element={
+          <RequireAuth>
+            <EscolherPainelPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/escolher-loja"
+        element={
+          <RequireAuth>
+            <EscolherLojaPage />
+          </RequireAuth>
+        }
+      />
       <Route path="/reservar/:token" element={<PublicReservationPage />} />
       <Route path="/cardapio/:unidadeId" element={<PublicMenuPage />} />
       <Route path="/widget/:unidadeId" element={<WidgetReservationPage />} />
@@ -102,7 +131,9 @@ function AppRoutes() {
         path="/admin"
         element={
           <RequireAuth>
-            <Layout />
+            <RequirePainelEscolhido>
+              <Layout />
+            </RequirePainelEscolhido>
           </RequireAuth>
         }
       >

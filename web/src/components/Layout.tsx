@@ -1,7 +1,9 @@
-import type { ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useState, type ReactNode } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { useBarraLateralRecolhida } from "../lib/useBarraLateralRecolhida.js";
+import { useEhMobile } from "../lib/useEhMobile.js";
+import { obterPainelModo } from "../lib/escolhaPainel.js";
 import type { Permissao } from "../types.js";
 import { Marca } from "./Marca.js";
 import { ThemeToggle } from "./ThemeToggle.js";
@@ -19,6 +21,23 @@ interface ItemDeNav {
   ownerOnly?: boolean;
   permissao?: { valor: Permissao; escopo: "unidade" | "empresa" };
   icone: ReactNode;
+  // Visivel no "Painel Operacao" (escolha pos-login estilo GetIn - Part A). Quem
+  // nao marcar so aparece no "Painel Gestao".
+  operacao?: boolean;
+}
+
+// Grupo de itens com submenu (Part B, ex: Reservas > Reservas/Fila de espera/Mesas).
+interface GrupoDeNav {
+  chave: string;
+  label: string;
+  icone: ReactNode;
+  itens: ItemDeNav[];
+}
+
+type EntradaDeNav = ItemDeNav | GrupoDeNav;
+
+function ehGrupo(entrada: EntradaDeNav): entrada is GrupoDeNav {
+  return "itens" in entrada;
 }
 
 function IconeDashboard() {
@@ -138,20 +157,39 @@ function IconeChevron() {
   );
 }
 
-const ITENS_NAV: ItemDeNav[] = [
+// Menu organizado em grupos com submenu (Part B) - ex: "Reservas" reune Reservas do
+// dia, Fila de espera e o Salao/Mesas. "operacao: true" marca o que aparece tambem
+// no Painel Operacao (Part A) - quem nao marcar so aparece no Painel Gestao.
+const NAV: EntradaDeNav[] = [
   { to: "/admin/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
-  { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
-  { to: "/admin/fila-espera", label: "Fila de espera", icone: <IconeFilaEspera /> },
+  {
+    chave: "reservas",
+    label: "Reservas",
+    icone: <IconeReservas />,
+    itens: [
+      { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas />, operacao: true },
+      { to: "/admin/fila-espera", label: "Fila de espera", icone: <IconeFilaEspera />, operacao: true },
+      { to: "/admin/mesas", label: "Salão / Mesas", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeMesas />, operacao: true },
+    ],
+  },
   { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
-  { to: "/admin/mesas", label: "Mesas", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeMesas /> },
-  { to: "/admin/horarios", label: "Horários", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeHorarios /> },
-  { to: "/admin/cardapio", label: "Cardápio", permissao: { valor: "editar_cardapio", escopo: "unidade" }, icone: <IconeCardapio /> },
-  { to: "/admin/bloqueios", label: "Bloqueios", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeBloqueios /> },
+  {
+    chave: "configuracoes",
+    label: "Configurações",
+    icone: <IconeHorarios />,
+    itens: [
+      { to: "/admin/horarios", label: "Horários", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeHorarios /> },
+      { to: "/admin/cardapio", label: "Cardápio", permissao: { valor: "editar_cardapio", escopo: "unidade" }, icone: <IconeCardapio /> },
+      { to: "/admin/bloqueios", label: "Bloqueios", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeBloqueios /> },
+    ],
+  },
   { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },
   { to: "/admin/agente", label: "Agente de IA", permissao: { valor: "editar_agente", escopo: "empresa" }, icone: <IconeAgente /> },
   { to: "/admin/usuarios", label: "Usuarios", permissao: { valor: "criar_usuarios", escopo: "empresa" }, icone: <IconeUsuarios /> },
   { to: "/admin/unidades", label: "Unidades", ownerOnly: true, icone: <IconeUnidades /> },
 ];
+
+const GRUPOS_ABERTOS_KEY = "nav_grupos_abertos";
 
 const MODO_TESTE_ATIVO_KEY = "modo_teste_ativo";
 
@@ -170,8 +208,33 @@ export function Layout() {
     useAuth();
   const emModoTeste = localStorage.getItem(MODO_TESTE_ATIVO_KEY) === "true";
   const [recolhida, setRecolhida] = useBarraLateralRecolhida();
+  const [painelModo] = useState(() => obterPainelModo());
+  const ehMobile = useEhMobile();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [gruposAbertos, setGruposAbertos] = useState<Set<string>>(() => {
+    const salvo = localStorage.getItem(GRUPOS_ABERTOS_KEY);
+    const iniciais = new Set<string>(salvo ? (JSON.parse(salvo) as string[]) : []);
+    for (const entrada of NAV) {
+      if (ehGrupo(entrada) && entrada.itens.some((i) => location.pathname.startsWith(i.to))) {
+        iniciais.add(entrada.chave);
+      }
+    }
+    return iniciais;
+  });
+
+  function alternarGrupo(chave: string) {
+    setGruposAbertos((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(chave)) novo.delete(chave);
+      else novo.add(chave);
+      localStorage.setItem(GRUPOS_ABERTOS_KEY, JSON.stringify([...novo]));
+      return novo;
+    });
+  }
 
   function itemVisivel(item: ItemDeNav): boolean {
+    if (painelModo === "operacao" && !item.operacao) return false;
     if (item.ownerOnly) return isOwner;
     if (item.permissao) {
       return item.permissao.escopo === "unidade" ? temPermissaoNaUnidade(item.permissao.valor) : temPermissaoNaEmpresa(item.permissao.valor);
@@ -179,22 +242,49 @@ export function Layout() {
     return true;
   }
 
+  function renderLink(item: ItemDeNav) {
+    return (
+      <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "ativo" : "")} title={recolhida ? item.label : undefined}>
+        {item.icone}
+        <span className="rotulo-nav">{item.label}</span>
+      </NavLink>
+    );
+  }
+
   return (
     <div className="layout">
       <aside className={`barra-lateral ${recolhida ? "recolhida" : ""}`}>
         <Marca />
         <nav>
-          {ITENS_NAV.filter(itemVisivel).map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => (isActive ? "ativo" : "")}
-              title={recolhida ? item.label : undefined}
-            >
-              {item.icone}
-              <span className="rotulo-nav">{item.label}</span>
-            </NavLink>
-          ))}
+          {NAV.map((entrada) => {
+            if (!ehGrupo(entrada)) {
+              return itemVisivel(entrada) ? renderLink(entrada) : null;
+            }
+            const itensVisiveis = entrada.itens.filter(itemVisivel);
+            if (itensVisiveis.length === 0) return null;
+            // No mobile a barra vira abas fixas embaixo (doc 15) - grupos expansiveis
+            // nao cabem nesse formato, entao achata: os itens do grupo aparecem soltos.
+            if (ehMobile) return itensVisiveis.map(renderLink);
+            const aberto = gruposAbertos.has(entrada.chave);
+            const grupoAtivo = itensVisiveis.some((i) => location.pathname.startsWith(i.to));
+            return (
+              <div className="grupo-nav" key={entrada.chave}>
+                <button
+                  type="button"
+                  className={`grupo-nav-cabecalho ${grupoAtivo ? "ativo" : ""}`}
+                  onClick={() => alternarGrupo(entrada.chave)}
+                  title={recolhida ? entrada.label : undefined}
+                >
+                  {entrada.icone}
+                  <span className="rotulo-nav">{entrada.label}</span>
+                  <span className={`icone-chevron grupo-nav-chevron ${aberto ? "" : "fechado"}`}>
+                    <IconeChevron />
+                  </span>
+                </button>
+                {aberto && <div className="subnav">{itensVisiveis.map(renderLink)}</div>}
+              </div>
+            );
+          })}
         </nav>
         <button
           type="button"
@@ -244,6 +334,9 @@ export function Layout() {
           ) : (
             <span className="texto-secundario">{unidade?.nome ?? ""}</span>
           )}
+          <button type="button" className="link-trocar-painel" onClick={() => navigate("/admin/escolher-painel")}>
+            {painelModo === "operacao" ? "Painel Operação" : "Painel Gestão"} · trocar
+          </button>
           <span style={{ flex: 1 }} />
           <InstalarAppButton />
           {unidade && <NotificacaoToggle unidadeId={unidade.id} />}
