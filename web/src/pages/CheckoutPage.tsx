@@ -7,6 +7,7 @@ import { formatarCpfCnpj, validarCpfOuCnpj } from "../lib/documento.js";
 import { stripePromise } from "../lib/stripe-client.js";
 import { Marca } from "../components/Marca.js";
 import { EtapaPagamento } from "../components/checkout/EtapaPagamento.js";
+import { EtapaSenha } from "../components/checkout/EtapaSenha.js";
 
 const ETAPAS = ["Dados", "Pagamento", "Senha", "Pronto"];
 
@@ -158,20 +159,8 @@ export function CheckoutPage() {
             </div>
           ))}
 
-        {etapa === 3 && (
-          <div className="checkout-form">
-            <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Teste grátis iniciado! 🎉</h1>
-            <p className="texto-secundario" style={{ fontSize: "0.9rem" }}>
-              Prazer, {dados.nome.split(" ")[0]}. Seu cartão foi validado e o teste de 7 dias começou agora — sem
-              cobrança até o fim do período. A etapa de criação de senha e acesso ao painel está em construção e
-              chega em breve.
-            </p>
-            {assinatura && (
-              <p className="texto-secundario" style={{ fontSize: "0.75rem" }}>
-                Referência da assinatura: {assinatura.stripeSubscriptionId}
-              </p>
-            )}
-          </div>
+        {etapa === 3 && assinatura && (
+          <EtapaSenha dados={dados} assinatura={assinatura} onVoltar={() => setEtapa(2)} />
         )}
       </div>
     </div>

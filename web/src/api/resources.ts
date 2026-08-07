@@ -232,3 +232,20 @@ export interface AssinaturaCriada {
 export function criarAssinatura(dados: DadosAssinatura) {
   return api.post<AssinaturaCriada>("/public/checkout/assinar", dados);
 }
+
+// Etapa 3 (senha + provisionamento). Apos sucesso, o frontend chama o /auth/login
+// normal (Etapa 4, login automatico) - este endpoint so cria a conta, nao devolve token.
+export interface DadosCriarConta {
+  nome: string;
+  telefone: string;
+  email: string;
+  documento: string;
+  nomeEmpresa: string;
+  senha: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+}
+
+export function criarConta(dados: DadosCriarConta) {
+  return api.post<{ empresaId: string }>("/public/checkout/criar-conta", dados);
+}

@@ -7,10 +7,12 @@ import { asyncHandler } from "../../lib/async-handler.js";
 import { env } from "../../config/env.js";
 import { RequisicaoInvalidaError } from "../../lib/errors.js";
 import { criarAssinaturaTrial, obterStripe, resolverPriceId } from "../../lib/stripe.js";
+import { provisionarContaAposPagamento } from "../../lib/checkout.js";
 
 // Rotas PUBLICAS (sem requireAuth) do assistente de checkout/assinatura (/assinar no
-// frontend) - ver doc da Etapa 1 (dados cadastrais) e Etapa 2 (pagamento). A Etapa 3
-// (criacao de senha + provisionamento da empresa) entra no proximo passo.
+// frontend) - ver doc da Etapa 1 (dados cadastrais), Etapa 2 (pagamento) e Etapa 3
+// (criacao de senha + provisionamento da empresa). A Etapa 4 (login automatico) e so
+// frontend - reaproveita o /auth/login normal com o e-mail/senha desta etapa.
 export const checkoutRouter = Router();
 
 const validarEmailSchema = z.object({ email: z.string().trim().email() });
@@ -62,6 +64,30 @@ checkoutRouter.post(
     });
 
     const resultado = await criarAssinaturaTrial(stripe, priceId, { ...dados, email });
+    res.status(201).json(resultado);
+  }),
+);
+
+const criarContaSchema = z.object({
+  nome: z.string().trim().min(1),
+  telefone: z.string().trim().min(8),
+  email: z.string().trim().email(),
+  documento: z.string().trim().min(11),
+  nomeEmpresa: z.string().trim().min(1),
+  senha: z.string().min(8, "senha deve ter pelo menos 8 caracteres"),
+  // Devolvidos pela Etapa 2 (/assinar) - reconfirmados aqui direto na Stripe antes de
+  // criar qualquer coisa no nosso banco, pra ninguem conseguir provisionar uma
+  // empresa so inventando esses dois IDs sem ter pago nada de verdade.
+  stripeCustomerId: z.string().trim().min(1),
+  stripeSubscriptionId: z.string().trim().min(1),
+});
+
+checkoutRouter.post(
+  "/criar-conta",
+  asyncHandler(async (req, res) => {
+    const dados = criarContaSchema.parse(req.body);
+    const stripe = obterStripe();
+    const resultado = await provisionarContaAposPagamento(db, stripe, { ...dados, email: dados.email.toLowerCase() });
     res.status(201).json(resultado);
   }),
 );

@@ -77,3 +77,36 @@ describe("POST /public/checkout/assinar (assistente de assinatura - Etapa 2)", (
     expect(resposta.status).toBe(400);
   });
 });
+
+describe("POST /public/checkout/criar-conta (assistente de assinatura - Etapa 3)", () => {
+  const dadosValidos = {
+    nome: "Maria Silva",
+    telefone: "11912345678",
+    email: "maria-etapa3-rota@teste.com",
+    documento: "11144477735",
+    nomeEmpresa: "Restaurante da Maria",
+    senha: "senhaDaMaria123",
+    stripeCustomerId: "cus_valido",
+    stripeSubscriptionId: "sub_valido",
+  };
+
+  it("sem STRIPE_SECRET_KEY configurada, informa servico indisponivel em vez de quebrar", async () => {
+    const resposta = await request(app).post("/public/checkout/criar-conta").send(dadosValidos);
+    expect(resposta.status).toBe(503);
+  });
+
+  it("rejeita corpo sem senha ou com senha curta", async () => {
+    const resposta = await request(app)
+      .post("/public/checkout/criar-conta")
+      .send({ ...dadosValidos, senha: "curta" });
+    expect(resposta.status).toBe(400);
+  });
+
+  it("rejeita corpo sem os IDs da Stripe", async () => {
+    const { stripeCustomerId, stripeSubscriptionId, ...semStripeIds } = dadosValidos;
+    void stripeCustomerId;
+    void stripeSubscriptionId;
+    const resposta = await request(app).post("/public/checkout/criar-conta").send(semStripeIds);
+    expect(resposta.status).toBe(400);
+  });
+});
