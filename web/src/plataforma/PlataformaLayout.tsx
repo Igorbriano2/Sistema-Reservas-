@@ -5,6 +5,15 @@ import { entrarEmModoTeste } from "./resources.js";
 import { ApiError } from "../api/client.js";
 import { Marca } from "../components/Marca.js";
 import { ThemeToggle } from "../components/ThemeToggle.js";
+import { useBarraLateralRecolhida } from "../lib/useBarraLateralRecolhida.js";
+
+function IconeChevron() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 5l-7 7 7 7" />
+    </svg>
+  );
+}
 
 function IconeClientes() {
   return (
@@ -41,6 +50,7 @@ export function PlataformaLayout() {
   const { admin, logout } = usePlataformaAuth();
   const [entrandoEmTeste, setEntrandoEmTeste] = useState(false);
   const [erroModoTeste, setErroModoTeste] = useState<string | null>(null);
+  const [recolhida, setRecolhida] = useBarraLateralRecolhida();
 
   async function handleModoTeste() {
     setEntrandoEmTeste(true);
@@ -55,27 +65,43 @@ export function PlataformaLayout() {
 
   return (
     <div className="layout">
-      <aside className="barra-lateral">
+      <aside className={`barra-lateral ${recolhida ? "recolhida" : ""}`}>
         <Marca />
         <nav>
-          <NavLink to="/painel/clientes" className={({ isActive }) => (isActive ? "ativo" : "")}>
+          <NavLink to="/painel/clientes" className={({ isActive }) => (isActive ? "ativo" : "")} title={recolhida ? "Clientes" : undefined}>
             <IconeClientes />
-            Clientes
+            <span className="rotulo-nav">Clientes</span>
           </NavLink>
-          <NavLink to="/painel/leads" className={({ isActive }) => (isActive ? "ativo" : "")}>
+          <NavLink to="/painel/leads" className={({ isActive }) => (isActive ? "ativo" : "")} title={recolhida ? "Lista de espera" : undefined}>
             <IconeLeads />
-            Lista de espera
+            <span className="rotulo-nav">Lista de espera</span>
           </NavLink>
         </nav>
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <button className="btn btn-secundario" onClick={handleModoTeste} disabled={entrandoEmTeste}>
-            {entrandoEmTeste ? "Entrando..." : "Ver como restaurante"}
-          </button>
-          {erroModoTeste && (
-            <span className="erro" style={{ fontSize: "0.78rem" }}>
-              {erroModoTeste}
-            </span>
+          {!recolhida && (
+            <>
+              <button className="btn btn-secundario" onClick={handleModoTeste} disabled={entrandoEmTeste}>
+                {entrandoEmTeste ? "Entrando..." : "Ver como restaurante"}
+              </button>
+              {erroModoTeste && (
+                <span className="erro" style={{ fontSize: "0.78rem" }}>
+                  {erroModoTeste}
+                </span>
+              )}
+            </>
           )}
+          <button
+            type="button"
+            className="btn btn-secundario barra-lateral-alternar"
+            onClick={() => setRecolhida((r) => !r)}
+            aria-label={recolhida ? "Expandir menu" : "Recolher menu"}
+            title={recolhida ? "Expandir menu" : "Recolher menu"}
+          >
+            <span className={`icone-chevron ${recolhida ? "invertido" : ""}`}>
+              <IconeChevron />
+            </span>
+            <span className="rotulo-alternar">Recolher menu</span>
+          </button>
         </div>
       </aside>
       <div className="area-principal">

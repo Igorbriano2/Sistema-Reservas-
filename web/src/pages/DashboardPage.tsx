@@ -23,6 +23,28 @@ function dataLocal(offsetDias = 0): string {
   return `${ano}-${mes}-${dia}`;
 }
 
+// Anima um numero de 0 ate o valor final (efeito "contagem") quando `ativo` liga -
+// so roda depois que os dados carregaram, pra nao animar em cima do placeholder "-".
+function useContagemAnimada(valor: number, ativo: boolean, duracaoMs = 700): number {
+  const [exibido, setExibido] = useState(0);
+
+  useEffect(() => {
+    if (!ativo) return;
+    let inicio: number | null = null;
+    let quadro: number;
+    function passo(tempo: number) {
+      if (inicio === null) inicio = tempo;
+      const progresso = Math.min((tempo - inicio) / duracaoMs, 1);
+      setExibido(Math.round(valor * progresso));
+      if (progresso < 1) quadro = requestAnimationFrame(passo);
+    }
+    quadro = requestAnimationFrame(passo);
+    return () => cancelAnimationFrame(quadro);
+  }, [valor, ativo, duracaoMs]);
+
+  return exibido;
+}
+
 export function DashboardPage() {
   const { unidade } = useAuth();
   const [dataInicio, setDataInicio] = useState(dataLocal(-29));
@@ -63,6 +85,21 @@ export function DashboardPage() {
     return { porStatus, totalReservasAtivas, totalPessoas, taxaNaoComparecimento };
   }, [reservas]);
 
+  const pronto = !carregando;
+  const totalReservasAnimado = useContagemAnimada(metricas.totalReservasAtivas, pronto);
+  const totalPessoasAnimado = useContagemAnimada(metricas.totalPessoas, pronto);
+  const taxaNaoComparecimentoAnimada = useContagemAnimada(Math.round(metricas.taxaNaoComparecimento ?? 0), pronto);
+
+  // As barras de status nascem em 0% e crescem ate o percentual real um instante
+  // depois de montar - dispara a transicao CSS de width em vez de aparecer ja no
+  // tamanho final (sem isso nao ha "de" pra transicionar "para").
+  const [larguraPronta, setLarguraPronta] = useState(false);
+  useEffect(() => {
+    setLarguraPronta(false);
+    const quadro = requestAnimationFrame(() => setLarguraPronta(true));
+    return () => cancelAnimationFrame(quadro);
+  }, [metricas]);
+
   if (!unidade) {
     return <p>Carregando unidade...</p>;
   }
@@ -87,23 +124,21 @@ export function DashboardPage() {
       <div className="grade-metricas">
         <div className="cartao cartao-metrica">
           <span className="texto-secundario">Total de reservas</span>
-          <strong>{carregando ? "-" : metricas.totalReservasAtivas}</strong>
+          <strong>{carregando ? "-" : totalReservasAnimado}</strong>
         </div>
         <div className="cartao cartao-metrica">
           <span className="texto-secundario">Total de pessoas</span>
-          <strong>{carregando ? "-" : metricas.totalPessoas}</strong>
+          <strong>{carregando ? "-" : totalPessoasAnimado}</strong>
         </div>
         <div className="cartao cartao-metrica">
           <span className="texto-secundario">Taxa de nao comparecimento</span>
           <strong>
-            {carregando || metricas.taxaNaoComparecimento === null
-              ? "-"
-              : `${metricas.taxaNaoComparecimento.toFixed(0)}%`}
+            {carregando || metricas.taxaNaoComparecimento === null ? "-" : `${taxaNaoComparecimentoAnimada}%`}
           </strong>
         </div>
       </div>
 
-      <div className="cartao">
+      <div className="cartao cartao-grafico">
         <h3 style={{ marginTop: 0 }}>Reservas por status</h3>
         {carregando ? (
           <p>Carregando...</p>
@@ -118,7 +153,10 @@ export function DashboardPage() {
                 <div key={status} className="linha-status">
                   <span className={`badge badge-${status}`}>{STATUS_LABEL[status]}</span>
                   <div className="trilha-status">
-                    <div className={`preenchimento-status preenchimento-${status}`} style={{ width: `${percentual}%` }} />
+                    <div
+                      className={`preenchimento-status preenchimento-${status}`}
+                      style={{ width: larguraPronta ? `${percentual}%` : "0%" }}
+                    />
                   </div>
                   <span className="texto-secundario">{quantidade}</span>
                 </div>

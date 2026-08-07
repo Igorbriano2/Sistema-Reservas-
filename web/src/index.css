@@ -71,6 +71,10 @@ h3 {
 body {
   margin: 0;
   background: var(--bg-base);
+  background-image: radial-gradient(900px circle at 12% -10%, rgba(var(--accent-rgb), 0.1), transparent 55%),
+    radial-gradient(700px circle at 100% 20%, rgba(var(--accent-rgb), 0.06), transparent 60%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--text-primary);
 }
 
@@ -246,10 +250,33 @@ label {
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
+  overflow: hidden;
+  transition: width var(--duracao-painel) var(--ease-padrao), padding var(--duracao-painel) var(--ease-padrao);
+}
+
+.barra-lateral.recolhida {
+  width: 76px;
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
 }
 
 .barra-lateral .marca {
   padding: 0 0.6rem;
+}
+
+.barra-lateral .marca-texto,
+.barra-lateral .rotulo-nav,
+.barra-lateral .rotulo-alternar {
+  white-space: nowrap;
+  transition: opacity 120ms var(--ease-padrao);
+}
+
+.barra-lateral.recolhida .marca-texto,
+.barra-lateral.recolhida .rotulo-nav,
+.barra-lateral.recolhida .rotulo-alternar {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
 }
 
 .barra-lateral nav {
@@ -269,6 +296,24 @@ label {
   font-size: 0.9rem;
   color: var(--text-secondary);
   transition: background var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao);
+}
+
+.barra-lateral-alternar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  justify-content: flex-start;
+  padding: 0.55rem 0.7rem;
+}
+
+.icone-chevron {
+  display: inline-flex;
+  transition: transform var(--duracao-painel) var(--ease-padrao);
+}
+
+.icone-chevron.invertido {
+  transform: rotate(180deg);
 }
 
 .barra-lateral nav a svg {
@@ -362,7 +407,19 @@ label {
   margin-bottom: 1.25rem;
 }
 
-/* Cards de resumo (dashboard) - unico lugar do painel, alem do login, com glow. */
+/* Cards de resumo (dashboard) - efeito "vidro" (fundo translucido + blur) sobre o
+   glow ambiente do body, com entrada animada e leve elevacao no hover. */
+
+@keyframes entrada-cartao {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 .grade-metricas {
   display: grid;
@@ -371,19 +428,46 @@ label {
   margin-bottom: 1.25rem;
 }
 
+.cartao-metrica,
+.cartao-grafico {
+  background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: entrada-cartao var(--duracao-painel) var(--ease-padrao) both;
+}
+
 .cartao-metrica {
   margin-bottom: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 60%, rgba(var(--accent-rgb), 0.08) 100%);
+  background-image: linear-gradient(160deg, transparent 0%, transparent 55%, rgba(var(--accent-rgb), 0.1) 100%);
   box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.06);
   transition: box-shadow var(--duracao-micro) var(--ease-padrao), transform var(--duracao-micro) var(--ease-padrao);
 }
 
 .cartao-metrica:hover {
   box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.22), 0 0 24px rgba(var(--accent-rgb), 0.1);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+}
+
+.cartao-metrica:nth-child(1) {
+  animation-delay: 0ms;
+}
+.cartao-metrica:nth-child(2) {
+  animation-delay: 60ms;
+}
+.cartao-metrica:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.cartao-grafico {
+  animation-delay: 160ms;
+  transition: box-shadow var(--duracao-micro) var(--ease-padrao);
+}
+
+.cartao-grafico:hover {
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.14), 0 0 28px rgba(var(--accent-rgb), 0.08);
 }
 
 .cartao-metrica strong {

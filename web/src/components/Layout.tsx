@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
+import { useBarraLateralRecolhida } from "../lib/useBarraLateralRecolhida.js";
 import { Marca } from "./Marca.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 
@@ -74,6 +75,14 @@ function IconeUsuarios() {
   );
 }
 
+function IconeChevron() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 5l-7 7 7 7" />
+    </svg>
+  );
+}
+
 const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
   { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
@@ -99,19 +108,38 @@ function sairDoModoTeste() {
 export function Layout() {
   const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout, assinaturaComAviso } = useAuth();
   const emModoTeste = localStorage.getItem(MODO_TESTE_ATIVO_KEY) === "true";
+  const [recolhida, setRecolhida] = useBarraLateralRecolhida();
 
   return (
     <div className="layout">
-      <aside className="barra-lateral">
+      <aside className={`barra-lateral ${recolhida ? "recolhida" : ""}`}>
         <Marca />
         <nav>
           {ITENS_NAV.filter((item) => !item.ownerOnly || isOwner).map((item) => (
-            <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "ativo" : "")}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => (isActive ? "ativo" : "")}
+              title={recolhida ? item.label : undefined}
+            >
               {item.icone}
-              {item.label}
+              <span className="rotulo-nav">{item.label}</span>
             </NavLink>
           ))}
         </nav>
+        <button
+          type="button"
+          className="btn btn-secundario barra-lateral-alternar"
+          style={{ marginTop: "auto" }}
+          onClick={() => setRecolhida((r) => !r)}
+          aria-label={recolhida ? "Expandir menu" : "Recolher menu"}
+          title={recolhida ? "Expandir menu" : "Recolher menu"}
+        >
+          <span className={`icone-chevron ${recolhida ? "invertido" : ""}`}>
+            <IconeChevron />
+          </span>
+          <span className="rotulo-alternar">Recolher menu</span>
+        </button>
       </aside>
       <div className="area-principal">
         {emModoTeste && (
