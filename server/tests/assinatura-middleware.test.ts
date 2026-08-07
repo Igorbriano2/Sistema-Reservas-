@@ -3,7 +3,7 @@ import request from "supertest";
 import { eq } from "drizzle-orm";
 import { createApp } from "../src/app.js";
 import { db } from "../src/db/client.js";
-import { empresas } from "../src/db/schema/index.js";
+import { empresas, unidades } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
 import { criarAssinatura } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
@@ -89,6 +89,43 @@ describe("Middleware de bloqueio por assinatura", () => {
     const resposta = await request(app).get("/admin/assinatura").set("Authorization", `Bearer ${token}`);
     expect(resposta.status).toBe(200);
     expect(resposta.body.status).toBe("cancelada");
+  });
+
+  it("doc 17 parte 5: uma unidade cancelada NAO bloqueia outra unidade da mesma empresa", async () => {
+    const { empresa, unidade, token } = await setup();
+    const [outraUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+    await criarAssinatura(empresa.id, unidade.id, { status: "cancelada" });
+    await criarAssinatura(empresa.id, outraUnidade.id, { status: "ativa", subscriptionIdGateway: `sub_teste_${outraUnidade.id}` });
+
+    const bloqueada = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
+    expect(bloqueada.status).toBe(402);
+
+    const liberada = await request(app).get(`/admin/unidades/${outraUnidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
+    expect(liberada.status).toBe(200);
+  });
+
+  it("doc 17 parte 5: unidade cancelada nao bloqueia rotas que nao sao de uma unidade especifica", async () => {
+    const { empresa, unidade, token } = await setup();
+    await criarAssinatura(empresa.id, unidade.id, { status: "cancelada" });
+
+    const agenteConfig = await request(app).get("/admin/agente-config").set("Authorization", `Bearer ${token}`);
+    expect(agenteConfig.status).toBe(200);
+
+    const listaUnidades = await request(app).get("/admin/unidades").set("Authorization", `Bearer ${token}`);
+    expect(listaUnidades.status).toBe(200);
+  });
+
+  it("doc 17 parte 5: status manual 'suspenso' continua bloqueando TODAS as unidades (kill switch de conta)", async () => {
+    const { empresa, unidade, token } = await setup();
+    const [outraUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+    await criarAssinatura(empresa.id, unidade.id, { status: "ativa" });
+    await criarAssinatura(empresa.id, outraUnidade.id, { status: "ativa", subscriptionIdGateway: `sub_teste_${outraUnidade.id}` });
+    await db.update(empresas).set({ assinaturaStatus: "suspenso" }).where(eq(empresas.id, empresa.id));
+
+    const primeira = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
+    expect(primeira.status).toBe(402);
+    const segunda = await request(app).get(`/admin/unidades/${outraUnidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
+    expect(segunda.status).toBe(402);
   });
 });
 

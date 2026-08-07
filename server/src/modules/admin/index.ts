@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../../middleware/auth.middleware.js";
-import { requireAssinaturaAtiva } from "../../middleware/assinatura.middleware.js";
+import { requireAssinaturaDaUnidadeAtiva, requireContaAtiva } from "../../middleware/assinatura.middleware.js";
 import { requireAcessoUnidade, requirePermissaoEmpresa, requirePermissaoUnidade } from "../../middleware/permissao.middleware.js";
 import { resolveUnidade } from "./unidade.middleware.js";
 import { saloesRouter } from "./saloes.routes.js";
@@ -29,7 +29,7 @@ adminRouter.use(requireAuth);
 // resto do painel bloqueado (assinatura atrasada alem da graca, ou cancelada).
 adminRouter.use("/assinatura", requireRole("owner"), assinaturaRouter);
 
-adminRouter.use(requireAssinaturaAtiva);
+adminRouter.use(requireContaAtiva);
 
 // Acessiveis por qualquer papel (owner tem acesso implicito; gerente/funcionario
 // precisam de uma linha em usuario_unidades pra essa unidade especifica, ver
@@ -51,6 +51,10 @@ adminRouter.use("/usuarios", requirePermissaoEmpresa("criar_usuarios"), usuarios
 
 const unidadeRouter = Router({ mergeParams: true });
 unidadeRouter.use(resolveUnidade);
+// Doc 17, parte 5: bloqueio de assinatura por unidade (uma loja atrasada/cancelada
+// nao derruba as demais da mesma empresa) - depois de resolveUnidade (usa
+// req.unidadeId), antes de qualquer rota operacional da unidade.
+unidadeRouter.use(requireAssinaturaDaUnidadeAtiva);
 unidadeRouter.use("/saloes", requirePermissaoUnidade("editar_salao"), saloesRouter);
 unidadeRouter.use("/mesas", requirePermissaoUnidade("editar_salao"), mesasRouter);
 unidadeRouter.use("/salao-elementos", requirePermissaoUnidade("editar_salao"), salaoElementosRouter);
