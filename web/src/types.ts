@@ -89,6 +89,9 @@ export interface Unidade {
   nome: string;
   endereco: string | null;
   timezone: string;
+  // So vem preenchido pra gerente/funcionario (owner tem acesso implicito a tudo,
+  // backend nem inclui o campo) - funcionalidades extra liberadas nessa loja (doc 17).
+  permissoesExtra?: Permissao[] | null;
 }
 
 export type ModoConfiguracaoSalao = "simples" | "mapa";

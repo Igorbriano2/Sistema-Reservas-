@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db, pool } from "../../src/db/client.js";
-import { empresas, unidades, usuarios } from "../../src/db/schema/index.js";
+import { empresas, unidades, usuarios, usuarioUnidades } from "../../src/db/schema/index.js";
 import { hashPassword } from "../../src/lib/password.js";
 
 export async function truncateAll(): Promise<void> {
@@ -75,4 +75,13 @@ export async function criarFuncionario(empresaId: string, username = "funcionari
     .returning();
   const usuario = { ...usuarioLinha, username: usuarioLinha.username as string };
   return { usuario, senha };
+}
+
+// Da acesso de um gerente/funcionario a uma unidade (ver middleware/permissao -
+// requireAcessoUnidade/requirePermissaoUnidade/requirePermissaoEmpresa, doc 17).
+// permissoesExtra vazio = so a baseline (reservas do dia), sem nenhuma funcionalidade
+// extra liberada.
+export async function criarUsuarioUnidade(usuarioId: string, unidadeId: string, permissoesExtra: string[] = []) {
+  const [linha] = await db.insert(usuarioUnidades).values({ usuarioId, unidadeId, permissoesExtra }).returning();
+  return linha;
 }

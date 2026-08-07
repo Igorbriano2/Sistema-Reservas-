@@ -1,7 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { closeDb, criarEmpresaComAdmin, criarFuncionario, truncateAll } from "./helpers/db.js";
+import { db } from "../src/db/client.js";
+import { unidades } from "../src/db/schema/index.js";
+import { closeDb, criarEmpresaComAdmin, criarFuncionario, criarUsuarioUnidade, truncateAll } from "./helpers/db.js";
 import { criarSalao } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
 
@@ -15,10 +17,14 @@ afterAll(async () => {
   await closeDb();
 });
 
-async function setup() {
+// permissoesExtraFuncionario: [] (padrao) cobre so a baseline (reservas do dia),
+// continuando liberada mesmo quando tudo o resto (saloes/mesas/relatorios/etc)
+// continua bloqueado por falta de permissao.
+async function setup(permissoesExtraFuncionario: string[] = []) {
   const { empresa, unidade, usuario, senhaAdmin } = await criarEmpresaComAdmin();
   const tokenOwner = await login(app, usuario.email, senhaAdmin);
   const { usuario: funcionario, senha: senhaFuncionario } = await criarFuncionario(empresa.id);
+  await criarUsuarioUnidade(funcionario.id, unidade.id, permissoesExtraFuncionario);
   const tokenFuncionario = await login(app, funcionario.username, senhaFuncionario);
   return { empresa, unidade, tokenOwner, tokenFuncionario, funcionario };
 }
@@ -124,6 +130,88 @@ describe("Papeis - funcionario acessa reservas do dia e disponibilidade normalme
       .delete(`/admin/unidades/${unidade.id}/reservations/${criar.body.id}`)
       .set("Authorization", `Bearer ${tokenFuncionario}`);
     expect(cancelar.status).toBe(200);
+  });
+});
+
+describe("Doc 17 - permissoes extra desbloqueiam funcionalidades especificas por unidade", () => {
+  it("editar_salao libera saloes, mas nao relatorios nem agente-config", async () => {
+    const { unidade, tokenFuncionario } = await setup(["editar_salao"]);
+
+    const saloes = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${tokenFuncionario}`);
+    expect(saloes.status).toBe(200);
+
+    const relatorios = await request(app)
+      .get(`/admin/unidades/${unidade.id}/relatorios`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .query({ dataInicio: "2026-09-14", dataFim: "2026-09-15" });
+    expect(relatorios.status).toBe(403);
+
+    const agenteConfig = await request(app).get("/admin/agente-config").set("Authorization", `Bearer ${tokenFuncionario}`);
+    expect(agenteConfig.status).toBe(403);
+  });
+
+  it("ver_relatorios libera so relatorios", async () => {
+    const { unidade, tokenFuncionario } = await setup(["ver_relatorios"]);
+
+    const relatorios = await request(app)
+      .get(`/admin/unidades/${unidade.id}/relatorios`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .query({ dataInicio: "2026-09-14", dataFim: "2026-09-15" });
+    expect(relatorios.status).toBe(200);
+
+    const saloes = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${tokenFuncionario}`);
+    expect(saloes.status).toBe(403);
+  });
+
+  it("editar_agente e criar_usuarios sao por empresa, nao por unidade (valem tendo a permissao em qualquer loja)", async () => {
+    const { tokenFuncionario } = await setup(["editar_agente", "criar_usuarios"]);
+
+    const agenteConfig = await request(app).get("/admin/agente-config").set("Authorization", `Bearer ${tokenFuncionario}`);
+    expect(agenteConfig.status).toBe(200);
+
+    const usuariosLista = await request(app).get("/admin/usuarios").set("Authorization", `Bearer ${tokenFuncionario}`);
+    expect(usuariosLista.status).toBe(200);
+  });
+
+  it("criar_usuarios nao deixa um gerente/funcionario se auto-promover alem do proprio alcance", async () => {
+    const { empresa, unidade, tokenFuncionario } = await setup(["criar_usuarios"]);
+    const [outraUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+
+    // Nao pode conceder uma permissao que ele proprio nao tem (so tem criar_usuarios).
+    const comPermissaoAlemDoAlcance = await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ nome: "X", username: "user.x1", senha: "12345678", papel: "funcionario", unidadeIds: [unidade.id], permissoes: ["editar_agente"] });
+    expect(comPermissaoAlemDoAlcance.status).toBe(400);
+
+    // Nao pode conceder acesso a uma unidade que ele proprio nao alcanca.
+    const comUnidadeAlemDoAlcance = await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ nome: "X", username: "user.x2", senha: "12345678", papel: "funcionario", unidadeIds: [outraUnidade.id], permissoes: [] });
+    expect(comUnidadeAlemDoAlcance.status).toBe(400);
+
+    // Dentro do proprio alcance (mesma unidade, sem nenhuma permissao extra), funciona.
+    const dentroDoAlcance = await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ nome: "X", username: "user.x3", senha: "12345678", papel: "funcionario", unidadeIds: [unidade.id], permissoes: [] });
+    expect(dentroDoAlcance.status).toBe(201);
+  });
+
+  it("acesso a uma unidade nao da acesso a outra unidade da mesma empresa", async () => {
+    const { empresa, unidade, tokenFuncionario } = await setup(["editar_salao"]);
+    const [outraUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+
+    const naPropriaUnidade = await request(app)
+      .get(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`);
+    expect(naPropriaUnidade.status).toBe(200);
+
+    const naOutraUnidade = await request(app)
+      .get(`/admin/unidades/${outraUnidade.id}/saloes`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`);
+    expect(naOutraUnidade.status).toBe(403);
   });
 });
 

@@ -1,7 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
+import { db } from "../src/db/client.js";
+import { unidades } from "../src/db/schema/index.js";
+import { closeDb, criarEmpresaComAdmin, criarFuncionario, criarUsuarioUnidade, truncateAll } from "./helpers/db.js";
 import { login } from "./helpers/auth.js";
 
 const app = createApp();
@@ -30,5 +32,21 @@ describe("GET /admin/unidades", () => {
   it("exige autenticacao", async () => {
     const res = await request(app).get("/admin/unidades");
     expect(res.status).toBe(401);
+  });
+
+  it("gerente/funcionario so ve as unidades as quais o dono deu acesso (doc 17)", async () => {
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const [segundaUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+
+    const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);
+    await criarUsuarioUnidade(funcionario.id, unidade.id);
+    // Sem acesso a segundaUnidade de proposito.
+
+    const token = await login(app, funcionario.username, senha);
+    const res = await request(app).get("/admin/unidades").set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].id).toBe(unidade.id);
+    expect(res.body.some((u: { id: string }) => u.id === segundaUnidade.id)).toBe(false);
   });
 });

@@ -6,7 +6,7 @@ import {
   type AssinaturaBloqueadaInfo,
 } from "../api/client.js";
 import { listarUnidades, login as apiLogin } from "../api/resources.js";
-import type { Unidade, Usuario } from "../types.js";
+import type { Permissao, Unidade, Usuario } from "../types.js";
 
 interface AuthContextValue {
   usuario: Usuario | null;
@@ -20,6 +20,12 @@ interface AuthContextValue {
   login: (identificador: string, senha: string) => Promise<void>;
   logout: () => void;
   selecionarUnidade: (unidade: Unidade) => void;
+  // Funcionalidade "configuravel" (editar_salao/ver_relatorios/etc, doc 17) na
+  // unidade selecionada no momento - owner sempre true.
+  temPermissaoNaUnidade: (permissao: Permissao) => boolean;
+  // Mesma checagem, mas pra recursos que nao pertencem a uma unidade especifica
+  // (agente-config, usuarios) - conta ter a permissao em QUALQUER loja com acesso.
+  temPermissaoNaEmpresa: (permissao: Permissao) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -81,6 +87,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(usuarioLogado);
   }
 
+  const isOwner = usuario?.papel === "owner";
+
+  function temPermissaoNaUnidade(permissao: Permissao): boolean {
+    if (isOwner) return true;
+    return !!unidade?.permissoesExtra?.includes(permissao);
+  }
+
+  function temPermissaoNaEmpresa(permissao: Permissao): boolean {
+    if (isOwner) return true;
+    return unidades.some((u) => u.permissoesExtra?.includes(permissao));
+  }
+
   const value = useMemo(
     () => ({
       usuario,
@@ -88,12 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unidades,
       carregando,
       erroInicial,
-      isOwner: usuario?.papel === "owner",
+      isOwner,
       assinaturaBloqueada,
       assinaturaComAviso,
       login,
       logout: limparSessao,
       selecionarUnidade: setUnidade,
+      temPermissaoNaUnidade,
+      temPermissaoNaEmpresa,
     }),
     [usuario, unidade, unidades, carregando, erroInicial, assinaturaBloqueada, assinaturaComAviso],
   );

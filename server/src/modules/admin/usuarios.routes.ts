@@ -38,9 +38,9 @@ function ehViolacaoDeUnicidade(err: unknown): boolean {
   return codigoDoErroPostgres(err) === PG_UNIQUE_VIOLATION;
 }
 
-// owner ve e cria logins da propria empresa diretamente (sem convite por e-mail no
-// MVP). funcionario/gerente nao acessam nada aqui (requireRole("owner") aplicado no
-// index.ts).
+// Qualquer login com a permissao "criar_usuarios" ve e cria outros logins da empresa
+// diretamente (sem convite por e-mail no MVP) - requirePermissaoEmpresa aplicado no
+// index.ts (owner sempre passa; gerente/funcionario so com a permissao marcada).
 usuariosRouter.get(
   "/",
   asyncHandler(async (req, res) => {
@@ -103,6 +103,30 @@ usuariosRouter.post(
     const idsInvalidos = dados.unidadeIds.filter((id) => !idsDaEmpresa.has(id));
     if (idsInvalidos.length > 0) {
       throw new RequisicaoInvalidaError("Uma ou mais unidades selecionadas nao pertencem a sua empresa");
+    }
+
+    // Um gerente/funcionario com "criar_usuarios" so pode conceder acesso as MESMAS
+    // lojas que ele proprio alcanca, e so as permissoes que ele proprio tem em cada
+    // uma - senao um funcionario com essa unica permissao poderia se auto-promover
+    // (ou promover outro login) alem do proprio alcance. Owner nao tem essa restricao
+    // (acesso implicito a tudo da empresa).
+    if (req.auth!.papel !== "owner") {
+      const acessosDoCriador = await db
+        .select({ unidadeId: usuarioUnidades.unidadeId, permissoesExtra: usuarioUnidades.permissoesExtra })
+        .from(usuarioUnidades)
+        .where(eq(usuarioUnidades.usuarioId, req.auth!.sub));
+      const permissoesPorUnidade = new Map(acessosDoCriador.map((a) => [a.unidadeId, new Set(a.permissoesExtra ?? [])]));
+
+      for (const unidadeId of dados.unidadeIds) {
+        const permissoesDoCriador = permissoesPorUnidade.get(unidadeId);
+        if (!permissoesDoCriador) {
+          throw new RequisicaoInvalidaError("Voce so pode conceder acesso a lojas que voce mesmo alcanca");
+        }
+        const permissaoAlemDoAlcance = dados.permissoes.find((p) => !permissoesDoCriador.has(p));
+        if (permissaoAlemDoAlcance) {
+          throw new RequisicaoInvalidaError("Voce so pode conceder funcionalidades que voce mesmo tem");
+        }
+      }
     }
 
     const senhaHash = await hashPassword(dados.senha);

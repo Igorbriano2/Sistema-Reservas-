@@ -1,5 +1,6 @@
 import { Navigate, Route, BrowserRouter, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
+import type { Permissao } from "./types.js";
 import { Layout } from "./components/Layout.js";
 import { LandingPage } from "./pages/LandingPage.js";
 import { LoginPage } from "./pages/LoginPage.js";
@@ -42,6 +43,24 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function RequireOwner({ children }: { children: React.ReactNode }) {
   const { isOwner } = useAuth();
   if (!isOwner) {
+    return <Navigate to="/admin/reservas" replace />;
+  }
+  return <>{children}</>;
+}
+
+// Mesma ideia, mas pra telas que gerente/funcionario tambem podem acessar quando o
+// dono marcou a funcionalidade extra correspondente na hora de criar o login (doc 17).
+function RequirePermissaoNaUnidade({ permissao, children }: { permissao: Permissao; children: React.ReactNode }) {
+  const { temPermissaoNaUnidade } = useAuth();
+  if (!temPermissaoNaUnidade(permissao)) {
+    return <Navigate to="/admin/reservas" replace />;
+  }
+  return <>{children}</>;
+}
+
+function RequirePermissaoNaEmpresa({ permissao, children }: { permissao: Permissao; children: React.ReactNode }) {
+  const { temPermissaoNaEmpresa } = useAuth();
+  if (!temPermissaoNaEmpresa(permissao)) {
     return <Navigate to="/admin/reservas" replace />;
   }
   return <>{children}</>;
@@ -91,41 +110,41 @@ function AppRoutes() {
         <Route
           path="mesas"
           element={
-            <RequireOwner>
+            <RequirePermissaoNaUnidade permissao="editar_salao">
               <TablesPage />
-            </RequireOwner>
+            </RequirePermissaoNaUnidade>
           }
         />
         <Route
           path="bloqueios"
           element={
-            <RequireOwner>
+            <RequirePermissaoNaUnidade permissao="editar_salao">
               <BlocksPage />
-            </RequireOwner>
+            </RequirePermissaoNaUnidade>
           }
         />
         <Route
           path="relatorios"
           element={
-            <RequireOwner>
+            <RequirePermissaoNaUnidade permissao="ver_relatorios">
               <ReportsPage />
-            </RequireOwner>
+            </RequirePermissaoNaUnidade>
           }
         />
         <Route
           path="agente"
           element={
-            <RequireOwner>
+            <RequirePermissaoNaEmpresa permissao="editar_agente">
               <AgentConfigPage />
-            </RequireOwner>
+            </RequirePermissaoNaEmpresa>
           }
         />
         <Route
           path="usuarios"
           element={
-            <RequireOwner>
+            <RequirePermissaoNaEmpresa permissao="criar_usuarios">
               <UsersPage />
-            </RequireOwner>
+            </RequirePermissaoNaEmpresa>
           }
         />
       </Route>

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { useBarraLateralRecolhida } from "../lib/useBarraLateralRecolhida.js";
+import type { Permissao } from "../types.js";
 import { Marca } from "./Marca.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 import { NotificacaoToggle } from "./NotificacaoToggle.js";
@@ -10,7 +11,13 @@ import { InstalarAppButton } from "./InstalarAppButton.js";
 interface ItemDeNav {
   to: string;
   label: string;
+  // Sem nenhum dos dois: liberado pra qualquer papel (baseline). ownerOnly: so o
+  // dono (nao faz parte do checklist de funcionalidades extra, ex: Dashboard).
+  // permissao: gerente/funcionario tambem acessam se tiverem essa funcionalidade
+  // marcada (doc 17) - "unidade" confere na loja selecionada, "empresa" em qualquer
+  // loja com acesso.
   ownerOnly?: boolean;
+  permissao?: { valor: Permissao; escopo: "unidade" | "empresa" };
   icone: ReactNode;
 }
 
@@ -98,11 +105,11 @@ const ITENS_NAV: ItemDeNav[] = [
   { to: "/admin/dashboard", label: "Dashboard", ownerOnly: true, icone: <IconeDashboard /> },
   { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas /> },
   { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
-  { to: "/admin/mesas", label: "Mesas", ownerOnly: true, icone: <IconeMesas /> },
-  { to: "/admin/bloqueios", label: "Bloqueios", ownerOnly: true, icone: <IconeBloqueios /> },
-  { to: "/admin/relatorios", label: "Relatórios", ownerOnly: true, icone: <IconeRelatorios /> },
-  { to: "/admin/agente", label: "Agente de IA", ownerOnly: true, icone: <IconeAgente /> },
-  { to: "/admin/usuarios", label: "Usuarios", ownerOnly: true, icone: <IconeUsuarios /> },
+  { to: "/admin/mesas", label: "Mesas", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeMesas /> },
+  { to: "/admin/bloqueios", label: "Bloqueios", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeBloqueios /> },
+  { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },
+  { to: "/admin/agente", label: "Agente de IA", permissao: { valor: "editar_agente", escopo: "empresa" }, icone: <IconeAgente /> },
+  { to: "/admin/usuarios", label: "Usuarios", permissao: { valor: "criar_usuarios", escopo: "empresa" }, icone: <IconeUsuarios /> },
 ];
 
 const MODO_TESTE_ATIVO_KEY = "modo_teste_ativo";
@@ -118,16 +125,25 @@ function sairDoModoTeste() {
 }
 
 export function Layout() {
-  const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout, assinaturaComAviso } = useAuth();
+  const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout, assinaturaComAviso, temPermissaoNaUnidade, temPermissaoNaEmpresa } =
+    useAuth();
   const emModoTeste = localStorage.getItem(MODO_TESTE_ATIVO_KEY) === "true";
   const [recolhida, setRecolhida] = useBarraLateralRecolhida();
+
+  function itemVisivel(item: ItemDeNav): boolean {
+    if (item.ownerOnly) return isOwner;
+    if (item.permissao) {
+      return item.permissao.escopo === "unidade" ? temPermissaoNaUnidade(item.permissao.valor) : temPermissaoNaEmpresa(item.permissao.valor);
+    }
+    return true;
+  }
 
   return (
     <div className="layout">
       <aside className={`barra-lateral ${recolhida ? "recolhida" : ""}`}>
         <Marca />
         <nav>
-          {ITENS_NAV.filter((item) => !item.ownerOnly || isOwner).map((item) => (
+          {ITENS_NAV.filter(itemVisivel).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../../middleware/auth.middleware.js";
 import { requireAssinaturaAtiva } from "../../middleware/assinatura.middleware.js";
+import { requireAcessoUnidade, requirePermissaoEmpresa, requirePermissaoUnidade } from "../../middleware/permissao.middleware.js";
 import { resolveUnidade } from "./unidade.middleware.js";
 import { saloesRouter } from "./saloes.routes.js";
 import { mesasRouter } from "./mesas.routes.js";
@@ -30,33 +31,37 @@ adminRouter.use("/assinatura", requireRole("owner"), assinaturaRouter);
 
 adminRouter.use(requireAssinaturaAtiva);
 
-// Acessiveis por owner e funcionario: descobrir a propria unidade e trabalhar com
-// reservas do dia (ver/criar/editar/cancelar) e disponibilidade (necessaria pra
-// criar reserva manual com seguranca).
+// Acessiveis por qualquer papel (owner tem acesso implicito; gerente/funcionario
+// precisam de uma linha em usuario_unidades pra essa unidade especifica, ver
+// unidades.routes.ts): descobrir as proprias unidades e trabalhar com reservas do dia
+// (ver/criar/editar/cancelar) e disponibilidade (necessaria pra criar reserva manual
+// com seguranca) - baseline sempre liberado, sem depender de nenhuma funcionalidade
+// extra marcada pelo dono (doc 17).
 adminRouter.use("/unidades", unidadesRouter);
 
-// Owner apenas: configuracao estrutural (mesas, saloes, regras de horario),
-// personalizacao do agente de IA, e criacao de outros logins da empresa.
-adminRouter.use("/agente-config", requireRole("owner"), agenteConfigRouter);
+// Owner ou gerente/funcionario com a funcionalidade extra marcada pelo dono (doc 17).
+// "editar_agente" e "criar_usuarios" nao sao presos a uma unidade especifica (contam
+// se o login tem a permissao em QUALQUER uma das lojas as quais tem acesso).
+adminRouter.use("/agente-config", requirePermissaoEmpresa("editar_agente"), agenteConfigRouter);
 // Papel misto por rota (connection/config = owner, feedbacks = qualquer papel) - ver
 // whatsapp.routes.ts, por isso nao leva requireRole aqui no mount.
 adminRouter.use("/whatsapp", whatsappRouter);
 adminRouter.use("/instagram", requireRole("owner"), instagramRouter);
-adminRouter.use("/usuarios", requireRole("owner"), usuariosRouter);
+adminRouter.use("/usuarios", requirePermissaoEmpresa("criar_usuarios"), usuariosRouter);
 
 const unidadeRouter = Router({ mergeParams: true });
 unidadeRouter.use(resolveUnidade);
-unidadeRouter.use("/saloes", requireRole("owner"), saloesRouter);
-unidadeRouter.use("/mesas", requireRole("owner"), mesasRouter);
-unidadeRouter.use("/salao-elementos", requireRole("owner"), salaoElementosRouter);
-unidadeRouter.use("/regras-horario", requireRole("owner"), regrasHorarioRouter);
-unidadeRouter.use("/bloqueios", requireRole("owner"), bloqueiosRouter);
-unidadeRouter.use("/relatorios", requireRole("owner"), relatoriosRouter);
-unidadeRouter.use("/availability", availabilityRouter);
-unidadeRouter.use("/reservations", reservationsRouter);
+unidadeRouter.use("/saloes", requirePermissaoUnidade("editar_salao"), saloesRouter);
+unidadeRouter.use("/mesas", requirePermissaoUnidade("editar_salao"), mesasRouter);
+unidadeRouter.use("/salao-elementos", requirePermissaoUnidade("editar_salao"), salaoElementosRouter);
+unidadeRouter.use("/regras-horario", requirePermissaoUnidade("editar_salao"), regrasHorarioRouter);
+unidadeRouter.use("/bloqueios", requirePermissaoUnidade("editar_salao"), bloqueiosRouter);
+unidadeRouter.use("/relatorios", requirePermissaoUnidade("ver_relatorios"), relatoriosRouter);
+unidadeRouter.use("/availability", requireAcessoUnidade, availabilityRouter);
+unidadeRouter.use("/reservations", requireAcessoUnidade, reservationsRouter);
 unidadeRouter.use("/conversas", requireRole("owner"), conversasRouter);
-// Sem requireRole: qualquer funcionario logado pode inscrever o proprio dispositivo
-// pra receber notificacoes (nao e uma configuracao estrutural da unidade).
-unidadeRouter.use("/push", pushRouter);
+// So exige acesso a unidade (nao e uma funcionalidade extra "configuravel" - qualquer
+// gerente/funcionario com acesso pode inscrever o proprio dispositivo).
+unidadeRouter.use("/push", requireAcessoUnidade, pushRouter);
 
 adminRouter.use("/unidades/:unidadeId", unidadeRouter);
