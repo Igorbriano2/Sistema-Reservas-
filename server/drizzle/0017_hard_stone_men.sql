@@ -1,0 +1,1 @@
+ALTER TABLE "assinaturas" ALTER COLUMN "unidade_id" SET NOT NULL;

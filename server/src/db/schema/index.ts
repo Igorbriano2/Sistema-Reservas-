@@ -1,6 +1,7 @@
 export * from "./empresas.js";
 export * from "./unidades.js";
 export * from "./usuarios.js";
+export * from "./usuario-unidades.js";
 export * from "./instagram-connections.js";
 export * from "./saloes.js";
 export * from "./mesas.js";

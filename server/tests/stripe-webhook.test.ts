@@ -37,8 +37,8 @@ describe("eventoJaProcessado (idempotencia)", () => {
 
 describe("processarEventoStripe", () => {
   it("invoice.payment_succeeded marca a assinatura como ativa e limpa atrasada_desde", async () => {
-    const { empresa } = await criarEmpresaComAdmin();
-    const assinatura = await criarAssinatura(empresa.id, {
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const assinatura = await criarAssinatura(empresa.id, unidade.id, {
       status: "atrasada",
       atrasadaDesde: new Date(),
       subscriptionIdGateway: "sub_abc",
@@ -53,8 +53,8 @@ describe("processarEventoStripe", () => {
   });
 
   it("invoice.payment_failed marca como atrasada e registra atrasada_desde na primeira falha", async () => {
-    const { empresa } = await criarEmpresaComAdmin();
-    const assinatura = await criarAssinatura(empresa.id, { status: "ativa", subscriptionIdGateway: "sub_xyz" });
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const assinatura = await criarAssinatura(empresa.id, unidade.id, { status: "ativa", subscriptionIdGateway: "sub_xyz" });
 
     await processarEventoStripe(db, eventoFalso("evt_2", "invoice.payment_failed", invoiceFalsa("sub_xyz")));
 
@@ -64,9 +64,9 @@ describe("processarEventoStripe", () => {
   });
 
   it("invoice.payment_failed NAO reseta atrasada_desde numa segunda falha (nao reinicia a graca)", async () => {
-    const { empresa } = await criarEmpresaComAdmin();
+    const { empresa, unidade } = await criarEmpresaComAdmin();
     const dataOriginal = new Date("2026-01-01T00:00:00Z");
-    const assinatura = await criarAssinatura(empresa.id, {
+    const assinatura = await criarAssinatura(empresa.id, unidade.id, {
       status: "atrasada",
       atrasadaDesde: dataOriginal,
       subscriptionIdGateway: "sub_repeticao",
@@ -79,8 +79,8 @@ describe("processarEventoStripe", () => {
   });
 
   it("customer.subscription.deleted marca como cancelada", async () => {
-    const { empresa } = await criarEmpresaComAdmin();
-    const assinatura = await criarAssinatura(empresa.id, { status: "ativa", subscriptionIdGateway: "sub_cancelar" });
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const assinatura = await criarAssinatura(empresa.id, unidade.id, { status: "ativa", subscriptionIdGateway: "sub_cancelar" });
 
     await processarEventoStripe(
       db,
@@ -92,8 +92,8 @@ describe("processarEventoStripe", () => {
   });
 
   it("customer.subscription.updated mapeia past_due para atrasada", async () => {
-    const { empresa } = await criarEmpresaComAdmin();
-    const assinatura = await criarAssinatura(empresa.id, { status: "ativa", subscriptionIdGateway: "sub_pastdue" });
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const assinatura = await criarAssinatura(empresa.id, unidade.id, { status: "ativa", subscriptionIdGateway: "sub_pastdue" });
 
     await processarEventoStripe(
       db,

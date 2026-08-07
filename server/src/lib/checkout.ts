@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import type { Database } from "../db/client.js";
-import { assinaturas, type Assinatura } from "../db/schema/index.js";
+import { assinaturas, empresas, type Assinatura } from "../db/schema/index.js";
 import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
 import { criarEmpresaComOwner } from "./empresas.js";
 
@@ -38,7 +38,7 @@ export async function provisionarContaAposPagamento(
     throw new RequisicaoInvalidaError("Esta assinatura nao esta mais valida. Refaca o pagamento e tente novamente.");
   }
 
-  const { empresa } = await criarEmpresaComOwner(db, {
+  const { empresa, unidade } = await criarEmpresaComOwner(db, {
     nomeEmpresa: dados.nomeEmpresa,
     ownerNome: dados.nome,
     ownerEmail: dados.email,
@@ -46,9 +46,14 @@ export async function provisionarContaAposPagamento(
     plano: "trial",
   });
 
+  // Guarda o customer da Stripe na empresa pra reaproveitar (sem duplicar cliente no
+  // gateway) quando uma segunda unidade for adicionada depois (doc 17).
+  await db.update(empresas).set({ stripeCustomerId: customerId }).where(eq(empresas.id, empresa.id));
+
   try {
     await db.insert(assinaturas).values({
       empresaId: empresa.id,
+      unidadeId: unidade.id,
       gateway: "stripe",
       customerIdGateway: customerId,
       subscriptionIdGateway: subscription.id,

@@ -13,6 +13,10 @@ export const empresas = pgTable("empresas", {
   // Empresa sandbox usada pelo "modo teste" do painel da plataforma - nunca aparece
   // na listagem de clientes reais.
   ehDemo: boolean("eh_demo").notNull().default(false),
+  // Cliente da Stripe reaproveitado entre unidades da MESMA empresa (doc 17) - ao
+  // adicionar uma 2a unidade, cria uma nova subscription pro mesmo customer em vez
+  // de duplicar cadastro no gateway. Preenchido na 1a assinatura da empresa.
+  stripeCustomerId: text("stripe_customer_id"),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 

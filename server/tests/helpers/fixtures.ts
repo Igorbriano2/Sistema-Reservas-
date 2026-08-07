@@ -188,6 +188,7 @@ export async function criarCliente(
 
 export async function criarAssinatura(
   empresaId: string,
+  unidadeId: string,
   overrides: Partial<{
     status: Assinatura["status"];
     subscriptionIdGateway: string;
@@ -199,6 +200,7 @@ export async function criarAssinatura(
     .insert(assinaturas)
     .values({
       empresaId,
+      unidadeId,
       gateway: "stripe",
       customerIdGateway: overrides.customerIdGateway ?? "cus_teste",
       subscriptionIdGateway: overrides.subscriptionIdGateway ?? `sub_teste_${empresaId}`,

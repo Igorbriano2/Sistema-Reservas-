@@ -113,6 +113,20 @@
       "when": 1786104119235,
       "tag": "0015_minor_norrin_radd",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786114407000,
+      "tag": "0016_jittery_the_liberteens",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786114463521,
+      "tag": "0017_hard_stone_men",
+      "breakpoints": true
     }
   ]
 }

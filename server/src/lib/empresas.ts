@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/client.js";
-import { agenteConfig, empresas, unidades, usuarios, type Empresa, type Usuario } from "../db/schema/index.js";
+import { agenteConfig, empresas, unidades, usuarios, type Empresa, type Unidade, type Usuario } from "../db/schema/index.js";
 import { hashPassword } from "./password.js";
 import { RequisicaoInvalidaError } from "./errors.js";
 
@@ -22,7 +22,7 @@ export interface CriarEmpresaComOwnerParams {
 export async function criarEmpresaComOwner(
   db: Database,
   params: CriarEmpresaComOwnerParams,
-): Promise<{ empresa: Empresa; owner: Usuario }> {
+): Promise<{ empresa: Empresa; owner: Usuario; unidade: Unidade }> {
   const emailNormalizado = params.ownerEmail.toLowerCase();
   const [existente] = await db.select().from(usuarios).where(eq(usuarios.email, emailNormalizado)).limit(1);
   if (existente) {
@@ -38,11 +38,14 @@ export async function criarEmpresaComOwner(
     })
     .returning();
 
-  await db.insert(unidades).values({
-    empresaId: empresa.id,
-    nome: params.unidadeNome ?? "Unidade Principal",
-    timezone: params.timezone ?? "America/Sao_Paulo",
-  });
+  const [unidade] = await db
+    .insert(unidades)
+    .values({
+      empresaId: empresa.id,
+      nome: params.unidadeNome ?? "Unidade Principal",
+      timezone: params.timezone ?? "America/Sao_Paulo",
+    })
+    .returning();
 
   await db.insert(agenteConfig).values({
     empresaId: empresa.id,
@@ -64,5 +67,5 @@ export async function criarEmpresaComOwner(
     })
     .returning();
 
-  return { empresa, owner };
+  return { empresa, owner, unidade };
 }

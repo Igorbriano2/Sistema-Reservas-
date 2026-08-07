@@ -33,14 +33,14 @@ describe("Middleware de bloqueio por assinatura", () => {
 
   it("empresa com assinatura trialing/ativa acessa normalmente", async () => {
     const { empresa, unidade, token } = await setup();
-    await criarAssinatura(empresa.id, { status: "trialing" });
+    await criarAssinatura(empresa.id, unidade.id, { status: "trialing" });
     const resposta = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
     expect(resposta.status).toBe(200);
   });
 
   it("assinatura cancelada bloqueia com 402", async () => {
     const { empresa, unidade, token } = await setup();
-    await criarAssinatura(empresa.id, { status: "cancelada" });
+    await criarAssinatura(empresa.id, unidade.id, { status: "cancelada" });
     const resposta = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
     expect(resposta.status).toBe(402);
   });
@@ -48,7 +48,7 @@ describe("Middleware de bloqueio por assinatura", () => {
   it("assinatura atrasada DENTRO do periodo de graca libera com aviso no header", async () => {
     const { empresa, unidade, token } = await setup();
     const ontem = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
-    await criarAssinatura(empresa.id, { status: "atrasada", atrasadaDesde: ontem });
+    await criarAssinatura(empresa.id, unidade.id, { status: "atrasada", atrasadaDesde: ontem });
 
     const resposta = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
     expect(resposta.status).toBe(200);
@@ -58,7 +58,7 @@ describe("Middleware de bloqueio por assinatura", () => {
   it("assinatura atrasada ALEM do periodo de graca bloqueia com 402", async () => {
     const { empresa, unidade, token } = await setup();
     const dezDiasAtras = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    await criarAssinatura(empresa.id, { status: "atrasada", atrasadaDesde: dezDiasAtras });
+    await criarAssinatura(empresa.id, unidade.id, { status: "atrasada", atrasadaDesde: dezDiasAtras });
 
     const resposta = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
     expect(resposta.status).toBe(402);
@@ -66,7 +66,7 @@ describe("Middleware de bloqueio por assinatura", () => {
 
   it("status manual 'suspenso' bloqueia MESMO com assinatura ativa na Stripe (override sempre vence)", async () => {
     const { empresa, unidade, token } = await setup();
-    await criarAssinatura(empresa.id, { status: "ativa" });
+    await criarAssinatura(empresa.id, unidade.id, { status: "ativa" });
     await db.update(empresas).set({ assinaturaStatus: "suspenso" }).where(eq(empresas.id, empresa.id));
 
     const resposta = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${token}`);
@@ -83,8 +83,8 @@ describe("Middleware de bloqueio por assinatura", () => {
   });
 
   it("mesmo bloqueada, a rota /admin/assinatura continua acessivel (dono ve status e pode cancelar)", async () => {
-    const { empresa, token } = await setup();
-    await criarAssinatura(empresa.id, { status: "cancelada" });
+    const { empresa, unidade, token } = await setup();
+    await criarAssinatura(empresa.id, unidade.id, { status: "cancelada" });
 
     const resposta = await request(app).get("/admin/assinatura").set("Authorization", `Bearer ${token}`);
     expect(resposta.status).toBe(200);
@@ -94,8 +94,8 @@ describe("Middleware de bloqueio por assinatura", () => {
 
 describe("POST /admin/assinatura/cancelar", () => {
   it("rejeita cancelar quando a assinatura ja nao esta mais em trial", async () => {
-    const { empresa, token } = await setup();
-    await criarAssinatura(empresa.id, { status: "ativa" });
+    const { empresa, unidade, token } = await setup();
+    await criarAssinatura(empresa.id, unidade.id, { status: "ativa" });
 
     const resposta = await request(app).post("/admin/assinatura/cancelar").set("Authorization", `Bearer ${token}`);
     expect(resposta.status).toBe(400);
@@ -108,8 +108,8 @@ describe("POST /admin/assinatura/cancelar", () => {
   });
 
   it("funcionario nao acessa as rotas de assinatura (owner only)", async () => {
-    const { empresa, token } = await setup();
-    await criarAssinatura(empresa.id, { status: "trialing" });
+    const { empresa, unidade, token } = await setup();
+    await criarAssinatura(empresa.id, unidade.id, { status: "trialing" });
 
     const funcionario = await request(app)
       .post("/admin/usuarios")

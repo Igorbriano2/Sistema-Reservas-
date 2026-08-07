@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 
-export type PapelUsuario = "owner" | "funcionario";
+export type PapelUsuario = "owner" | "gerente" | "funcionario";
 
 export interface AuthTokenPayload {
   sub: string; // usuario.id
@@ -9,7 +9,7 @@ export interface AuthTokenPayload {
   papel: PapelUsuario;
 }
 
-const PAPEIS_VALIDOS: PapelUsuario[] = ["owner", "funcionario"];
+const PAPEIS_VALIDOS: PapelUsuario[] = ["owner", "gerente", "funcionario"];
 
 export function signAuthToken(payload: AuthTokenPayload): string {
   return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] });

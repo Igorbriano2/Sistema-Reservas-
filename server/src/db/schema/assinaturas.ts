@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, timestamp, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { empresas } from "./empresas.js";
+import { unidades } from "./unidades.js";
 
 // So Stripe por enquanto - o enum existe pra deixar explicito que outro gateway
 // poderia entrar aqui no futuro sem migrar dado antigo.
@@ -26,6 +27,13 @@ export const assinaturas = pgTable(
     empresaId: uuid("empresa_id")
       .notNull()
       .references(() => empresas.id, { onDelete: "cascade" }),
+    // Doc 17: o plano e cobrado POR UNIDADE, nao por empresa - cada unidade tem sua
+    // propria assinatura/trial independente. empresa_id continua aqui tambem
+    // (redundante com unidade.empresa_id) porque o schema do doc pede os dois - poupa
+    // um join nas queries que so precisam saber a empresa.
+    unidadeId: uuid("unidade_id")
+      .notNull()
+      .references(() => unidades.id, { onDelete: "cascade" }),
     gateway: assinaturaGatewayEnum("gateway").notNull().default("stripe"),
     customerIdGateway: text("customer_id_gateway").notNull(),
     subscriptionIdGateway: text("subscription_id_gateway").notNull(),
@@ -40,6 +48,7 @@ export const assinaturas = pgTable(
   },
   (table) => [
     index("assinaturas_empresa_id_idx").on(table.empresaId),
+    index("assinaturas_unidade_id_idx").on(table.unidadeId),
     // Garante que o mesmo subscription da Stripe nunca vira duas linhas aqui -
     // tambem serve de protecao contra reuso indevido do mesmo ID por outro checkout.
     uniqueIndex("assinaturas_subscription_id_gateway_idx").on(table.subscriptionIdGateway),
