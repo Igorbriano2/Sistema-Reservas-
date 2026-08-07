@@ -5,6 +5,7 @@ import { useBarraLateralRecolhida } from "../lib/useBarraLateralRecolhida.js";
 import { Marca } from "./Marca.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 import { NotificacaoToggle } from "./NotificacaoToggle.js";
+import { InstalarAppButton } from "./InstalarAppButton.js";
 
 interface ItemDeNav {
   to: string;
@@ -184,6 +185,7 @@ export function Layout() {
             </select>
           )}
           <span style={{ flex: 1 }} />
+          <InstalarAppButton />
           {unidade && <NotificacaoToggle unidadeId={unidade.id} />}
           <ThemeToggle />
           <span>{usuario?.nome}</span>
