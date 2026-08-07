@@ -32,3 +32,4 @@ export const mensagensMarketingLog = pgTable(
 
 export type MensagemMarketingLog = typeof mensagensMarketingLog.$inferSelect;
 export type NovaMensagemMarketingLog = typeof mensagensMarketingLog.$inferInsert;
+export type TipoCampanhaMarketing = (typeof tipoCampanhaEnum.enumValues)[number];
