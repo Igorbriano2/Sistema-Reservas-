@@ -78,6 +78,35 @@ body {
   color: var(--text-primary);
 }
 
+/* Barra de rolagem com a cara da marca (Carmim sobre o fundo do tema atual) em vez
+   da barra cinza padrao do navegador - vale pra Firefox (scrollbar-color) e
+   Chromium/Safari (::-webkit-scrollbar), em qualquer elemento que role, nao so a
+   pagina inteira (tabelas, paineis com overflow, etc). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--accent-rgb), 0.5) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--accent-rgb), 0.45);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--accent-rgb), 0.7);
+}
+
 a {
   color: inherit;
 }
@@ -383,6 +412,25 @@ label {
   max-width: 1100px;
   width: 100%;
   margin: 0 auto;
+}
+
+/* Cada troca de tela (Outlet trocando de componente) monta um elemento novo aqui
+   dentro, entao a animacao dispara sozinha a cada navegacao - sem precisar de key
+   nem de logica extra - mas nao dispara de novo so por causa de um re-render (ex:
+   filtro de data), so quando a pagina troca de verdade. */
+.conteudo > * {
+  animation: pagina-fade-in 380ms var(--ease-padrao);
+}
+
+@keyframes pagina-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .rodape {

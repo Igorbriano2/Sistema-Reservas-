@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Link } from "react-router-dom";
 import "../landing.css";
 import { Marca } from "../components/Marca.js";
@@ -37,6 +37,13 @@ function aplicarIma(e: MouseEvent<HTMLElement>) {
 
 function removerIma(e: MouseEvent<HTMLElement>) {
   e.currentTarget.style.transform = "";
+}
+
+// Escalona o reveal de itens de uma mesma grade/lista (ver --reveal-delay em
+// landing.css) - capado pra nao deixar os ultimos itens de listas longas com um
+// atraso exagerado.
+function atrasoEscalonado(indice: number, passoMs = 55, maxItens = 6) {
+  return { "--reveal-delay": `${Math.min(indice, maxItens) * passoMs}ms` } as CSSProperties;
 }
 
 const PASSOS_COMO_FUNCIONA = [
@@ -136,16 +143,16 @@ export function LandingPage() {
       elementos.forEach((el) => el.classList.add("visivel"));
       return;
     }
+    // Bidirecional de proposito (nunca desconecta): o elemento some de novo ao
+    // rolar pra fora da tela, e reaparece suave ao voltar - "acompanha a rolagem"
+    // em vez de um reveal unico que so acontece na primeira vez.
     const observer = new IntersectionObserver(
       (entradas) => {
         for (const entrada of entradas) {
-          if (entrada.isIntersecting) {
-            entrada.target.classList.add("visivel");
-            observer.unobserve(entrada.target);
-          }
+          entrada.target.classList.toggle("visivel", entrada.isIntersecting);
         }
       },
-      { threshold: 0.15 },
+      { threshold: 0.15, rootMargin: "0px 0px -8% 0px" },
     );
     elementos.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
@@ -188,21 +195,36 @@ export function LandingPage() {
           <div className="lp-container">
             <h2 className="lp-reveal">Enquanto você lê isso, alguém está tentando reservar mesa no seu Instagram.</h2>
             <div className="lp-grade-cards">
-              <div className="lp-card lp-tilt lp-reveal" onMouseMove={aplicarTilt} onMouseLeave={removerTilt}>
+              <div
+                className="lp-card lp-tilt lp-reveal"
+                style={atrasoEscalonado(0)}
+                onMouseMove={aplicarTilt}
+                onMouseLeave={removerTilt}
+              >
                 <h3>Boa noite, vocês têm mesa pra hoje?</h3>
                 <p>
                   Chega às 19h numa sexta lotada. Ninguém vê na hora. Quarenta minutos depois, alguém responde — mas
                   o cliente já reservou em outro lugar.
                 </p>
               </div>
-              <div className="lp-card lp-tilt lp-reveal" onMouseMove={aplicarTilt} onMouseLeave={removerTilt}>
+              <div
+                className="lp-card lp-tilt lp-reveal"
+                style={atrasoEscalonado(1)}
+                onMouseMove={aplicarTilt}
+                onMouseLeave={removerTilt}
+              >
                 <h3>Planilha, caderno, WhatsApp pessoal</h3>
                 <p>
                   Cada reserva confirmada por telefone é uma reserva que depende de alguém lembrar de anotar, sem
                   duplicar mesa, sem esquecer.
                 </p>
               </div>
-              <div className="lp-card lp-tilt lp-reveal" onMouseMove={aplicarTilt} onMouseLeave={removerTilt}>
+              <div
+                className="lp-card lp-tilt lp-reveal"
+                style={atrasoEscalonado(2)}
+                onMouseMove={aplicarTilt}
+                onMouseLeave={removerTilt}
+              >
                 <h3>Ferramentas que tiram o cliente do Instagram</h3>
                 <p>Link externo, outro app, outro cadastro. Cada clique a mais é uma chance do cliente desistir no meio do caminho.</p>
               </div>
@@ -269,9 +291,9 @@ export function LandingPage() {
         <section className="lp-secao">
           <div className="lp-container">
             <h2 className="lp-reveal">Tudo o que seu restaurante precisa pra nunca mais perder uma reserva por falta de resposta</h2>
-            <ul className="lp-lista-valor lp-reveal">
-              {ITENS_VALOR.map((item) => (
-                <li key={item}>
+            <ul className="lp-lista-valor">
+              {ITENS_VALOR.map((item, indice) => (
+                <li key={item} className="lp-reveal" style={atrasoEscalonado(indice)}>
                   <span className="lp-check" aria-hidden="true">
                     ✓
                   </span>
@@ -287,9 +309,9 @@ export function LandingPage() {
           <div className="lp-container">
             <span className="lp-selo lp-selo-neutro lp-reveal">Por dentro da plataforma</span>
             <h2 className="lp-reveal">Tudo o que já está no ar — e o que estamos construindo agora</h2>
-            <div className="lp-grade-tech lp-reveal">
-              {FUNCIONALIDADES.map((item) => (
-                <div key={item.titulo} className="lp-card-tech">
+            <div className="lp-grade-tech">
+              {FUNCIONALIDADES.map((item, indice) => (
+                <div key={item.titulo} className="lp-card-tech lp-reveal" style={atrasoEscalonado(indice)}>
                   <span className={`lp-badge-tech ${item.status === "disponivel" ? "lp-badge-disponivel" : "lp-badge-em-breve"}`}>
                     {item.status === "disponivel" ? "Disponível agora" : "Em breve"}
                   </span>
@@ -334,9 +356,9 @@ export function LandingPage() {
         <section className="lp-secao">
           <div className="lp-container">
             <h2 className="lp-reveal">Perguntas frequentes</h2>
-            <div className="lp-faq lp-reveal">
-              {FAQ.map((item) => (
-                <details key={item.pergunta} className="lp-faq-item">
+            <div className="lp-faq">
+              {FAQ.map((item, indice) => (
+                <details key={item.pergunta} className="lp-faq-item lp-reveal" style={atrasoEscalonado(indice, 45)}>
                   <summary>{item.pergunta}</summary>
                   <p>{item.resposta}</p>
                 </details>
