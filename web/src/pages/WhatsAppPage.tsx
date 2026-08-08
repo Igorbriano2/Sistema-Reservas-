@@ -111,6 +111,7 @@ function PesquisaCustomizada() {
       ) : perguntas.length === 0 ? (
         <p className="texto-secundario">Nenhuma pergunta customizada ainda (a pesquisa padrão continua ativa).</p>
       ) : (
+        <div className="tabela-scroll">
         <table style={{ marginTop: "1rem" }}>
           <thead>
             <tr>
@@ -142,6 +143,7 @@ function PesquisaCustomizada() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
@@ -195,6 +197,7 @@ function ConexaoWhatsapp() {
           <span className="badge badge-cancelada">Desconectado</span> Nenhum numero de WhatsApp conectado ainda.
         </p>
       ) : (
+        <div className="tabela-scroll">
         <table>
           <thead>
             <tr>
@@ -217,6 +220,7 @@ function ConexaoWhatsapp() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
@@ -367,6 +371,7 @@ function ListaFeedbacks() {
       ) : feedbacks.length === 0 ? (
         <p className="texto-secundario">Nenhum feedback recebido ainda.</p>
       ) : (
+        <div className="tabela-scroll">
         <table>
           <thead>
             <tr>
@@ -405,6 +410,7 @@ function ListaFeedbacks() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

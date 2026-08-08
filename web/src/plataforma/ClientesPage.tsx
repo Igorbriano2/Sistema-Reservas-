@@ -60,6 +60,7 @@ export function ClientesPage() {
         ) : clientes.length === 0 ? (
           <p className="texto-secundario">Nenhum cliente ainda. Converta um lead na aba "Lista de espera".</p>
         ) : (
+          <div className="tabela-scroll">
           <table>
             <thead>
               <tr>
@@ -105,6 +106,7 @@ export function ClientesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

@@ -70,6 +70,10 @@ h3 {
 
 body {
   margin: 0;
+  /* Rede de seguranca contra qualquer elemento largo demais empurrando a pagina pro
+     lado (bug reportado no mobile) - o scroll horizontal, quando necessario, fica
+     sempre dentro do proprio elemento (.tabela-scroll, etc.), nunca na pagina toda. */
+  overflow-x: hidden;
   background: var(--bg-base);
   background-image: radial-gradient(900px circle at 12% -10%, rgba(var(--accent-rgb), 0.1), transparent 55%),
     radial-gradient(700px circle at 100% 20%, rgba(var(--accent-rgb), 0.06), transparent 60%);
@@ -646,6 +650,15 @@ label {
   background: var(--status-no-show);
 }
 
+/* Evita tabelas "vazando" da tela em viewports estreitos (celular/tablet) - o
+   scroll fica dentro do proprio wrapper, nunca na pagina inteira. Nao usa
+   overflow no .cartao em si de proposito: varias telas tem elementos
+   posicionados absolutamente (ex: .calendario-mes-flutuante) dentro de um
+   .cartao, e overflow ali cortaria/prenderia esses popups. */
+.tabela-scroll {
+  overflow-x: auto;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -759,6 +772,59 @@ tbody tr:hover {
   background: rgba(var(--accent-rgb), 0.14);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* Painel operacional de reservas (estilo GetIn) ---------------------------- */
+
+.busca-reservas {
+  font-size: 1rem;
+}
+
+.aviso-atrasadas {
+  background: var(--status-pendente-bg);
+  border: 1px solid var(--status-pendente);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.resumo-tamanhos {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.resumo-tamanhos-lista {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.resumo-tamanho-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.resumo-tamanho-item strong {
+  font-size: 1.3rem;
+  font-family: var(--font-display);
+  color: var(--accent);
+}
+
+.resumo-tamanho-item span {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .linha-form {

@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { db } from "../src/db/client.js";
@@ -81,69 +81,88 @@ describe("CRUD de regras de horario com turno (doc 19: nome/antecedencia/descont
 
 describe("verificarDisponibilidade - antecedencia minima e turno (doc 19)", () => {
   it("recusa reserva que nao respeita a antecedencia minima do turno, mas aceita quando ha antecedencia suficiente", async () => {
-    const { unidade } = await criarEmpresaComAdmin();
-    const salao = await criarSalao(unidade.id);
-    await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
-    // Cobre o dia inteiro (independente de que horas sao agora) com antecedencia
-    // minima de 60 minutos.
-    await criarRegraHorarioTodosOsDias(unidade.id, {
-      horaAbertura: "00:00",
-      horaFechamento: "23:59",
-      duracaoPadraoMin: 15,
-      antecedenciaMinMin: 60,
-      nome: "Turno unico",
-      descontoPercentual: 10,
-    });
+    // Fixa o "agora" ao meio-dia (so o Date - setTimeout/etc reais, pra nao travar as
+    // queries no banco) - sem isso, dataHoraDaquiA(180) roda pro dia seguinte quando o
+    // teste executa perto da meia-noite e esbarra no horaFechamento "23:59" da regra
+    // (a duracao de 15min nao cabe mais antes do fechamento), fazendo o teste falhar
+    // de forma intermitente dependendo da hora real em que ele roda.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-15T12:00:00-03:00"));
+    try {
+      const { unidade } = await criarEmpresaComAdmin();
+      const salao = await criarSalao(unidade.id);
+      await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+      // Cobre o dia inteiro (independente de que horas sao agora) com antecedencia
+      // minima de 60 minutos.
+      await criarRegraHorarioTodosOsDias(unidade.id, {
+        horaAbertura: "00:00",
+        horaFechamento: "23:59",
+        duracaoPadraoMin: 15,
+        antecedenciaMinMin: 60,
+        nome: "Turno unico",
+        descontoPercentual: 10,
+      });
 
-    const cedoDemais = dataHoraDaquiA(20);
-    const resultadoCedoDemais = await verificarDisponibilidade(db, {
-      unidadeId: unidade.id,
-      data: cedoDemais.data,
-      hora: cedoDemais.horaInicio,
-      numPessoas: 2,
-    });
-    expect(resultadoCedoDemais.disponivel).toBe(false);
-    expect(resultadoCedoDemais.motivo).toMatch(/antecedencia/i);
+      const cedoDemais = dataHoraDaquiA(20);
+      const resultadoCedoDemais = await verificarDisponibilidade(db, {
+        unidadeId: unidade.id,
+        data: cedoDemais.data,
+        hora: cedoDemais.horaInicio,
+        numPessoas: 2,
+      });
+      expect(resultadoCedoDemais.disponivel).toBe(false);
+      expect(resultadoCedoDemais.motivo).toMatch(/antecedencia/i);
 
-    const comAntecedencia = dataHoraDaquiA(180);
-    const resultadoComAntecedencia = await verificarDisponibilidade(db, {
-      unidadeId: unidade.id,
-      data: comAntecedencia.data,
-      hora: comAntecedencia.horaInicio,
-      numPessoas: 2,
-    });
-    expect(resultadoComAntecedencia.disponivel).toBe(true);
-    expect(resultadoComAntecedencia.turno?.nome).toBe("Turno unico");
-    expect(resultadoComAntecedencia.turno?.descontoPercentual).toBe(10);
+      const comAntecedencia = dataHoraDaquiA(180);
+      const resultadoComAntecedencia = await verificarDisponibilidade(db, {
+        unidadeId: unidade.id,
+        data: comAntecedencia.data,
+        hora: comAntecedencia.horaInicio,
+        numPessoas: 2,
+      });
+      expect(resultadoComAntecedencia.disponivel).toBe(true);
+      expect(resultadoComAntecedencia.turno?.nome).toBe("Turno unico");
+      expect(resultadoComAntecedencia.turno?.descontoPercentual).toBe(10);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
 describe("Tool check_availability expoe turno_nome/turno_desconto_percentual (doc 19)", () => {
   it("retorna o nome do turno e o desconto configurado quando o horario cai nele", async () => {
-    const { empresa, unidade } = await criarEmpresaComAdmin();
-    const salao = await criarSalao(unidade.id);
-    await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
-    await criarRegraHorarioTodosOsDias(unidade.id, {
-      horaAbertura: "00:00",
-      horaFechamento: "23:59",
-      duracaoPadraoMin: 15,
-      nome: "Jantar",
-      descontoPercentual: 15,
-    });
-    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
-    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+    // Ver comentario no describe acima - fixa o "agora" longe da virada de dia pra
+    // dataHoraDaquiA(180) nao esbarrar no horaFechamento "23:59" da regra.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-15T12:00:00-03:00"));
+    try {
+      const { empresa, unidade } = await criarEmpresaComAdmin();
+      const salao = await criarSalao(unidade.id);
+      await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+      await criarRegraHorarioTodosOsDias(unidade.id, {
+        horaAbertura: "00:00",
+        horaFechamento: "23:59",
+        duracaoPadraoMin: 15,
+        nome: "Jantar",
+        descontoPercentual: 15,
+      });
+      const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+      const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
 
-    const alvo = dataHoraDaquiA(180);
-    const resultado = await executarTool(db, ctx, "check_availability", {
-      data: alvo.data,
-      hora: alvo.horaInicio,
-      num_pessoas: 2,
-    });
+      const alvo = dataHoraDaquiA(180);
+      const resultado = await executarTool(db, ctx, "check_availability", {
+        data: alvo.data,
+        hora: alvo.horaInicio,
+        num_pessoas: 2,
+      });
 
-    expect(resultado.isError).toBeUndefined();
-    const output = resultado.output as { disponivel: boolean; turno_nome: string | null; turno_desconto_percentual: number | null };
-    expect(output.disponivel).toBe(true);
-    expect(output.turno_nome).toBe("Jantar");
-    expect(output.turno_desconto_percentual).toBe(15);
+      expect(resultado.isError).toBeUndefined();
+      const output = resultado.output as { disponivel: boolean; turno_nome: string | null; turno_desconto_percentual: number | null };
+      expect(output.disponivel).toBe(true);
+      expect(output.turno_nome).toBe("Jantar");
+      expect(output.turno_desconto_percentual).toBe(15);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

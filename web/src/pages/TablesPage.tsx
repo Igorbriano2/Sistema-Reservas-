@@ -173,6 +173,7 @@ export function TablesPage() {
           </div>
         </form>
         {saloes.length > 0 && (
+          <div className="tabela-scroll">
           <table>
             <thead>
               <tr>
@@ -249,6 +250,7 @@ export function TablesPage() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

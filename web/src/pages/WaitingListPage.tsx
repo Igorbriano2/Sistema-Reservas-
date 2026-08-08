@@ -155,6 +155,7 @@ export function WaitingListPage() {
         ) : entradas.length === 0 ? (
           <p className="texto-secundario">{verHistorico ? "Nenhum registro ainda." : "Ninguém esperando no momento."}</p>
         ) : (
+          <div className="tabela-scroll">
           <table>
             <thead>
               <tr>
@@ -207,6 +208,7 @@ export function WaitingListPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

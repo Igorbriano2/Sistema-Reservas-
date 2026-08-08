@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import {
@@ -38,14 +39,51 @@ const STATUS_LABEL: Record<Reserva["status"], string> = {
   no_show: "Nao compareceu",
 };
 
-type FiltroStatus = "todas" | Reserva["status"];
-
-const ABAS_STATUS: FiltroStatus[] = ["todas", "confirmada", "pendente", "cancelada", "concluida", "no_show"];
-const ABA_LABEL: Record<FiltroStatus, string> = { todas: "Todas", ...STATUS_LABEL };
-
 // So reservas ainda ativas podem virar "sentada" ou "nao compareceu" (o backend
 // tambem valida isso - aqui e so pra nao nem mostrar o botao quando nao se aplica).
 const STATUS_ATIVOS = new Set<Reserva["status"]>(["pendente", "confirmada"]);
+
+// Painel operacional (estilo GetIn): em vez de uma aba por status tecnico, agrupa no
+// que importa pro atendente na portaria - quem ainda vai chegar, quem ja sentou, quem
+// nao vai mais aparecer (cancelada ou nao compareceu). O badge de cada linha continua
+// mostrando o status exato (ver STATUS_LABEL).
+type GrupoStatus = "recebidas" | "sentadas" | "canceladas" | "todas";
+
+const GRUPO_STATUSES: Record<Exclude<GrupoStatus, "todas">, Reserva["status"][]> = {
+  recebidas: ["pendente", "confirmada"],
+  sentadas: ["concluida"],
+  canceladas: ["cancelada", "no_show"],
+};
+
+const GRUPOS: GrupoStatus[] = ["recebidas", "sentadas", "canceladas", "todas"];
+const GRUPO_LABEL: Record<GrupoStatus, string> = {
+  recebidas: "Recebidas",
+  sentadas: "Sentadas",
+  canceladas: "Canceladas",
+  todas: "Todas",
+};
+
+function contarNoGrupo(reservas: Reserva[], grupo: GrupoStatus): number {
+  if (grupo === "todas") return reservas.length;
+  return reservas.filter((r) => GRUPO_STATUSES[grupo].includes(r.status)).length;
+}
+
+// Faixas de tamanho de grupo pro resumo de lugares do rodape (estilo GetIn) - da pro
+// atendente ver de relance quantas reservas de cada porte estao chegando no dia.
+const FAIXAS_TAMANHO: Array<{ label: string; min: number; max: number }> = [
+  { label: "1-2", min: 1, max: 2 },
+  { label: "3-4", min: 3, max: 4 },
+  { label: "5-6", min: 5, max: 6 },
+  { label: "7-8", min: 7, max: 8 },
+  { label: "9-10", min: 9, max: 10 },
+  { label: "11-12", min: 11, max: 12 },
+  { label: "13+", min: 13, max: Infinity },
+];
+
+function horaAtualLocal(): string {
+  const agora = new Date();
+  return `${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}:00`;
+}
 
 // "local" identifica onde a reserva vai (mesa especifica, modo mapa, ou o salao
 // inteiro, modo simples): "mesa:<id>" ou "salao:<id>" - um unico seletor cobre os
@@ -77,7 +115,8 @@ function paraLocalDaReserva(reserva: Reserva): string {
 export function ReservationsPage() {
   const { unidade } = useAuth();
   const [data, setData] = useState(hojeLocal());
-  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todas");
+  const [grupo, setGrupo] = useState<GrupoStatus>("recebidas");
+  const [busca, setBusca] = useState("");
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [saloes, setSaloes] = useState<Salao[]>([]);
@@ -93,10 +132,34 @@ export function ReservationsPage() {
 
   const mesasPorId = useMemo(() => new Map(mesas.map((m) => [m.id, m])), [mesas]);
   const saloesPorId = useMemo(() => new Map(saloes.map((s) => [s.id, s])), [saloes]);
-  const reservasFiltradas = useMemo(
-    () => (filtroStatus === "todas" ? reservas : reservas.filter((r) => r.status === filtroStatus)),
-    [reservas, filtroStatus],
-  );
+  const reservasFiltradas = useMemo(() => {
+    const buscaNormalizada = busca.trim().toLowerCase();
+    return reservas
+      .filter((r) => grupo === "todas" || GRUPO_STATUSES[grupo].includes(r.status))
+      .filter(
+        (r) =>
+          !buscaNormalizada ||
+          r.clienteNome.toLowerCase().includes(buscaNormalizada) ||
+          (r.clienteTelefone ?? "").toLowerCase().includes(buscaNormalizada),
+      );
+  }, [reservas, grupo, busca]);
+  // Reservas que ja passaram do horario e ninguem marcou como sentada/nao compareceu -
+  // so faz sentido alertar quando o atendente esta olhando o dia de hoje.
+  const reservasAtrasadas = useMemo(() => {
+    if (data !== hojeLocal()) return [];
+    const agora = horaAtualLocal();
+    return reservas.filter((r) => STATUS_ATIVOS.has(r.status) && r.horaInicio < agora);
+  }, [reservas, data]);
+  const totalPessoas = useMemo(() => reservasFiltradas.reduce((soma, r) => soma + r.numPessoas, 0), [reservasFiltradas]);
+  // Resumo de lugares por faixa de tamanho (rodape) - conta todas as reservas do dia
+  // que ainda valem (nao canceladas), independente da aba/busca selecionada no momento.
+  const resumoPorTamanho = useMemo(() => {
+    const ativas = reservas.filter((r) => r.status !== "cancelada");
+    return FAIXAS_TAMANHO.map((faixa) => ({
+      ...faixa,
+      quantidade: ativas.filter((r) => r.numPessoas >= faixa.min && r.numPessoas <= faixa.max).length,
+    })).filter((f) => f.quantidade > 0);
+  }, [reservas]);
   // Opcoes do seletor "Local": mesas dos saloes em modo mapa + saloes inteiros em
   // modo simples - mesmo componente reaproveitado independente do mix de modos.
   const opcoesLocal = useMemo(() => {
@@ -236,6 +299,17 @@ export function ReservationsPage() {
   return (
     <div>
       <div className="cartao">
+        <input
+          type="search"
+          className="busca-reservas"
+          placeholder="Pesquisar por nome ou telefone"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          aria-label="Pesquisar reservas"
+        />
+      </div>
+
+      <div className="cartao">
         <div className="seletor-data">
           <div className="pilulas-data">
             <button
@@ -283,6 +357,9 @@ export function ReservationsPage() {
             )}
           </div>
           <span style={{ flex: 1 }} />
+          <Link className="btn btn-secundario" to="/admin/bloqueios">
+            Ver bloqueios
+          </Link>
           <button className="btn" onClick={abrirNovaReserva}>
             + Nova reserva
           </button>
@@ -360,26 +437,36 @@ export function ReservationsPage() {
 
       <div className="cartao">
         <div className="abas-status">
-          {ABAS_STATUS.map((status) => (
-            <button
-              key={status}
-              type="button"
-              className={`aba-status ${filtroStatus === status ? "ativa" : ""}`}
-              onClick={() => setFiltroStatus(status)}
-            >
-              {ABA_LABEL[status]}
-              {status !== "todas" && (
-                <span className="texto-secundario"> ({reservas.filter((r) => r.status === status).length})</span>
-              )}
+          {GRUPOS.map((g) => (
+            <button key={g} type="button" className={`aba-status ${grupo === g ? "ativa" : ""}`} onClick={() => setGrupo(g)}>
+              {GRUPO_LABEL[g]}
+              <span className="texto-secundario"> ({contarNoGrupo(reservas, g)})</span>
             </button>
           ))}
+          <span style={{ flex: 1 }} />
+          <span className="texto-secundario">
+            {reservasFiltradas.length} reserva(s) ({totalPessoas} pessoas)
+          </span>
         </div>
+
+        {reservasAtrasadas.length > 0 && (
+          <div className="aviso-atrasadas">
+            <span>
+              Você tem {reservasAtrasadas.length} reserva(s) que já passaram do horário e não foram marcadas como sentada ou não
+              compareceu.
+            </span>
+            <button type="button" className="btn btn-secundario" onClick={() => setGrupo("recebidas")}>
+              Ver reservas
+            </button>
+          </div>
+        )}
+
         {carregando ? (
           <p>Carregando...</p>
         ) : reservas.length === 0 ? (
           <p className="texto-secundario">Nenhuma reserva para esta data.</p>
         ) : reservasFiltradas.length === 0 ? (
-          <p className="texto-secundario">Nenhuma reserva com esse status.</p>
+          <p className="texto-secundario">Nenhuma reserva encontrada.</p>
         ) : (
           <>
           <div className="reservas-mobile">
@@ -392,12 +479,17 @@ export function ReservationsPage() {
                 <strong className="reserva-card-mobile-nome">{reserva.clienteNome}</strong>
                 <div className="texto-secundario reserva-card-mobile-detalhes">
                   {reserva.numPessoas} pessoa(s) - {nomeDoLocal(reserva)}
-                  {reserva.clienteTelefone && <> - {reserva.clienteTelefone}</>}
+                  {reserva.clienteTelefone && (
+                    <>
+                      {" - "}
+                      <a href={`tel:${reserva.clienteTelefone}`}>{reserva.clienteTelefone}</a>
+                    </>
+                  )}
                 </div>
                 {STATUS_ATIVOS.has(reserva.status) && (
                   <div className="reserva-card-mobile-acoes">
                     <button className="btn" onClick={() => marcarStatus(reserva, "concluida")}>
-                      Marcar como sentada
+                      Sentar
                     </button>
                     <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "no_show")}>
                       Nao compareceu
@@ -417,6 +509,7 @@ export function ReservationsPage() {
               </div>
             ))}
           </div>
+          <div className="tabela-scroll">
           <table className="tabela-reservas">
             <thead>
               <tr>
@@ -434,7 +527,11 @@ export function ReservationsPage() {
                   <td>{reserva.horaInicio.slice(0, 5)}</td>
                   <td>
                     {reserva.clienteNome}
-                    {reserva.clienteTelefone && <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>{reserva.clienteTelefone}</div>}
+                    {reserva.clienteTelefone && (
+                      <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+                        <a href={`tel:${reserva.clienteTelefone}`}>{reserva.clienteTelefone}</a>
+                      </div>
+                    )}
                   </td>
                   <td>{reserva.numPessoas}</td>
                   <td>{nomeDoLocal(reserva)}</td>
@@ -445,8 +542,8 @@ export function ReservationsPage() {
                     <div className="acoes">
                       {STATUS_ATIVOS.has(reserva.status) && (
                         <>
-                          <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "concluida")}>
-                            Marcar como sentada
+                          <button className="btn" onClick={() => marcarStatus(reserva, "concluida")}>
+                            Sentar
                           </button>
                           <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "no_show")}>
                             Nao compareceu
@@ -469,9 +566,30 @@ export function ReservationsPage() {
               ))}
             </tbody>
           </table>
+          </div>
           </>
         )}
       </div>
+
+      {resumoPorTamanho.length > 0 && (
+        <div className="cartao resumo-tamanhos">
+          <span className="texto-secundario" style={{ fontSize: "0.8rem", fontWeight: 600 }}>
+            Reservas do dia por tamanho de grupo:
+          </span>
+          <div className="resumo-tamanhos-lista">
+            {resumoPorTamanho.map((faixa) => (
+              <div key={faixa.label} className="resumo-tamanho-item">
+                <strong>{faixa.quantidade}</strong>
+                <span>
+                  {faixa.label}
+                  <br />
+                  lugares
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

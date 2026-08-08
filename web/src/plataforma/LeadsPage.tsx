@@ -85,6 +85,7 @@ export function LeadsPage() {
         ) : leads.length === 0 ? (
           <p className="texto-secundario">Nenhum contato ainda.</p>
         ) : (
+          <div className="tabela-scroll">
           <table>
             <thead>
               <tr>
@@ -134,6 +135,7 @@ export function LeadsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

@@ -89,6 +89,7 @@ export function ReportsPage() {
         ) : !relatorio || relatorio.mesasMaisPedidas.length === 0 ? (
           <p className="texto-secundario">Nenhuma reserva no período selecionado.</p>
         ) : (
+          <div className="tabela-scroll">
           <table>
             <thead>
               <tr>
@@ -105,6 +106,7 @@ export function ReportsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

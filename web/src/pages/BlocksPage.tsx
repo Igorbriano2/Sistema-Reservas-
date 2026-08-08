@@ -184,6 +184,7 @@ export function BlocksPage() {
         ) : bloqueios.length === 0 ? (
           <p className="texto-secundario">Nenhum bloqueio ativo no momento.</p>
         ) : (
+          <div className="tabela-scroll">
           <table>
             <thead>
               <tr>
@@ -210,6 +211,7 @@ export function BlocksPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

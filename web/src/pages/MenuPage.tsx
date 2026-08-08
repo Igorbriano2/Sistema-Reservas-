@@ -369,6 +369,7 @@ export function MenuPage() {
             )}
 
             {categoria.itens.length > 0 && (
+              <div className="tabela-scroll">
               <table style={{ marginTop: "1rem" }}>
                 <thead>
                   <tr>
@@ -490,6 +491,7 @@ export function MenuPage() {
                   )}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         ))

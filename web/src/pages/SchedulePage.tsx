@@ -256,6 +256,7 @@ export function SchedulePage() {
         ) : regras.length === 0 ? (
           <p className="texto-secundario">Nenhum turno cadastrado ainda. Sem isso, a unidade aparece sem horário de funcionamento.</p>
         ) : (
+          <div className="tabela-scroll">
           <table>
             <thead>
               <tr>
@@ -413,6 +414,7 @@ export function SchedulePage() {
                 )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

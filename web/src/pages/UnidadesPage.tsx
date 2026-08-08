@@ -241,34 +241,36 @@ export function UnidadesPage() {
         {carregando ? (
           <p>Carregando...</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Endereço</th>
-                <th>Telefone</th>
-                <th>Redes sociais</th>
-                <th>Fuso horário</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {unidades.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.nome}</td>
-                  <td>{u.endereco ?? "-"}</td>
-                  <td>{u.telefone ?? "-"}</td>
-                  <td>{u.redesSociais.length > 0 ? u.redesSociais.map((r) => r.rede).join(", ") : "-"}</td>
-                  <td>{u.timezone}</td>
-                  <td>
-                    <button className="btn btn-secundario" type="button" onClick={() => setEditandoId(u.id)}>
-                      Editar contato
-                    </button>
-                  </td>
+          <div className="tabela-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Endereço</th>
+                  <th>Telefone</th>
+                  <th>Redes sociais</th>
+                  <th>Fuso horário</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {unidades.map((u) => (
+                  <tr key={u.id}>
+                    <td>{u.nome}</td>
+                    <td>{u.endereco ?? "-"}</td>
+                    <td>{u.telefone ?? "-"}</td>
+                    <td>{u.redesSociais.length > 0 ? u.redesSociais.map((r) => r.rede).join(", ") : "-"}</td>
+                    <td>{u.timezone}</td>
+                    <td>
+                      <button className="btn btn-secundario" type="button" onClick={() => setEditandoId(u.id)}>
+                        Editar contato
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

@@ -158,6 +158,7 @@ export function UsersPage() {
         {carregando ? (
           <p>Carregando...</p>
         ) : (
+          <div className="tabela-scroll">
           <table>
             <thead>
               <tr>
@@ -178,6 +179,7 @@ export function UsersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
