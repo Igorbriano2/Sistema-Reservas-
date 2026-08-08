@@ -3,6 +3,7 @@ import { z, ZodError } from "zod";
 import type { Database } from "../../db/client.js";
 import { cardapioCategorias, cardapioItens, conversas, unidades } from "../../db/schema/index.js";
 import { verificarDisponibilidade } from "../../lib/availability.js";
+import { agoraNoFuso } from "../../lib/time.js";
 import { atualizarReservaDoCliente, buscarReservasDoCliente, cancelarReservaDoCliente } from "../../lib/reservations.js";
 import { AppError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { env } from "../../config/env.js";
@@ -96,8 +97,13 @@ async function findMyReservations(db: Database, ctx: AgentContext): Promise<Tool
 const STATUS_ATIVOS = new Set(["pendente", "confirmada"]);
 
 async function checkReservationStatus(db: Database, ctx: AgentContext): Promise<ToolResultado> {
-  const hoje = new Date().toISOString().slice(0, 10);
-  const lista = await buscarReservasDoCliente(db, { unidadeId: unidadeResolvida(ctx), igSenderId: ctx.igSenderId });
+  const unidadeId = unidadeResolvida(ctx);
+  // "Hoje" no fuso da UNIDADE, nao do servidor - senao uma reserva pra hoje a noite
+  // some da lista horas antes de acontecer de verdade (unidades America/Sao_Paulo,
+  // UTC-3: as 21h locais o relogio UTC do servidor ja mostra o dia seguinte).
+  const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
+  const hoje = agoraNoFuso(unidadeRow?.timezone ?? "America/Sao_Paulo").data;
+  const lista = await buscarReservasDoCliente(db, { unidadeId, igSenderId: ctx.igSenderId });
 
   const futuras = lista
     .filter((r) => STATUS_ATIVOS.has(r.status) && r.data >= hoje)

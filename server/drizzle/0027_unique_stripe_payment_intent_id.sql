@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "reservas_stripe_payment_intent_id_unq" ON "reservas" USING btree ("stripe_payment_intent_id") WHERE "reservas"."stripe_payment_intent_id" IS NOT NULL;

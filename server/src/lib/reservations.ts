@@ -2,9 +2,9 @@ import { and, desc, eq, inArray, ne, type SQL } from "drizzle-orm";
 import type { Database, Queryable } from "../db/client.js";
 import { mesas, regrasHorario, reservas, saloes, type Reserva } from "../db/schema/index.js";
 import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from "./time.js";
-import { ConflitoDeHorarioError, RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
+import { ConflitoDeHorarioError, DepositoJaUsadoError, RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
 import { codigoDoErroPostgres } from "./pg-error.js";
-import { verificarDisponibilidade } from "./availability.js";
+import { validarJanelaDeFuncionamento, verificarDisponibilidade } from "./availability.js";
 import { bloqueioAtivoPara, bloqueioDeSalaoAtivoPara } from "./bloqueios.js";
 
 // Reservas nesses status contam para a capacidade agregada de um salao em modo
@@ -25,9 +25,16 @@ const STATUS_LABEL: Record<string, string> = {
 };
 // Codigo do Postgres para violacao de EXCLUDE constraint (reservas_sem_sobreposicao).
 const PG_EXCLUSION_VIOLATION = "23P01";
+// Violacao de indice UNIQUE - usado aqui pro reservas_stripe_payment_intent_id_unq
+// (doc 22/25: um deposito nao pode financiar duas reservas).
+const PG_UNIQUE_VIOLATION = "23505";
 
 function ehViolacaoDeExclusao(err: unknown): boolean {
   return codigoDoErroPostgres(err) === PG_EXCLUSION_VIOLATION;
+}
+
+function ehViolacaoDeUnicidade(err: unknown): boolean {
+  return codigoDoErroPostgres(err) === PG_UNIQUE_VIOLATION;
 }
 
 interface JanelaDaReserva {
@@ -198,6 +205,13 @@ async function criarReservaComMesa(
       if (ehViolacaoDeExclusao(err)) {
         throw new ConflitoDeHorarioError();
       }
+      // Idem para o mesmo PaymentIntent tentando financiar duas reservas (retry/replay
+      // do cliente) - a checagem em criarReserva/criarReservaComMesaAutomatica ja
+      // cobre o caso comum, isso e so a rede de seguranca contra a corrida entre as
+      // duas chamadas quase simultaneas.
+      if (params.stripePaymentIntentId && ehViolacaoDeUnicidade(err)) {
+        throw new DepositoJaUsadoError();
+      }
       throw err;
     }
   });
@@ -263,25 +277,35 @@ async function criarReservaSimples(
       numPessoasNova: params.numPessoas,
     });
 
-    const [reserva] = await tx
-      .insert(reservas)
-      .values({
-        unidadeId: params.unidadeId,
-        salaoId: params.salaoId,
-        igSenderId: params.igSenderId,
-        clienteNome: params.clienteNome,
-        clienteTelefone: params.clienteTelefone,
-        numPessoas: params.numPessoas,
-        data: params.data,
-        horaInicio: params.horaInicio,
-        horaFim,
-        observacoes: params.observacoes,
-        canalOrigem: params.canalOrigem,
-        statusPagamento: params.statusPagamento,
-        stripePaymentIntentId: params.stripePaymentIntentId,
-      })
-      .returning();
-    return reserva;
+    try {
+      const [reserva] = await tx
+        .insert(reservas)
+        .values({
+          unidadeId: params.unidadeId,
+          salaoId: params.salaoId,
+          igSenderId: params.igSenderId,
+          clienteNome: params.clienteNome,
+          clienteTelefone: params.clienteTelefone,
+          numPessoas: params.numPessoas,
+          data: params.data,
+          horaInicio: params.horaInicio,
+          horaFim,
+          observacoes: params.observacoes,
+          canalOrigem: params.canalOrigem,
+          statusPagamento: params.statusPagamento,
+          stripePaymentIntentId: params.stripePaymentIntentId,
+        })
+        .returning();
+      return reserva;
+    } catch (err) {
+      // Mesmo PaymentIntent tentando financiar duas reservas (retry/replay do
+      // cliente) - a checagem em criarReserva/criarReservaComMesaAutomatica ja
+      // cobre o caso comum, isso e a rede de seguranca contra a corrida.
+      if (params.stripePaymentIntentId && ehViolacaoDeUnicidade(err)) {
+        throw new DepositoJaUsadoError();
+      }
+      throw err;
+    }
   });
 }
 
@@ -384,6 +408,20 @@ async function atualizarReservaComCondicoes(
     let horaFim = patch.horaFim ?? atual.horaFim;
     let mesaId: string | null;
     let salaoId: string | null;
+
+    // Mudou o dia ou o horario da reserva: precisa continuar dentro do horario de
+    // funcionamento (mesma checagem que criar uma reserva nova passa por) - senao dava
+    // pra editar uma reserva existente pra um dia marcado como fechado (excecao) ou um
+    // horario fora de qualquer regra cadastrada, tanto pelo admin quanto pelo proprio
+    // cliente via chat (tool modify_my_reservation). So roda quando de fato muda -
+    // editar so o numero de pessoas ou o nome do cliente, por exemplo, nao precisa
+    // reconferir o horario.
+    if (!patch.horaFim && (data !== atual.data || horaInicio !== atual.horaInicio)) {
+      const validacaoDaJanela = await validarJanelaDeFuncionamento(tx, { unidadeId, data, horaInicio });
+      if (!validacaoDaJanela.ok) {
+        throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
+      }
+    }
 
     if (usaSalao) {
       salaoId = patch.salaoId ?? atual.salaoId;

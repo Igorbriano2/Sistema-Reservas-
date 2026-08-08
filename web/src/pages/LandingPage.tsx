@@ -6,6 +6,7 @@ import { ComoFuncionaMidia } from "../components/landing/ComoFuncionaMidia.js";
 import { TrustSection } from "../components/landing/TrustSection.js";
 import { FounderSection } from "../components/landing/FounderSection.js";
 import { ComparisonSection } from "../components/landing/ComparisonSection.js";
+import { WaitlistForm } from "../components/landing/WaitlistForm.js";
 
 function prefereMovimentoReduzido(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -117,6 +118,7 @@ const FAQ = [
 export function LandingPage() {
   const spotlightRef = useRef<HTMLDivElement>(null);
   const [passoAtivo, setPassoAtivo] = useState(0);
+  const [mostrarFormularioContato, setMostrarFormularioContato] = useState(false);
 
   useEffect(() => {
     if (prefereMovimentoReduzido()) return;
@@ -374,6 +376,13 @@ export function LandingPage() {
             <Link to="/assinar" className="btn lp-btn-magnetico" onMouseMove={aplicarIma} onMouseLeave={removerIma}>
               Quero automatizar minhas reservas
             </Link>
+            {!mostrarFormularioContato ? (
+              <button type="button" className="lp-link-contato" onClick={() => setMostrarFormularioContato(true)}>
+                Prefere que a gente te ligue antes? Deixe seu contato
+              </button>
+            ) : (
+              <WaitlistForm />
+            )}
           </div>
         </section>
       </main>

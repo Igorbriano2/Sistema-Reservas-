@@ -768,6 +768,27 @@
   max-width: 700px;
 }
 
+.lp-link-contato {
+  display: block;
+  background: none;
+  border: none;
+  margin: 1rem auto 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.lp-link-contato:hover {
+  color: var(--text-primary);
+}
+
+.lp-cta-final .lp-form-espera {
+  max-width: 380px;
+  margin: 1.5rem auto 0;
+  text-align: left;
+}
+
 /* Rodape ------------------------------------------------------------------ */
 
 .lp-rodape {

@@ -9,7 +9,7 @@ import { env } from "../../config/env.js";
 import { RequisicaoInvalidaError } from "../../lib/errors.js";
 import { criarAssinaturaTrial, obterStripe, resolverPriceId } from "../../lib/stripe.js";
 import { provisionarContaAposPagamento } from "../../lib/checkout.js";
-import { eventoJaProcessado, processarEventoStripe } from "../../lib/stripe-webhook.js";
+import { processarEventoWebhookStripe } from "../../lib/stripe-webhook.js";
 
 // Rotas PUBLICAS (sem requireAuth) do assistente de checkout/assinatura (/assinar no
 // frontend) - ver doc da Etapa 1 (dados cadastrais), Etapa 2 (pagamento) e Etapa 3
@@ -151,12 +151,7 @@ checkoutRouter.post(
       return;
     }
 
-    if (await eventoJaProcessado(db, event)) {
-      res.json({ recebido: true, duplicado: true });
-      return;
-    }
-
-    await processarEventoStripe(db, event);
-    res.json({ recebido: true });
+    const { duplicado } = await processarEventoWebhookStripe(db, event);
+    res.json({ recebido: true, ...(duplicado && { duplicado: true }) });
   }),
 );

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import { mesaFormatoEnum, mesas, saloes } from "../../db/schema/index.js";
@@ -8,6 +8,14 @@ import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/er
 import { validarSalaoDaUnidade } from "../../lib/salao-helpers.js";
 
 export const mesasRouter = Router({ mergeParams: true });
+
+// "mesas" nao tem unidade_id direto (so salao_id) - esta subquery deixa o UPDATE/
+// DELETE abaixo filtrar por unidade no MESMO where do SELECT que ja confirma posse,
+// em vez de confiar so no SELECT anterior pra depois mutar so por id (ver doc 25:
+// padrao seguido tambem em salao-elementos.routes.ts e cardapio.routes.ts).
+function salaoIdsDaUnidade(unidadeId: string) {
+  return db.select({ id: saloes.id }).from(saloes).where(eq(saloes.unidadeId, unidadeId));
+}
 
 const formatoSchema = z.enum(mesaFormatoEnum.enumValues);
 
@@ -85,7 +93,12 @@ mesasRouter.patch(
       .limit(1);
     if (!mesaAtual) throw new RecursoNaoEncontradoError("Mesa nao encontrada");
 
-    const [mesa] = await db.update(mesas).set(dados).where(eq(mesas.id, req.params.mesaId)).returning();
+    const [mesa] = await db
+      .update(mesas)
+      .set(dados)
+      .where(and(eq(mesas.id, req.params.mesaId), inArray(mesas.salaoId, salaoIdsDaUnidade(req.unidadeId!))))
+      .returning();
+    if (!mesa) throw new RecursoNaoEncontradoError("Mesa nao encontrada");
     res.json(mesa);
   }),
 );
@@ -101,7 +114,11 @@ mesasRouter.delete(
       .limit(1);
     if (!mesaAtual) throw new RecursoNaoEncontradoError("Mesa nao encontrada");
 
-    await db.delete(mesas).where(eq(mesas.id, req.params.mesaId));
+    const apagadas = await db
+      .delete(mesas)
+      .where(and(eq(mesas.id, req.params.mesaId), inArray(mesas.salaoId, salaoIdsDaUnidade(req.unidadeId!))))
+      .returning({ id: mesas.id });
+    if (apagadas.length === 0) throw new RecursoNaoEncontradoError("Mesa nao encontrada");
     res.status(204).send();
   }),
 );

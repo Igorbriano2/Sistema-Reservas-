@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import { salaoElementos, saloes, tipoElementoSalaoEnum } from "../../db/schema/index.js";
@@ -8,6 +8,14 @@ import { RecursoNaoEncontradoError } from "../../lib/errors.js";
 import { validarSalaoDaUnidade } from "../../lib/salao-helpers.js";
 
 export const salaoElementosRouter = Router({ mergeParams: true });
+
+// "salao_elementos" nao tem unidade_id direto (so salao_id) - esta subquery deixa o
+// UPDATE/DELETE abaixo filtrar por unidade no MESMO where do SELECT que ja confirma
+// posse, em vez de confiar so no SELECT anterior pra depois mutar so por id (ver doc
+// 25: mesmo padrao seguido em mesas.routes.ts e cardapio.routes.ts).
+function salaoIdsDaUnidade(unidadeId: string) {
+  return db.select({ id: saloes.id }).from(saloes).where(eq(saloes.unidadeId, unidadeId));
+}
 
 const tipoSchema = z.enum(tipoElementoSalaoEnum.enumValues);
 
@@ -80,8 +88,9 @@ salaoElementosRouter.patch(
     const [elemento] = await db
       .update(salaoElementos)
       .set(dados)
-      .where(eq(salaoElementos.id, req.params.elementoId))
+      .where(and(eq(salaoElementos.id, req.params.elementoId), inArray(salaoElementos.salaoId, salaoIdsDaUnidade(req.unidadeId!))))
       .returning();
+    if (!elemento) throw new RecursoNaoEncontradoError("Elemento nao encontrado");
     res.json(elemento);
   }),
 );
@@ -97,7 +106,11 @@ salaoElementosRouter.delete(
       .limit(1);
     if (!elementoAtual) throw new RecursoNaoEncontradoError("Elemento nao encontrado");
 
-    await db.delete(salaoElementos).where(eq(salaoElementos.id, req.params.elementoId));
+    const apagados = await db
+      .delete(salaoElementos)
+      .where(and(eq(salaoElementos.id, req.params.elementoId), inArray(salaoElementos.salaoId, salaoIdsDaUnidade(req.unidadeId!))))
+      .returning({ id: salaoElementos.id });
+    if (apagados.length === 0) throw new RecursoNaoEncontradoError("Elemento nao encontrado");
     res.status(204).send();
   }),
 );

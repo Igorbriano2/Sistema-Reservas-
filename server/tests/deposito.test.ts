@@ -201,4 +201,40 @@ describe("POST /public/reservation-link/:token/reservations com deposito exigido
     expect(resposta.status).toBe(409);
     expect(stripeFalso.refunds.create).toHaveBeenCalledWith({ payment_intent: "pi_pago_mas_sem_mesa" });
   });
+
+  it("rejeita reenvio do MESMO paymentIntentId numa segunda reserva, sem reembolsar (doc 25)", async () => {
+    const { unidade, salao, mesa, token } = await setupComDeposito(5000);
+    const segundaMesa = await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+    const stripeFalso = criarStripeFalso();
+    const metadata = { unidadeId: unidade.id, igSenderId: "ig-cliente-1", data: "2026-10-10", horaInicio: "19:00" };
+    stripeFalso.paymentIntents.retrieve.mockResolvedValue({ id: "pi_replay", status: "succeeded", amount: 5000, metadata });
+    vi.mocked(obterStripe).mockReturnValue(stripeFalso as never);
+
+    const primeira = await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-10-10",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Cliente Teste",
+      mesaId: mesa.id,
+      paymentIntentId: "pi_replay",
+    });
+    expect(primeira.status).toBe(201);
+
+    // Reenvia o MESMO paymentIntentId contra uma mesa DIFERENTE (ainda disponivel) -
+    // sem essa protecao, um PaymentIntent so financiaria duas reservas distintas.
+    const segunda = await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-10-10",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Cliente Teste",
+      mesaId: segundaMesa.id,
+      paymentIntentId: "pi_replay",
+    });
+
+    expect(segunda.status).toBe(400);
+    expect(await db.select().from(reservas)).toHaveLength(1);
+    // Nao reembolsa: o pagamento continua legitimamente vinculado a primeira reserva,
+    // que segue de pe - reembolsar aqui devolveria o dinheiro de uma reserva valida.
+    expect(stripeFalso.refunds.create).not.toHaveBeenCalled();
+  });
 });

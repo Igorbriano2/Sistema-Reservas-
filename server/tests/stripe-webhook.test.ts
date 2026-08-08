@@ -2,8 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.js";
-import { assinaturas } from "../src/db/schema/index.js";
-import { eventoJaProcessado, processarEventoStripe } from "../src/lib/stripe-webhook.js";
+import { assinaturas, stripeWebhookEventos } from "../src/db/schema/index.js";
+import { eventoJaProcessado, processarEventoStripe, processarEventoWebhookStripe } from "../src/lib/stripe-webhook.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
 import { criarAssinatura } from "./helpers/fixtures.js";
 
@@ -114,5 +114,41 @@ describe("processarEventoStripe", () => {
     await expect(
       processarEventoStripe(db, eventoFalso("evt_7", "customer.updated", {})),
     ).resolves.not.toThrow();
+  });
+});
+
+describe("processarEventoWebhookStripe - dedup e processamento na mesma transacao (doc 25)", () => {
+  it("processa normalmente e marca o evento como processado", async () => {
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    await criarAssinatura(empresa.id, unidade.id, { status: "atrasada", atrasadaDesde: new Date(), subscriptionIdGateway: "sub_ok" });
+
+    const resultado = await processarEventoWebhookStripe(
+      db,
+      eventoFalso("evt_ok", "invoice.payment_succeeded", invoiceFalsa("sub_ok")),
+    );
+    expect(resultado.duplicado).toBe(false);
+    expect(await eventoJaProcessado(db, eventoFalso("evt_ok", "invoice.payment_succeeded", {}))).toBe(true);
+  });
+
+  it("nao marca como processado quando processarEventoStripe lanca um erro - retry da Stripe consegue tentar de novo", async () => {
+    // "customer.subscription.deleted" com data.object nulo faz processarEventoStripe
+    // lancar (subscription.id em cima de null) - simula uma falha real (bug, erro de
+    // rede etc) no meio do processamento, nao um erro de negocio esperado.
+    const eventoComFalha = eventoFalso("evt_falha", "customer.subscription.deleted", null);
+
+    await expect(processarEventoWebhookStripe(db, eventoComFalha)).rejects.toThrow();
+
+    // O INSERT de dedup rodou na mesma transacao que falhou - precisa ter sido
+    // desfeito (rollback), senao o evento fica marcado como "ja processado" pra
+    // sempre e o retry automatico da Stripe nunca mais tenta reprocessar.
+    const linhas = await db.select().from(stripeWebhookEventos).where(eq(stripeWebhookEventos.id, "evt_falha"));
+    expect(linhas).toHaveLength(0);
+
+    // Confirma que um novo processarEventoWebhookStripe pra este MESMO evento ainda
+    // roda de verdade (nao e tratado como duplicado) - e o que garante que o retry da
+    // Stripe funciona.
+    const eventoValido = eventoFalso("evt_falha", "customer.subscription.updated", { id: "sub_inexistente", status: "active" });
+    const resultado = await processarEventoWebhookStripe(db, eventoValido);
+    expect(resultado.duplicado).toBe(false);
   });
 });

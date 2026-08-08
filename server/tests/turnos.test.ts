@@ -166,3 +166,45 @@ describe("Tool check_availability expoe turno_nome/turno_desconto_percentual (do
     }
   });
 });
+
+describe("verificarDisponibilidade - reserva perto do fechamento (doc 25: bug corrigido)", () => {
+  it("aceita reserva cujo INICIO esta dentro do horario, mesmo que inicio+duracao ultrapasse o fechamento", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    const salao = await criarSalao(unidade.id);
+    await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+    // "Aberto o dia todo": duracaoPadraoMin de 90min nao cabe inteira entre 23:00 e
+    // 23:59 - antes da correcao, isso derrubava "disponivel" pra qualquer horario
+    // depois das 22:29, o que nao faz sentido pra uma unidade que se considera
+    // aberta ate a meia-noite.
+    await criarRegraHorarioTodosOsDias(unidade.id, {
+      horaAbertura: "00:00",
+      horaFechamento: "23:59",
+      duracaoPadraoMin: 90,
+      nome: "Aberto o dia todo",
+    });
+
+    const resultado = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-06-15",
+      hora: "23:00",
+      numPessoas: 2,
+    });
+    expect(resultado.disponivel).toBe(true);
+  });
+
+  it("ainda recusa reserva cujo INICIO esta fora do horario de funcionamento", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    const salao = await criarSalao(unidade.id);
+    await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "11:00", horaFechamento: "15:00", duracaoPadraoMin: 90 });
+
+    const resultado = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-06-15",
+      hora: "20:00",
+      numPessoas: 2,
+    });
+    expect(resultado.disponivel).toBe(false);
+    expect(resultado.motivo).toMatch(/fora do horario/i);
+  });
+});

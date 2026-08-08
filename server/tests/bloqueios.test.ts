@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
@@ -140,6 +140,41 @@ describe("Bloqueios de mesa/salao", () => {
       .get(`/admin/unidades/${unidade.id}/bloqueios`)
       .set("Authorization", `Bearer ${token}`);
     expect(listaDepois.body.map((b: { id: string }) => b.id)).not.toContain(futuro.body.id);
+  });
+
+  it("considera 'hoje' no fuso da unidade, nao no UTC do servidor, pra decidir se um bloqueio ainda esta ativo (doc 25)", async () => {
+    // Unidade e America/Sao_Paulo (UTC-3, default do seed) - as 01:00 UTC de um dia ja
+    // e 22:00 do dia anterior no fuso local. Um bloqueio que termina "hoje" (fuso local)
+    // ainda deveria aparecer como ativo, mas o bug antigo (new Date().toISOString() =
+    // UTC) calculava "hoje" como o dia UTC seguinte e o filtro (dataFim >= hoje)
+    // descartava o bloqueio horas antes da meia-noite local de verdade.
+    //
+    // O login/JWT precisa ser gerado DEPOIS de fixar o relogio (senao o token nasce
+    // com um "emitido em" real e a checagem de expiracao do JWT, que tambem le
+    // Date.now(), acha que ja expirou ao comparar com o relogio fake).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const agoraReal = new Date();
+      const amanhaUtc01h = new Date(Date.UTC(agoraReal.getUTCFullYear(), agoraReal.getUTCMonth(), agoraReal.getUTCDate() + 1, 1, 0, 0));
+      vi.setSystemTime(amanhaUtc01h);
+
+      const { unidade, token } = await setup();
+      const { mesa } = await criarSalaoEMesa(app, unidade.id, token);
+      const hojeLocal = amanhaUtc01h.toISOString().slice(0, 10); // "hoje" em UTC (dia seguinte ao local)
+      const ontemLocal = new Date(amanhaUtc01h.getTime() - 86400000).toISOString().slice(0, 10); // "hoje" de verdade no fuso local
+
+      const bloqueio = await request(app)
+        .post(`/admin/unidades/${unidade.id}/bloqueios`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ mesaId: mesa.id, dataInicio: ontemLocal, dataFim: ontemLocal, motivo: "Termina hoje (fuso local)" });
+      expect(bloqueio.status).toBe(201);
+      expect(ontemLocal).not.toBe(hojeLocal);
+
+      const lista = await request(app).get(`/admin/unidades/${unidade.id}/bloqueios`).set("Authorization", `Bearer ${token}`);
+      expect(lista.body.map((b: { id: string }) => b.id)).toContain(bloqueio.body.id);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("funcionario nao acessa bloqueios (owner only, igual mesas/saloes)", async () => {

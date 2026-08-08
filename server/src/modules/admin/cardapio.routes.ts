@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import { cardapioCategorias, cardapioItens } from "../../db/schema/index.js";
@@ -8,6 +8,14 @@ import { RecursoNaoEncontradoError } from "../../lib/errors.js";
 import { validarCategoriaDaUnidade } from "../../lib/cardapio-helpers.js";
 
 export const cardapioRouter = Router({ mergeParams: true });
+
+// "cardapio_itens" nao tem unidade_id direto (so categoria_id) - esta subquery deixa
+// o UPDATE/DELETE abaixo filtrar por unidade no MESMO where do SELECT que ja confirma
+// posse, em vez de confiar so no SELECT anterior pra depois mutar so por id (ver doc
+// 25: mesmo padrao seguido em mesas.routes.ts e salao-elementos.routes.ts).
+function categoriaIdsDaUnidade(unidadeId: string) {
+  return db.select({ id: cardapioCategorias.id }).from(cardapioCategorias).where(eq(cardapioCategorias.unidadeId, unidadeId));
+}
 
 const criarCategoriaSchema = z.object({
   nome: z.string().min(1),
@@ -139,7 +147,12 @@ cardapioRouter.patch(
       .limit(1);
     if (!itemAtual) throw new RecursoNaoEncontradoError("Item nao encontrado");
 
-    const [item] = await db.update(cardapioItens).set(dados).where(eq(cardapioItens.id, req.params.itemId)).returning();
+    const [item] = await db
+      .update(cardapioItens)
+      .set(dados)
+      .where(and(eq(cardapioItens.id, req.params.itemId), inArray(cardapioItens.categoriaId, categoriaIdsDaUnidade(req.unidadeId!))))
+      .returning();
+    if (!item) throw new RecursoNaoEncontradoError("Item nao encontrado");
     res.json(item);
   }),
 );
@@ -155,7 +168,11 @@ cardapioRouter.delete(
       .limit(1);
     if (!itemAtual) throw new RecursoNaoEncontradoError("Item nao encontrado");
 
-    await db.delete(cardapioItens).where(eq(cardapioItens.id, req.params.itemId));
+    const apagados = await db
+      .delete(cardapioItens)
+      .where(and(eq(cardapioItens.id, req.params.itemId), inArray(cardapioItens.categoriaId, categoriaIdsDaUnidade(req.unidadeId!))))
+      .returning({ id: cardapioItens.id });
+    if (apagados.length === 0) throw new RecursoNaoEncontradoError("Item nao encontrado");
     res.status(204).send();
   }),
 );

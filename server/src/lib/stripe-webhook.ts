@@ -1,18 +1,37 @@
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
-import type { Database } from "../db/client.js";
+import type { Database, Queryable } from "../db/client.js";
 import { assinaturas, stripeWebhookEventos } from "../db/schema/index.js";
 
 // Insere o id do evento (chave primaria) e diz se ja existia - se a Stripe reentregar
 // o mesmo evento (garantia "pelo menos uma vez"), a segunda tentativa nao reprocessa
 // nada. Mesmo idioma ja usado pro dedup de mensagens do Instagram (ig_message_id).
-export async function eventoJaProcessado(db: Database, event: Stripe.Event): Promise<boolean> {
+//
+// Recebe Queryable (nao so Database) de proposito: processarEventoWebhookStripe
+// abaixo chama isso e processarEventoStripe dentro da MESMA transacao, entao se o
+// processamento falhar, o rollback desfaz o dedup tambem - senao uma falha
+// transitoria marcava o evento como "ja processado" pra sempre, e o retry automatico
+// da Stripe (pensado exatamente pra esse tipo de falha) nunca mais tentava de novo.
+export async function eventoJaProcessado(db: Queryable, event: Stripe.Event): Promise<boolean> {
   const [inserido] = await db
     .insert(stripeWebhookEventos)
     .values({ id: event.id, tipo: event.type })
     .onConflictDoNothing({ target: stripeWebhookEventos.id })
     .returning();
   return !inserido;
+}
+
+// Executa a checagem de dedup + o processamento do evento numa unica transacao (ver
+// comentario em eventoJaProcessado) - use isso em vez de chamar as duas funcoes
+// soltas fora de uma transacao.
+export async function processarEventoWebhookStripe(db: Database, event: Stripe.Event): Promise<{ duplicado: boolean }> {
+  return db.transaction(async (tx) => {
+    if (await eventoJaProcessado(tx, event)) {
+      return { duplicado: true };
+    }
+    await processarEventoStripe(tx, event);
+    return { duplicado: false };
+  });
 }
 
 function idDeSubscription(valor: string | Stripe.Subscription | null | undefined): string | null {
@@ -52,7 +71,7 @@ function mapearStatusStripe(status: Stripe.Subscription.Status): StatusLocal | n
 // confirmado como nao-duplicado (ver eventoJaProcessado). Ignora silenciosamente:
 // tipos de evento que nao usamos (a Stripe manda dezenas) e subscriptions sem uma
 // linha de assinatura local ainda (ex: checkout abandonado entre a Etapa 2 e a 3).
-export async function processarEventoStripe(db: Database, event: Stripe.Event): Promise<void> {
+export async function processarEventoStripe(db: Queryable, event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "invoice.payment_succeeded": {
       const invoice = event.data.object as Stripe.Invoice;

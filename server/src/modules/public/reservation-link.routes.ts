@@ -12,7 +12,7 @@ import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 import { enviarPushParaUnidade } from "../../lib/push.js";
 import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
 import { criarDepositoDeReserva, obterStripe } from "../../lib/stripe.js";
-import { RequisicaoInvalidaError } from "../../lib/errors.js";
+import { DepositoJaUsadoError, RequisicaoInvalidaError } from "../../lib/errors.js";
 
 // Rotas PUBLICAS (sem requireAuth) - a seguranca aqui e o proprio token assinado e de
 // curta duracao (ver lib/reservation-link.ts), nao um JWT de sessao de admin. unidade_id
@@ -335,8 +335,10 @@ reservationLinkRouter.post(
     } catch (err) {
       // O deposito ja foi cobrado mas a reserva nao pode ser criada (ex: outra pessoa
       // pegou a ultima mesa entre o pagamento e a confirmacao) - reembolsa na hora pra
-      // nunca cobrar um cliente por uma reserva que nao existe.
-      if (stripePaymentIntentId) {
+      // nunca cobrar um cliente por uma reserva que nao existe. EXCECAO: DepositoJaUsadoError
+      // (doc 25) significa que este PaymentIntent ja financiou OUTRA reserva legitima -
+      // reembolsar aqui devolveria o dinheiro de uma reserva valida que continua de pe.
+      if (stripePaymentIntentId && !(err instanceof DepositoJaUsadoError)) {
         obterStripe()
           .refunds.create({ payment_intent: stripePaymentIntentId })
           .catch((refundErr) => {

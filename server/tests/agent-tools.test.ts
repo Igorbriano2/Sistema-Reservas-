@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.js";
 import { cardapioCategorias, cardapioItens, conversas } from "../src/db/schema/index.js";
@@ -175,6 +175,22 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
     expect(tentativaComIdInexistente.output).toEqual(tentativaDeB.output);
   });
 
+  it("modify_my_reservation rejeita mover a reserva pra um horario fora do funcionamento (doc 25)", async () => {
+    const { empresa, unidade, mesa } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-a");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-a", conversaId: conversa.id };
+    // criarRegraHorarioTodosOsDias (fixtures) cobre 11:00-23:00 - 03:00 fica de fora.
+    const criada = await criarReservaDireta(unidade.id, mesa.id, "ig-cliente-a", { data: "2026-10-13", horaInicio: "19:00" });
+
+    const resultado = await executarTool(db, ctx, "modify_my_reservation", {
+      reservation_id: criada.id,
+      hora: "03:00",
+    });
+
+    expect(resultado.isError).toBe(true);
+    expect((resultado.output as { erro: string }).erro).toMatch(/fora do horario/i);
+  });
+
   it("cancel_my_reservation rejeita cancelar reserva de outro cliente", async () => {
     const { empresa, unidade, mesa } = await setupUnidadeCompleta();
     const conversaA = await criarConversa(empresa.id, unidade.id, "ig-cliente-a");
@@ -204,6 +220,26 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
 
     const comReserva = await executarTool(db, ctxA, "check_reservation_status", {});
     expect((comReserva.output as { tem_reserva_ativa: boolean }).tem_reserva_ativa).toBe(true);
+  });
+
+  it("check_reservation_status usa o fuso da unidade pra definir 'hoje', nao o UTC do servidor (doc 25)", async () => {
+    const { empresa, unidade, mesa } = await setupUnidadeCompleta();
+    // Unidade e America/Sao_Paulo (UTC-3, default do seed) - as 01:00 UTC de dia 16
+    // ja e 22:00 de dia 15 no fuso local. Uma reserva marcada pra "2026-10-15" ainda
+    // deveria contar como ativa, mas o bug antigo (new Date().toISOString() = UTC)
+    // calculava "hoje" = 2026-10-16 e a reserva de ontem-UTC/hoje-local sumia.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-16T01:00:00Z"));
+    try {
+      await criarReservaDireta(unidade.id, mesa.id, "ig-cliente-fuso", { data: "2026-10-15" });
+
+      const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-fuso");
+      const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-fuso", conversaId: conversa.id };
+      const resultado = await executarTool(db, ctx, "check_reservation_status", {});
+      expect((resultado.output as { tem_reserva_ativa: boolean }).tem_reserva_ativa).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

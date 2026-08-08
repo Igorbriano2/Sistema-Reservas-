@@ -8,6 +8,7 @@ import {
   timestamp,
   pgEnum,
   index,
+  uniqueIndex,
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -70,6 +71,13 @@ export const reservas = pgTable(
     index("reservas_ig_sender_id_idx").on(table.igSenderId),
     index("reservas_unidade_data_idx").on(table.unidadeId, table.data),
     index("reservas_salao_id_idx").on(table.salaoId),
+    // Um PaymentIntent do deposito (doc 22) so pode financiar UMA reserva - sem isso,
+    // reenviar o mesmo paymentIntentId (retry/replay) podia criar duas reservas
+    // "pagas" cobrando o cliente uma unica vez. NULL nao colide com NULL num indice
+    // unico do Postgres, entao reservas sem deposito continuam livres.
+    uniqueIndex("reservas_stripe_payment_intent_id_unq")
+      .on(table.stripePaymentIntentId)
+      .where(sql`${table.stripePaymentIntentId} IS NOT NULL`),
     check("reservas_num_pessoas_check", sql`${table.numPessoas} > 0`),
     check("reservas_horario_check", sql`${table.horaFim} > ${table.horaInicio}`),
     check(

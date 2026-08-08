@@ -13,8 +13,14 @@ import {
 import { montarSystemPrompt, montarSystemPromptResolucaoUnidade } from "../../lib/agent-prompt.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 import { executarTurnoDoAgente } from "./orchestrator.js";
+import { executarTool } from "./tool-executor.js";
 import { agendarTurnoDoAgente } from "./debounce.js";
 import type { AgentContext } from "./context.js";
+
+// Mesmo texto de fallback usado quando o limite de iteracoes de tool_use estoura
+// (orchestrator.ts) - reaproveitado aqui pra qualquer erro inesperado durante o
+// turno (ver comentario em processarTurnoAgrupado abaixo).
+const MENSAGEM_ERRO_INESPERADO = "Desculpe, tive um problema para concluir sua solicitacao agora. Vou chamar um atendente para te ajudar.";
 
 export interface InstagramMessagingEvent {
   sender?: { id?: string };
@@ -138,13 +144,27 @@ async function processarTurnoAgrupado(db: Database, ctx: AgentContext): Promise<
     return; // nada pendente (nao deveria acontecer, mas evita chamar o agente a toa)
   }
 
-  const respostaTexto = await executarTurnoDoAgente({
-    db,
-    ctx,
-    systemPrompt,
-    historico,
-    mensagemDoCliente: mensagemAgrupada,
-  });
+  // Qualquer erro NAO tratado aqui dentro (uma excecao real do Postgres, da Claude
+  // API, etc. - diferente dos erros de negocio que cada tool ja converte em
+  // tool_result via erroAmigavel em tool-executor.ts) antes derrubava o turno
+  // inteiro em silencio: sem resposta ao cliente, sem pausar a conversa, so um
+  // console.error no .catch do debounce - a mensagem do cliente sumia sem
+  // nenhum sinal pra ninguem. Agora cai no mesmo caminho do limite de iteracoes
+  // excedido (orchestrator.ts): avisa o cliente e escala pra um humano.
+  let respostaTexto: string;
+  try {
+    respostaTexto = await executarTurnoDoAgente({
+      db,
+      ctx,
+      systemPrompt,
+      historico,
+      mensagemDoCliente: mensagemAgrupada,
+    });
+  } catch (err) {
+    console.error(`[agente] erro inesperado processando turno da conversa ${ctx.conversaId}:`, err);
+    await executarTool(db, ctx, "escalate_to_human", { motivo: "Erro inesperado ao processar o turno" });
+    respostaTexto = MENSAGEM_ERRO_INESPERADO;
+  }
 
   await enviarRespostaDoAgente(db, {
     unidadeId: ctx.unidadeId,

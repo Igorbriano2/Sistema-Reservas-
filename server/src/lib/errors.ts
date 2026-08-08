@@ -31,3 +31,15 @@ export class ServicoIndisponivelError extends AppError {
     super(message, 503);
   }
 }
+
+// Doc 22/25: o mesmo PaymentIntent do deposito ja financiou outra reserva (retry/
+// replay). Classe dedicada (em vez de RequisicaoInvalidaError generico) pra
+// reservation-link.routes.ts saber que NAO deve reembolsar automaticamente esse
+// PaymentIntent no catch de falha na criacao - ele nao falhou por causa desta
+// tentativa, ja foi legitimamente usado por uma reserva anterior; reembolsar aqui
+// devolveria o dinheiro de uma reserva valida que continua de pe.
+export class DepositoJaUsadoError extends AppError {
+  constructor(message = "Este deposito ja foi usado em outra reserva") {
+    super(message, 400);
+  }
+}

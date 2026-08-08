@@ -119,6 +119,30 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
     expect(vi.mocked(getAnthropicClient)).toHaveBeenCalledTimes(1);
   });
 
+  it("erro inesperado (nao um erro de negocio) durante o turno nao derruba a conversa em silencio (doc 25)", async () => {
+    const { unidade } = await setupCompleto();
+    // Simula uma falha real (ex: conexao com o banco caindo no meio de uma tool) - nao
+    // e um AppError/ZodError, entao antes da correcao propagava sem tratamento ate o
+    // .catch generico do debounce, sem avisar o cliente nem pausar a conversa.
+    vi.mocked(getAnthropicClient).mockReset().mockReturnValue({
+      messages: { create: vi.fn().mockRejectedValue(new Error("ECONNRESET simulado")) },
+    } as unknown as ReturnType<typeof getAnthropicClient>);
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-1" },
+      recipient: { id: "ig-conta-restaurante" },
+      message: { mid: "mid-erro-1", text: "Oi, quero reservar" },
+    });
+    await aguardarTurnoAgendado();
+
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
+    expect(conversa.agentPaused).toBe(true);
+
+    expect(enviarMensagemInstagram).toHaveBeenCalledTimes(1);
+    const [, , textoEnviado] = vi.mocked(enviarMensagemInstagram).mock.calls[0];
+    expect(textoEnviado).toMatch(/atendente/i);
+  });
+
   it("ignora conta do Instagram sem conexao cadastrada, sem lancar excecao", async () => {
     await setupCompleto();
 

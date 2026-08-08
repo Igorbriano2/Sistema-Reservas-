@@ -190,6 +190,13 @@
       "when": 1786141265584,
       "tag": "0026_adiciona_telefone_redes_sociais_unidades",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1786148746466,
+      "tag": "0027_unique_stripe_payment_intent_id",
+      "breakpoints": true
     }
   ]
 }

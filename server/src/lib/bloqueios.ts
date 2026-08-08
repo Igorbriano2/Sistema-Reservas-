@@ -1,7 +1,8 @@
 import { and, eq, gte, inArray, lte, or } from "drizzle-orm";
 import type { Database, Queryable } from "../db/client.js";
-import { bloqueios, mesas, saloes, type Bloqueio } from "../db/schema/index.js";
+import { bloqueios, mesas, saloes, unidades, type Bloqueio } from "../db/schema/index.js";
 import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "./errors.js";
+import { agoraNoFuso } from "./time.js";
 
 export interface CriarBloqueioParams {
   unidadeId: string;
@@ -52,9 +53,13 @@ export async function criarBloqueio(db: Database, params: CriarBloqueioParams): 
 }
 
 // "Ativos" = ainda nao terminaram (dataFim >= hoje). Bloqueios inteiramente no
-// passado nao aparecem na listagem do admin.
+// passado nao aparecem na listagem do admin. "Hoje" no fuso da UNIDADE, nao do
+// servidor - senao um bloqueio que termina hoje some da lista horas antes da meia-
+// noite local (unidades America/Sao_Paulo, UTC-3: as 21h locais o relogio UTC do
+// servidor ja mostra o dia seguinte).
 export async function listarBloqueiosAtivos(db: Database, unidadeId: string): Promise<Bloqueio[]> {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
+  const hoje = agoraNoFuso(unidadeRow?.timezone ?? "America/Sao_Paulo").data;
   return db
     .select()
     .from(bloqueios)

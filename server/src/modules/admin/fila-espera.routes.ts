@@ -94,7 +94,7 @@ filaEsperaRouter.patch(
         chamadoEm: status === "chamado" ? agora : entradaAtual.chamadoEm,
         finalizadoEm: status === "sentado" || status === "desistiu" ? agora : entradaAtual.finalizadoEm,
       })
-      .where(eq(filaEspera.id, req.params.entradaId))
+      .where(and(eq(filaEspera.id, req.params.entradaId), eq(filaEspera.unidadeId, req.unidadeId!)))
       .returning();
 
     if (status === "chamado" && entrada.clienteTelefone) {

@@ -1,8 +1,103 @@
 import { and, eq, inArray } from "drizzle-orm";
-import type { Database } from "../db/client.js";
+import type { Database, Queryable } from "../db/client.js";
 import { excecoesHorario, mesas, regrasHorario, reservas, saloes, unidades } from "../db/schema/index.js";
 import { diaDaSemana, intervalosSeSobrepoem, minutosAteReserva, paraMinutos, somarMinutos } from "./time.js";
 import { mesasBloqueadasEm, saloesBloqueadosEm } from "./bloqueios.js";
+
+export interface TurnoResolvido {
+  nome: string | null;
+  descontoPercentual: number | null;
+  exigeDeposito: boolean;
+  valorDepositoCentavos: number | null;
+}
+
+export interface JanelaValidada {
+  horaFim: string;
+  bufferMin: number;
+  turno?: TurnoResolvido;
+}
+
+export type ResultadoValidacaoDeJanela = { ok: true; janela: JanelaValidada } | { ok: false; motivo: string };
+
+// Fechamento/excecao/horario de funcionamento/antecedencia minima - a parte de
+// verificarDisponibilidade que NAO depende de capacidade (mesa/salao). Extraida como
+// funcao propria pra tambem ser usada na EDICAO de uma reserva (atualizarReservaCom
+// Condicoes em reservations.ts): mudar a data/hora de uma reserva existente precisa
+// respeitar as mesmas regras que criar uma reserva nova respeita, senao da pra editar
+// uma reserva pra um dia fechado ou fora do horario de funcionamento.
+export async function validarJanelaDeFuncionamento(
+  db: Queryable,
+  params: { unidadeId: string; data: string; horaInicio: string },
+): Promise<ResultadoValidacaoDeJanela> {
+  const { unidadeId, data, horaInicio } = params;
+
+  const [excecao] = await db
+    .select()
+    .from(excecoesHorario)
+    .where(and(eq(excecoesHorario.unidadeId, unidadeId), eq(excecoesHorario.data, data)))
+    .limit(1);
+
+  if (excecao?.fechado) {
+    return { ok: false, motivo: "Unidade fechada nesta data." };
+  }
+
+  const regras = await db
+    .select()
+    .from(regrasHorario)
+    .where(and(eq(regrasHorario.unidadeId, unidadeId), eq(regrasHorario.diaSemana, diaDaSemana(data))));
+
+  // Excecao pode sobrescrever a janela de funcionamento do dia (ex.: horario especial de feriado),
+  // mas a duracao padrao da reserva e o buffer continuam vindo da regra do dia da semana.
+  const janelas = excecao?.horaAbertura && excecao?.horaFechamento
+    ? [{ horaAbertura: excecao.horaAbertura, horaFechamento: excecao.horaFechamento, regra: regras[0] }]
+    : regras.map((regra) => ({ horaAbertura: regra.horaAbertura, horaFechamento: regra.horaFechamento, regra }));
+
+  if (janelas.length === 0) {
+    return { ok: false, motivo: "Nenhum horario de funcionamento cadastrado para este dia." };
+  }
+
+  const inicioMin = paraMinutos(horaInicio);
+  // So o INICIO precisa cair dentro do horario de funcionamento (mesmo criterio da
+  // abertura) - nao exige que a reserva inteira (inicio + duracao) caiba antes do
+  // fechamento. Exigir isso rejeitava a ultima hora e meia (duracaoPadraoMin) de
+  // qualquer unidade, inclusive quem configura horaFechamento "23:59" pra dizer
+  // "aberto o dia todo": a cozinha continua atendendo quem ja esta sentado depois do
+  // horario de fechamento, o fechamento so define ate quando aceitar reserva NOVA.
+  const janela = janelas.find((j) => inicioMin >= paraMinutos(j.horaAbertura) && inicioMin < paraMinutos(j.horaFechamento));
+
+  if (!janela) {
+    return { ok: false, motivo: "Fora do horario de funcionamento." };
+  }
+
+  const duracaoPadraoMin = janela.regra?.duracaoPadraoMin ?? 90;
+  const bufferMin = janela.regra?.bufferMin ?? 0;
+  const horaFim = somarMinutos(horaInicio, duracaoPadraoMin);
+
+  // Antecedencia minima do turno (doc 19) - so busca o fuso da unidade quando
+  // precisa (regra padrao e 0, sem restricao).
+  const antecedenciaMinMin = janela.regra?.antecedenciaMinMin ?? 0;
+  if (antecedenciaMinMin > 0) {
+    const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
+    const minutosDisponiveis = minutosAteReserva(data, horaInicio, unidadeRow?.timezone ?? "America/Sao_Paulo");
+    if (minutosDisponiveis < antecedenciaMinMin) {
+      const horas = Math.floor(antecedenciaMinMin / 60);
+      const minutos = antecedenciaMinMin % 60;
+      const descricaoAntecedencia = [horas > 0 && `${horas}h`, minutos > 0 && `${minutos}min`].filter(Boolean).join(" ");
+      return { ok: false, motivo: `Reservas neste horario precisam ser feitas com pelo menos ${descricaoAntecedencia} de antecedencia.` };
+    }
+  }
+
+  const turno: TurnoResolvido | undefined = janela.regra
+    ? {
+        nome: janela.regra.nome,
+        descontoPercentual: janela.regra.descontoPercentual,
+        exigeDeposito: janela.regra.exigeDeposito,
+        valorDepositoCentavos: janela.regra.valorDepositoCentavos,
+      }
+    : undefined;
+
+  return { ok: true, janela: { horaFim, bufferMin, turno } };
+}
 
 export interface VerificarDisponibilidadeParams {
   unidadeId: string;
@@ -67,68 +162,13 @@ export async function verificarDisponibilidade(
     saloesSimplesDisponiveis: [],
   });
 
-  const [excecao] = await db
-    .select()
-    .from(excecoesHorario)
-    .where(and(eq(excecoesHorario.unidadeId, unidadeId), eq(excecoesHorario.data, data)))
-    .limit(1);
-
-  if (excecao?.fechado) {
-    return semDisponibilidade("Unidade fechada nesta data.");
+  const validacaoDaJanela = await validarJanelaDeFuncionamento(db, { unidadeId, data, horaInicio });
+  if (!validacaoDaJanela.ok) {
+    return semDisponibilidade(validacaoDaJanela.motivo);
   }
-
-  const regras = await db
-    .select()
-    .from(regrasHorario)
-    .where(and(eq(regrasHorario.unidadeId, unidadeId), eq(regrasHorario.diaSemana, diaDaSemana(data))));
-
-  // Excecao pode sobrescrever a janela de funcionamento do dia (ex.: horario especial de feriado),
-  // mas a duracao padrao da reserva e o buffer continuam vindo da regra do dia da semana.
-  const janelas = excecao?.horaAbertura && excecao?.horaFechamento
-    ? [{ horaAbertura: excecao.horaAbertura, horaFechamento: excecao.horaFechamento, regra: regras[0] }]
-    : regras.map((regra) => ({ horaAbertura: regra.horaAbertura, horaFechamento: regra.horaFechamento, regra }));
-
-  if (janelas.length === 0) {
-    return semDisponibilidade("Nenhum horario de funcionamento cadastrado para este dia.");
-  }
-
+  const { horaFim, bufferMin, turno } = validacaoDaJanela.janela;
   const inicioMin = paraMinutos(horaInicio);
-  const janela = janelas.find((j) => {
-    const duracao = j.regra?.duracaoPadraoMin ?? 90;
-    return inicioMin >= paraMinutos(j.horaAbertura) && inicioMin + duracao <= paraMinutos(j.horaFechamento);
-  });
-
-  if (!janela) {
-    return semDisponibilidade("Fora do horario de funcionamento.");
-  }
-
-  const duracaoPadraoMin = janela.regra?.duracaoPadraoMin ?? 90;
-  const bufferMin = janela.regra?.bufferMin ?? 0;
-  const horaFim = somarMinutos(horaInicio, duracaoPadraoMin);
-  const fimMin = inicioMin + duracaoPadraoMin;
-
-  // Antecedencia minima do turno (doc 19) - so busca o fuso da unidade quando
-  // precisa (regra padrao e 0, sem restricao).
-  const antecedenciaMinMin = janela.regra?.antecedenciaMinMin ?? 0;
-  if (antecedenciaMinMin > 0) {
-    const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
-    const minutosDisponiveis = minutosAteReserva(data, horaInicio, unidadeRow?.timezone ?? "America/Sao_Paulo");
-    if (minutosDisponiveis < antecedenciaMinMin) {
-      const horas = Math.floor(antecedenciaMinMin / 60);
-      const minutos = antecedenciaMinMin % 60;
-      const descricaoAntecedencia = [horas > 0 && `${horas}h`, minutos > 0 && `${minutos}min`].filter(Boolean).join(" ");
-      return semDisponibilidade(`Reservas neste horario precisam ser feitas com pelo menos ${descricaoAntecedencia} de antecedencia.`);
-    }
-  }
-
-  const turno = janela.regra
-    ? {
-        nome: janela.regra.nome,
-        descontoPercentual: janela.regra.descontoPercentual,
-        exigeDeposito: janela.regra.exigeDeposito,
-        valorDepositoCentavos: janela.regra.valorDepositoCentavos,
-      }
-    : undefined;
+  const fimMin = paraMinutos(horaFim);
 
   const todosSaloes = await db
     .select({
