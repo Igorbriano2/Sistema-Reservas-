@@ -15,12 +15,13 @@ import {
 vi.mock("../src/lib/instagram-api.js", () => ({
   enviarMensagemInstagram: vi.fn(),
   verificarAssinaturaDoWebhook: vi.fn(() => true),
+  obterPerfilInstagram: vi.fn(async () => ({ nome: null, fotoUrl: null })),
 }));
 vi.mock("../src/lib/anthropic-client.js", () => ({
   getAnthropicClient: vi.fn(),
 }));
 
-const { enviarMensagemInstagram } = await import("../src/lib/instagram-api.js");
+const { enviarMensagemInstagram, obterPerfilInstagram } = await import("../src/lib/instagram-api.js");
 const { getAnthropicClient } = await import("../src/lib/anthropic-client.js");
 const { processarEventoDoInstagram } = await import("../src/modules/agent/process-event.js");
 const { marcarComoEnviadoPeloAgente } = await import("../src/lib/instagram-notify.js");
@@ -49,6 +50,7 @@ function aguardarTurnoAgendado(): Promise<void> {
 beforeEach(async () => {
   await truncateAll();
   vi.mocked(enviarMensagemInstagram).mockReset().mockResolvedValue("mid-resposta-agente");
+  vi.mocked(obterPerfilInstagram).mockReset().mockResolvedValue({ nome: null, fotoUrl: null });
   const criarMock = vi.fn().mockResolvedValue(respostaDeTexto("Resposta automatica do agente"));
   vi.mocked(getAnthropicClient)
     .mockReset()
@@ -236,6 +238,43 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
     expect(nomesNaTerceiraChamada).toContain("check_availability");
     expect(nomesNaTerceiraChamada).toContain("get_reservation_link");
     expect(nomesNaTerceiraChamada).not.toContain("resolver_unidade_da_conversa");
+  });
+});
+
+describe("processarEventoDoInstagram - perfil do cliente (doc 33)", () => {
+  it("busca nome/foto do cliente em segundo plano ao criar uma conversa nova", async () => {
+    const { unidade } = await setupCompleto();
+    vi.mocked(obterPerfilInstagram).mockResolvedValueOnce({ nome: "Fulano da Silva", fotoUrl: "https://cdn.example/foto.jpg" });
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-perfil" },
+      recipient: { id: "ig-conta-restaurante" },
+      message: { mid: "mid-perfil-1", text: "Oi" },
+    });
+    await aguardarTurnoAgendado();
+
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
+    expect(conversa.nomeCliente).toBe("Fulano da Silva");
+    expect(conversa.fotoClienteUrl).toBe("https://cdn.example/foto.jpg");
+  });
+
+  it("falha ao buscar o perfil nao quebra o processamento da mensagem (fica sem nome/foto)", async () => {
+    const { unidade } = await setupCompleto();
+    vi.mocked(obterPerfilInstagram).mockRejectedValueOnce(new Error("rate limit da Graph API"));
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-perfil-2" },
+      recipient: { id: "ig-conta-restaurante" },
+      message: { mid: "mid-perfil-2", text: "Oi" },
+    });
+    await aguardarTurnoAgendado();
+
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
+    expect(conversa).toBeDefined();
+    expect(conversa.nomeCliente).toBeNull();
+
+    const mensagensDaConversa = await db.select().from(mensagens).where(eq(mensagens.conversaId, conversa.id));
+    expect(mensagensDaConversa.length).toBeGreaterThan(0);
   });
 });
 

@@ -239,6 +239,13 @@
       "when": 1786383611799,
       "tag": "0033_add_imagem_upload_cardapio_itens",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1786387490602,
+      "tag": "0034_add_nome_foto_cliente_conversas",
+      "breakpoints": true
     }
   ]
 }

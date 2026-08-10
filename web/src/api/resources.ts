@@ -181,7 +181,6 @@ export interface DadosItemCardapio {
   nome: string;
   descricao?: string;
   precoCentavos: number;
-  imagemUrl?: string;
   porcaoServePessoas?: number;
   somenteMaiorIdade?: boolean;
   tags?: string[];

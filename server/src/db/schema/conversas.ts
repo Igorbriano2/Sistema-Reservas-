@@ -20,6 +20,12 @@ export const conversas = pgTable(
     // (um humano assumiu a conversa pela Meta Business Suite).
     agentPaused: boolean("agent_paused").notNull().default(false),
     ultimaAtividadeHumanaEm: timestamp("ultima_atividade_humana_em", { withTimezone: true }),
+    // Nome/foto do cliente no Instagram (doc 33) - buscados na Graph API assim que a
+    // conversa nasce (ou, pra conversas antigas, na proxima vez que a lista carregar no
+    // painel), pra equipe conseguir identificar quem esta escrevendo em vez de olhar so
+    // pro ig_sender_id cru. Melhor esforco: fica nulo se a busca falhar.
+    nomeCliente: text("nome_cliente"),
+    fotoClienteUrl: text("foto_cliente_url"),
   },
   (table) => [
     index("conversas_empresa_id_idx").on(table.empresaId),

@@ -54,3 +54,23 @@ export async function enviarMensagemInstagram(accessToken: string, igSenderId: s
   const dados = (await resposta.json()) as { message_id?: string };
   return dados.message_id ?? "";
 }
+
+// Doc 33 - nome/foto de perfil do cliente que mandou a mensagem, pra aparecer no
+// painel em vez do ig_sender_id cru. Lanca em qualquer falha (token expirado, sem
+// permissao, rate limit) - quem chama trata como melhor esforco (fica sem nome/foto).
+export async function obterPerfilInstagram(accessToken: string, igSenderId: string): Promise<{ nome: string | null; fotoUrl: string | null }> {
+  const resposta = await fetch(`https://graph.instagram.com/${GRAPH_API_VERSION}/${igSenderId}?fields=name,profile_pic`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!resposta.ok) {
+    const corpo = await resposta.text();
+    if (resposta.status === 401 || /"code"\s*:\s*190/.test(corpo) || /OAuthException/.test(corpo)) {
+      throw new InstagramAuthError(`Token do Instagram invalido/expirado (${resposta.status}): ${corpo}`);
+    }
+    throw new Error(`Falha ao buscar perfil do Instagram (${resposta.status}): ${corpo}`);
+  }
+
+  const dados = (await resposta.json()) as { name?: string; profile_pic?: string };
+  return { nome: dados.name ?? null, fotoUrl: dados.profile_pic ?? null };
+}

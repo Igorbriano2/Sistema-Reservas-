@@ -264,6 +264,9 @@ export function Layout() {
   const ehMobile = useEhMobile();
   const location = useLocation();
   const navigate = useNavigate();
+  // Doc 34 - qual grupo tem a folha de atalho aberta no mobile (null = nenhuma). So
+  // usado quando ehMobile: no desktop os grupos expandem inline (gruposAbertos).
+  const [folhaMobileAberta, setFolhaMobileAberta] = useState<string | null>(null);
   const [gruposAbertos, setGruposAbertos] = useState<Set<string>>(() => {
     const salvo = localStorage.getItem(GRUPOS_ABERTOS_KEY);
     const iniciais = new Set<string>(salvo ? (JSON.parse(salvo) as string[]) : []);
@@ -294,9 +297,15 @@ export function Layout() {
     return true;
   }
 
-  function renderLink(item: ItemDeNav) {
+  function renderLink(item: ItemDeNav, aoNavegar?: () => void) {
     return (
-      <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "ativo" : "")} title={recolhida ? item.label : undefined}>
+      <NavLink
+        key={item.to}
+        to={item.to}
+        className={({ isActive }) => (isActive ? "ativo" : "")}
+        title={recolhida ? item.label : undefined}
+        onClick={aoNavegar}
+      >
         {item.icone}
         <span className="rotulo-nav">{item.label}</span>
       </NavLink>
@@ -314,9 +323,24 @@ export function Layout() {
             }
             const itensVisiveis = entrada.itens.filter(itemVisivel);
             if (itensVisiveis.length === 0) return null;
-            // No mobile a barra vira abas fixas embaixo (doc 15) - grupos expansiveis
-            // nao cabem nesse formato, entao achata: os itens do grupo aparecem soltos.
-            if (ehMobile) return itensVisiveis.map(renderLink);
+            // No mobile a barra vira abas fixas embaixo (doc 15). Achatar os grupos
+            // direto na barra (como era antes) deixava ate ~15 abas soltas, sem
+            // nenhuma pista visual de que dava pra arrastar pros lados (doc 34) - agora
+            // cada grupo vira UMA aba, que abre uma folha com os itens dele.
+            if (ehMobile) {
+              const grupoAtivoMobile = itensVisiveis.some((i) => location.pathname.startsWith(i.to));
+              return (
+                <button
+                  key={entrada.chave}
+                  type="button"
+                  className={grupoAtivoMobile ? "ativo" : ""}
+                  onClick={() => setFolhaMobileAberta(entrada.chave)}
+                >
+                  {entrada.icone}
+                  <span className="rotulo-nav">{entrada.label}</span>
+                </button>
+              );
+            }
             const aberto = gruposAbertos.has(entrada.chave);
             const grupoAtivo = itensVisiveis.some((i) => location.pathname.startsWith(i.to));
             return (
@@ -333,7 +357,7 @@ export function Layout() {
                     <IconeChevron />
                   </span>
                 </button>
-                {aberto && <div className="subnav">{itensVisiveis.map(renderLink)}</div>}
+                {aberto && <div className="subnav">{itensVisiveis.map((item) => renderLink(item))}</div>}
               </div>
             );
           })}
@@ -352,6 +376,21 @@ export function Layout() {
           <span className="rotulo-alternar">Recolher menu</span>
         </button>
       </aside>
+      {ehMobile &&
+        folhaMobileAberta &&
+        (() => {
+          const grupo = NAV.find((entrada) => ehGrupo(entrada) && entrada.chave === folhaMobileAberta) as GrupoDeNav | undefined;
+          if (!grupo) return null;
+          const itensVisiveis = grupo.itens.filter(itemVisivel);
+          return (
+            <div className="folha-mobile-nav-fundo" onClick={() => setFolhaMobileAberta(null)}>
+              <div className="folha-mobile-nav" onClick={(e) => e.stopPropagation()}>
+                <div className="folha-mobile-nav-titulo">{grupo.label}</div>
+                {itensVisiveis.map((item) => renderLink(item, () => setFolhaMobileAberta(null)))}
+              </div>
+            </div>
+          );
+        })()}
       <div className="area-principal">
         {emModoTeste && (
           <div className="faixa-modo-teste">

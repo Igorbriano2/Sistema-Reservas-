@@ -21,7 +21,6 @@ interface FormItemState {
   nome: string;
   descricao: string;
   preco: string;
-  imagemUrl: string;
   porcaoServePessoas: string;
   somenteMaiorIdade: boolean;
   tags: string;
@@ -31,7 +30,6 @@ const FORM_ITEM_VAZIO: FormItemState = {
   nome: "",
   descricao: "",
   preco: "",
-  imagemUrl: "",
   porcaoServePessoas: "",
   somenteMaiorIdade: false,
   tags: "",
@@ -42,7 +40,6 @@ function itemParaForm(item: CardapioItem): FormItemState {
     nome: item.nome,
     descricao: item.descricao ?? "",
     preco: (item.precoCentavos / 100).toFixed(2),
-    imagemUrl: item.imagemUrl ?? "",
     porcaoServePessoas: item.porcaoServePessoas != null ? String(item.porcaoServePessoas) : "",
     somenteMaiorIdade: item.somenteMaiorIdade,
     tags: (item.tags ?? []).join(", "),
@@ -55,7 +52,6 @@ function formParaDados(form: FormItemState, categoriaId: string) {
     nome: form.nome.trim(),
     descricao: form.descricao.trim() || undefined,
     precoCentavos: Math.round(Number(form.preco.replace(",", ".")) * 100),
-    imagemUrl: form.imagemUrl.trim() || undefined,
     porcaoServePessoas: form.porcaoServePessoas ? Number(form.porcaoServePessoas) : undefined,
     somenteMaiorIdade: form.somenteMaiorIdade,
     tags: form.tags
@@ -80,11 +76,13 @@ export function MenuPage() {
 
   const [categoriaFormAberto, setCategoriaFormAberto] = useState<string | null>(null);
   const [formItem, setFormItem] = useState<FormItemState>(FORM_ITEM_VAZIO);
+  const [arquivoNovoItem, setArquivoNovoItem] = useState<File | null>(null);
   const [salvandoItem, setSalvandoItem] = useState(false);
   const [erroForm, setErroForm] = useState<string | null>(null);
 
   const [editandoItemId, setEditandoItemId] = useState<string | null>(null);
   const [formEdicaoItem, setFormEdicaoItem] = useState<FormItemState>(FORM_ITEM_VAZIO);
+  const [previewImagemUrl, setPreviewImagemUrl] = useState("");
 
   const [enviandoImagemItemId, setEnviandoImagemItemId] = useState<string | null>(null);
   const [erroImagem, setErroImagem] = useState<string | null>(null);
@@ -164,6 +162,7 @@ export function MenuPage() {
   function abrirFormItem(categoriaId: string) {
     setCategoriaFormAberto(categoriaId === categoriaFormAberto ? null : categoriaId);
     setFormItem(FORM_ITEM_VAZIO);
+    setArquivoNovoItem(null);
     setErroForm(null);
   }
 
@@ -173,8 +172,12 @@ export function MenuPage() {
     setSalvandoItem(true);
     setErroForm(null);
     try {
-      await criarItemCardapio(unidade.id, formParaDados(formItem, categoriaId));
+      const novoItem = await criarItemCardapio(unidade.id, formParaDados(formItem, categoriaId));
+      if (arquivoNovoItem) {
+        await enviarImagemItemCardapio(unidade.id, novoItem.id, arquivoNovoItem);
+      }
       setFormItem(FORM_ITEM_VAZIO);
+      setArquivoNovoItem(null);
       setCategoriaFormAberto(null);
       await carregar();
     } catch (err) {
@@ -187,6 +190,7 @@ export function MenuPage() {
   function abrirEdicaoItem(item: CardapioItem) {
     setEditandoItemId(item.id);
     setFormEdicaoItem(itemParaForm(item));
+    setPreviewImagemUrl(item.imagemUrl ?? "");
   }
 
   async function salvarEdicaoItem(e: React.FormEvent, categoriaId: string) {
@@ -207,7 +211,7 @@ export function MenuPage() {
     setErroImagem(null);
     try {
       const itemAtualizado = await enviarImagemItemCardapio(unidade.id, itemId, arquivo);
-      setFormEdicaoItem((form) => ({ ...form, imagemUrl: itemAtualizado.imagemUrl ?? "" }));
+      setPreviewImagemUrl(itemAtualizado.imagemUrl ?? "");
       await carregar();
     } catch (err) {
       setErroImagem(err instanceof ApiError ? err.message : "Nao foi possivel enviar a imagem.");
@@ -360,11 +364,11 @@ export function MenuPage() {
                 </label>
                 <div className="linha-form">
                   <label style={{ flex: 1 }}>
-                    URL da imagem (opcional - dá pra enviar uma foto depois, editando o item)
+                    Foto do produto (opcional - JPG, PNG, WEBP ou GIF, até 3MB)
                     <input
-                      value={formItem.imagemUrl}
-                      onChange={(e) => setFormItem({ ...formItem, imagemUrl: e.target.value })}
-                      placeholder="https://..."
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={(e) => setArquivoNovoItem(e.target.files?.[0] ?? null)}
                     />
                   </label>
                   <label style={{ flex: 1 }}>
@@ -443,13 +447,6 @@ export function MenuPage() {
                             </label>
                             <div className="linha-form">
                               <label style={{ flex: 1 }}>
-                                URL da imagem (ou cole um link já hospedado)
-                                <input
-                                  value={formEdicaoItem.imagemUrl}
-                                  onChange={(e) => setFormEdicaoItem({ ...formEdicaoItem, imagemUrl: e.target.value })}
-                                />
-                              </label>
-                              <label style={{ flex: 1 }}>
                                 Tags (separadas por vírgula)
                                 <input
                                   value={formEdicaoItem.tags}
@@ -458,15 +455,15 @@ export function MenuPage() {
                               </label>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-                              {formEdicaoItem.imagemUrl && (
+                              {previewImagemUrl && (
                                 <img
-                                  src={formEdicaoItem.imagemUrl}
+                                  src={previewImagemUrl}
                                   alt=""
                                   style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "6px" }}
                                 />
                               )}
                               <label style={{ flex: 1 }}>
-                                Ou envie uma foto do produto (JPG, PNG, WEBP ou GIF, até 3MB)
+                                Foto do produto (JPG, PNG, WEBP ou GIF, até 3MB)
                                 <input
                                   type="file"
                                   accept="image/jpeg,image/png,image/webp,image/gif"

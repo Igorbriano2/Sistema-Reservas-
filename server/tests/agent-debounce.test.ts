@@ -15,6 +15,7 @@ import {
 vi.mock("../src/lib/instagram-api.js", () => ({
   enviarMensagemInstagram: vi.fn(),
   verificarAssinaturaDoWebhook: vi.fn(() => true),
+  obterPerfilInstagram: vi.fn(async () => ({ nome: null, fotoUrl: null })),
 }));
 vi.mock("../src/lib/anthropic-client.js", () => ({
   getAnthropicClient: vi.fn(),

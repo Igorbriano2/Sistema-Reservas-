@@ -217,7 +217,26 @@ export function ConversasPage() {
               <tbody>
                 {listaFiltrada.map((conversa) => (
                   <tr key={conversa.id}>
-                    <td>{conversa.igSenderId}</td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        {conversa.fotoClienteUrl && (
+                          <img
+                            src={conversa.fotoClienteUrl}
+                            alt=""
+                            style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                            onError={(e) => (e.currentTarget.style.display = "none")}
+                          />
+                        )}
+                        <div>
+                          {conversa.nomeCliente ?? conversa.igSenderId}
+                          {conversa.nomeCliente && (
+                            <div className="texto-secundario" style={{ fontSize: "0.75rem" }}>
+                              {conversa.igSenderId}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
                     <td>
                       {conversa.agentPaused ? (
                         <span className="badge badge-pendente">Aguardando humano</span>
@@ -241,7 +260,17 @@ export function ConversasPage() {
       {conversaAberta && (
         <div className="cartao">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ marginTop: 0 }}>Conversa com {conversaAberta.igSenderId}</h3>
+            <h3 style={{ marginTop: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {conversaAberta.fotoClienteUrl && (
+                <img
+                  src={conversaAberta.fotoClienteUrl}
+                  alt=""
+                  style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }}
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+              )}
+              Conversa com {conversaAberta.nomeCliente ?? conversaAberta.igSenderId}
+            </h3>
             <div className="acoes">
               {conversaAberta.agentPaused && (
                 <button className="btn" onClick={reativarAgente} disabled={reativando}>

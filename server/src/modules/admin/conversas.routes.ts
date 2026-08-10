@@ -6,6 +6,7 @@ import { conversas, mensagens } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
+import { preencherPerfisFaltantes } from "../../lib/instagram-profile.js";
 
 export const conversasRouter = Router({ mergeParams: true });
 
@@ -14,6 +15,9 @@ conversasRouter.get(
   asyncHandler(async (req, res) => {
     const lista = await db.select().from(conversas).where(eq(conversas.unidadeId, req.unidadeId!));
     res.json(lista);
+    // Doc 33 - backfill de nome/foto pra conversas antigas (criadas antes desse campo
+    // existir): roda depois da resposta, nao atrasa a listagem.
+    void preencherPerfisFaltantes(db, lista);
   }),
 );
 

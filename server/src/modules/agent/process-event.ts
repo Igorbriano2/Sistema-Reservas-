@@ -12,6 +12,7 @@ import {
 } from "../../db/schema/index.js";
 import { montarSystemPrompt, montarSystemPromptResolucaoUnidade } from "../../lib/agent-prompt.js";
 import { enviarRespostaDoAgente, foiEnviadoPeloAgente } from "../../lib/instagram-notify.js";
+import { preencherPerfilClienteEmSegundoPlano } from "../../lib/instagram-profile.js";
 import { executarTurnoDoAgente } from "./orchestrator.js";
 import { executarTool } from "./tool-executor.js";
 import { agendarTurnoDoAgente } from "./debounce.js";
@@ -66,7 +67,12 @@ async function buscarOuCriarConversa(
     .values({ empresaId, unidadeId: unidadeIdSugerido, igSenderId })
     .onConflictDoNothing()
     .returning();
-  if (nova) return nova;
+  if (nova) {
+    // Doc 33 - conversa nova de verdade (nao uma corrida): busca nome/foto do cliente
+    // em segundo plano, sem atrasar o resto do processamento do evento.
+    preencherPerfilClienteEmSegundoPlano(db, nova);
+    return nova;
+  }
 
   // Corrida: outra requisicao concorrente criou a conversa entre o select e o insert.
   const [existenteAposCorrida] = await db.select().from(conversas).where(condicao).limit(1);

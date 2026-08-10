@@ -44,12 +44,15 @@ const atualizarCategoriaSchema = criarCategoriaSchema
   .partial()
   .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar");
 
+// imagemUrl NAO entra aqui de proposito (doc 33): so a rota de upload
+// (POST /itens/:itemId/imagem) pode definir esse campo, gravando junto os bytes em
+// imagemDados - assim nunca existe um item com imagemUrl apontando pra um link externo
+// que a gente nao hospeda (o dono so pode subir uma foto de verdade, autohospedada).
 const criarItemSchema = z.object({
   categoriaId: z.string().uuid(),
   nome: z.string().min(1),
   descricao: z.string().optional(),
   precoCentavos: z.number().int().nonnegative(),
-  imagemUrl: z.string().url().optional(),
   porcaoServePessoas: z.number().int().positive().optional(),
   somenteMaiorIdade: z.boolean().optional(),
   tags: z.array(z.string()).optional(),

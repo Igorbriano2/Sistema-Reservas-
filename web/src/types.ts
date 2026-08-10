@@ -240,6 +240,8 @@ export interface Conversa {
   igSenderId: string;
   agentPaused: boolean;
   ultimaAtividadeHumanaEm: string | null;
+  nomeCliente: string | null;
+  fotoClienteUrl: string | null;
 }
 
 export interface Mensagem {

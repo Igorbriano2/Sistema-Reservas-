@@ -318,7 +318,8 @@ label {
   gap: 0.2rem;
 }
 
-.barra-lateral nav a {
+.barra-lateral nav a,
+.barra-lateral nav > button {
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -328,6 +329,9 @@ label {
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
   transition: background var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao);
 }
 
@@ -349,22 +353,26 @@ label {
   transform: rotate(180deg);
 }
 
-.barra-lateral nav a svg {
+.barra-lateral nav a svg,
+.barra-lateral nav > button svg {
   flex-shrink: 0;
   opacity: 0.85;
 }
 
-.barra-lateral nav a:hover {
+.barra-lateral nav a:hover,
+.barra-lateral nav > button:hover {
   background: var(--bg-elevated-hover);
   color: var(--text-primary);
 }
 
-.barra-lateral nav a.ativo {
+.barra-lateral nav a.ativo,
+.barra-lateral nav > button.ativo {
   background: rgba(var(--accent-rgb), 0.14);
   color: var(--accent);
 }
 
-.barra-lateral nav a.ativo svg {
+.barra-lateral nav a.ativo svg,
+.barra-lateral nav > button.ativo svg {
   opacity: 1;
 }
 
@@ -1371,16 +1379,69 @@ tbody tr:hover {
     gap: 0;
   }
 
-  .barra-lateral nav a {
+  .barra-lateral nav a,
+  .barra-lateral nav > button {
     flex-direction: column;
     gap: 0.2rem;
     padding: 0.4rem 0.3rem;
     font-size: 0.62rem;
     text-align: center;
+    flex-shrink: 0;
   }
 
   .area-principal {
     padding-bottom: 64px;
+  }
+
+  /* Doc 34 - folha que sobe de baixo quando uma aba-grupo (Reservas, Configuracoes,
+     Relatorios, Marketing) e tocada no mobile, listando os itens daquele grupo em vez
+     de achatar tudo numa unica barra de abas ilegivel. */
+  .folha-mobile-nav-fundo {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .folha-mobile-nav {
+    width: 100%;
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border-subtle);
+    border-radius: 16px 16px 0 0;
+    padding: 0.5rem 0.75rem calc(1rem + 64px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .folha-mobile-nav-titulo {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.5rem 0.7rem 0.25rem;
+  }
+
+  .folha-mobile-nav a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0.7rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+  }
+
+  .folha-mobile-nav a.ativo {
+    background: rgba(var(--accent-rgb), 0.14);
+    color: var(--accent);
   }
 
   .topo {

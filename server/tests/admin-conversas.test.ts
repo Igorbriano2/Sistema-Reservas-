@@ -9,16 +9,18 @@ import { login } from "./helpers/auth.js";
 
 vi.mock("../src/lib/instagram-api.js", () => ({
   enviarMensagemInstagram: vi.fn(),
+  obterPerfilInstagram: vi.fn(async () => ({ nome: null, fotoUrl: null })),
   InstagramAuthError: class InstagramAuthError extends Error {},
 }));
 
-const { enviarMensagemInstagram } = await import("../src/lib/instagram-api.js");
+const { enviarMensagemInstagram, obterPerfilInstagram } = await import("../src/lib/instagram-api.js");
 const { createApp } = await import("../src/app.js");
 const app = createApp();
 
 beforeEach(async () => {
   await truncateAll();
   vi.mocked(enviarMensagemInstagram).mockReset().mockResolvedValue("mid-resposta-humana");
+  vi.mocked(obterPerfilInstagram).mockReset().mockResolvedValue({ nome: null, fotoUrl: null });
 });
 
 afterAll(async () => {
@@ -135,5 +137,39 @@ describe("POST /admin/unidades/:id/conversas/:conversaId/mensagens (doc 31 - res
       .set("Authorization", `Bearer ${token}`)
       .send({ texto: "" });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("GET /admin/unidades/:id/conversas - backfill de perfil (doc 33)", () => {
+  it("preenche nome/foto de uma conversa antiga que ainda nao tem, em segundo plano", async () => {
+    const { empresa, unidade, usuario, senhaAdmin } = await criarEmpresaComAdmin();
+    await criarConexaoInstagram(empresa.id, unidade.id, "ig-conta-restaurante");
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-antigo");
+    const token = await login(app, usuario.email, senhaAdmin);
+    vi.mocked(obterPerfilInstagram).mockResolvedValueOnce({ nome: "Cliente Antigo", fotoUrl: "https://cdn.example/antigo.jpg" });
+
+    const res = await request(app).get(`/admin/unidades/${unidade.id}/conversas`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    // A resposta em si nao espera o backfill (dispara em segundo plano) - da um tempo
+    // pro update assincrono terminar antes de checar o banco.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const [atualizada] = await db.select().from(conversas).where(eq(conversas.id, conversa.id));
+    expect(atualizada.nomeCliente).toBe("Cliente Antigo");
+    expect(atualizada.fotoClienteUrl).toBe("https://cdn.example/antigo.jpg");
+  });
+
+  it("nao tenta buscar perfil de novo pra conversa que ja tem nome/foto", async () => {
+    const { empresa, unidade, usuario, senhaAdmin } = await criarEmpresaComAdmin();
+    await criarConexaoInstagram(empresa.id, unidade.id, "ig-conta-restaurante");
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-ja-tem-perfil");
+    await db.update(conversas).set({ nomeCliente: "Ja Preenchido" }).where(eq(conversas.id, conversa.id));
+    const token = await login(app, usuario.email, senhaAdmin);
+
+    const res = await request(app).get(`/admin/unidades/${unidade.id}/conversas`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(obterPerfilInstagram).not.toHaveBeenCalled();
   });
 });
