@@ -82,6 +82,7 @@ export interface DadosSalao {
   horariosFixos?: string[] | null;
   intervaloInicio?: string | null;
   intervaloFim?: string | null;
+  dataEspecifica?: string | null;
 }
 
 export function criarSalao(unidadeId: string, dados: DadosSalao) {

@@ -145,6 +145,9 @@ export interface Salao {
   horariosFixos: string[] | null;
   intervaloInicio: string | null;
   intervaloFim: string | null;
+  // Doc 30 - salao de campanha (ex: "Dia dos Namorados"): so existe pra reserva nessa
+  // data. Nulo (padrao) = salao permanente, disponivel todos os dias.
+  dataEspecifica: string | null;
 }
 
 export type MesaFormato = "redonda" | "quadrada" | "retangular";

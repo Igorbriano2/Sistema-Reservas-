@@ -214,7 +214,7 @@ export async function verificarDisponibilidade(
   const inicioMin = paraMinutos(horaInicio);
   const fimMin = paraMinutos(horaFim);
 
-  const todosSaloesComHorario = await db
+  const todosSaloesDaUnidade = await db
     .select({
       id: saloes.id,
       nome: saloes.nome,
@@ -224,13 +224,20 @@ export async function verificarDisponibilidade(
       horariosFixos: saloes.horariosFixos,
       intervaloInicio: saloes.intervaloInicio,
       intervaloFim: saloes.intervaloFim,
+      dataEspecifica: saloes.dataEspecifica,
     })
     .from(saloes)
     .where(eq(saloes.unidadeId, unidadeId));
 
-  if (todosSaloesComHorario.length === 0) {
+  if (todosSaloesDaUnidade.length === 0) {
     return semDisponibilidade("Nenhum salao cadastrado para esta unidade.");
   }
+
+  // Doc 30 - salao de campanha (data_especifica preenchida): so existe pra reserva
+  // NAQUELA data, tanto no fluxo publico quanto na reserva manual do painel (nao e uma
+  // restricao "so pro cliente" como horariosFixos - o salao literalmente nao existe em
+  // outro dia, ex: mesas extras montadas so pro Dia dos Namorados).
+  const todosSaloesComHorario = todosSaloesDaUnidade.filter((s) => !s.dataEspecifica || s.dataEspecifica === data);
 
   // Doc 29 - horario de reserva proprio do salao, alem da janela do turno acima: so
   // vale pro fluxo PUBLICO (mesmo criterio de horariosFixos do turno). Um salao com
@@ -238,7 +245,9 @@ export async function verificarDisponibilidade(
   const todosSaloes = todosSaloesComHorario.filter((s) => salaoAceitaHorario(s, horaInicio, params.respeitarHorariosFixos));
 
   if (todosSaloes.length === 0) {
-    return semDisponibilidade("Nenhum salao aceita reserva nesse horario.");
+    return semDisponibilidade(
+      todosSaloesComHorario.length === 0 ? "Nenhum salao disponivel nesta data." : "Nenhum salao aceita reserva nesse horario.",
+    );
   }
 
   const saloesMapaIds = todosSaloes.filter((s) => s.modoConfiguracao === "mapa").map((s) => s.id);

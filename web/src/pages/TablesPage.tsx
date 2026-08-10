@@ -26,6 +26,9 @@ interface FormSalaoState {
   horariosFixos: string;
   intervaloInicio: string;
   intervaloFim: string;
+  // Doc 30 - salao de campanha: quando preenchido, o salao so existe pra reserva
+  // nessa data (ex: "Dia dos Namorados"). Vazio = salao permanente.
+  dataEspecifica: string;
 }
 
 const FORM_SALAO_VAZIO: FormSalaoState = {
@@ -36,6 +39,7 @@ const FORM_SALAO_VAZIO: FormSalaoState = {
   horariosFixos: "",
   intervaloInicio: "",
   intervaloFim: "",
+  dataEspecifica: "",
 };
 
 function salaoParaForm(s: Salao): FormSalaoState {
@@ -47,6 +51,7 @@ function salaoParaForm(s: Salao): FormSalaoState {
     horariosFixos: s.horariosFixos && s.horariosFixos.length > 0 ? s.horariosFixos.map((h) => h.slice(0, 5)).join(", ") : "",
     intervaloInicio: s.intervaloInicio?.slice(0, 5) ?? "",
     intervaloFim: s.intervaloFim?.slice(0, 5) ?? "",
+    dataEspecifica: s.dataEspecifica ?? "",
   };
 }
 
@@ -65,6 +70,7 @@ function formSalaoParaDados(form: FormSalaoState) {
         : null,
     intervaloInicio: form.modoHorarioReserva === "intervalo" ? form.intervaloInicio || null : null,
     intervaloFim: form.modoHorarioReserva === "intervalo" ? form.intervaloFim || null : null,
+    dataEspecifica: form.dataEspecifica || null,
   };
 }
 
@@ -262,6 +268,18 @@ export function TablesPage() {
               </label>
             </>
           )}
+          <label style={{ maxWidth: 220, marginBottom: "0.75rem" }}>
+            Salão de campanha - data específica (opcional)
+            <input
+              type="date"
+              value={novoSalao.dataEspecifica}
+              onChange={(e) => setNovoSalao({ ...novoSalao, dataEspecifica: e.target.value })}
+            />
+            <span className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+              Preencha só se este salão existir apenas para um dia (ex: Dia dos Namorados) - fora dessa data ele não
+              aparece como opção.
+            </span>
+          </label>
           <div style={{ display: "flex", alignItems: "flex-end" }}>
             <button className="btn" type="submit" disabled={salvandoSalao}>
               Adicionar salão
@@ -277,6 +295,7 @@ export function TablesPage() {
                 <th>Modo</th>
                 <th>Capacidade</th>
                 <th>Horário de reserva</th>
+                <th>Data específica</th>
                 <th></th>
               </tr>
             </thead>
@@ -284,7 +303,7 @@ export function TablesPage() {
               {saloes.map((s) =>
                 editandoSalaoId === s.id ? (
                   <tr key={s.id}>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <form className="linha-form" onSubmit={salvarEdicaoSalao} style={{ margin: 0 }}>
                         <label>
                           Nome
@@ -369,6 +388,14 @@ export function TablesPage() {
                             </label>
                           </>
                         )}
+                        <label style={{ maxWidth: 220, marginBottom: "0.75rem" }}>
+                          Salão de campanha - data específica (opcional)
+                          <input
+                            type="date"
+                            value={edicaoSalao.dataEspecifica}
+                            onChange={(e) => setEdicaoSalao({ ...edicaoSalao, dataEspecifica: e.target.value })}
+                          />
+                        </label>
                         <div className="acoes">
                           <button className="btn" type="submit" disabled={salvandoEdicaoSalao}>
                             Salvar
@@ -392,6 +419,7 @@ export function TablesPage() {
                           ? `${s.intervaloInicio.slice(0, 5)} – ${s.intervaloFim.slice(0, 5)}`
                           : "Segue o turno"}
                     </td>
+                    <td>{s.dataEspecifica ? s.dataEspecifica.split("-").reverse().join("/") : "-"}</td>
                     <td>
                       <div className="acoes">
                         <button className="btn btn-secundario" onClick={() => abrirEdicaoSalao(s)}>

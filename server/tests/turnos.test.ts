@@ -425,3 +425,51 @@ describe("horario de reserva por SALAO (doc 29 - modo fixo/intervalo, alem do tu
     expect(semIntervalo.status).toBe(400);
   });
 });
+
+describe("salao de campanha com data especifica (doc 30 - ex: Dia dos Namorados)", () => {
+  it("admin cria um salao so pro Dia dos Namorados; so aparece disponivel NESSA data (inclusive pra reserva manual do painel)", async () => {
+    const { unidade, token } = await setup();
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "17:00", horaFechamento: "23:00" });
+
+    const criado = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao Dia dos Namorados", modoConfiguracao: "simples", capacidadeTotal: 30, dataEspecifica: "2026-06-12" });
+    expect(criado.status).toBe(201);
+    expect(criado.body.dataEspecifica).toBe("2026-06-12");
+
+    const naData = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-06-12",
+      hora: "20:00",
+      numPessoas: 4,
+    });
+    expect(naData.disponivel).toBe(true);
+
+    const foraDaData = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-06-13",
+      hora: "20:00",
+      numPessoas: 4,
+    });
+    expect(foraDaData.disponivel).toBe(false);
+    expect(foraDaData.motivo).toMatch(/nenhum salao disponivel nesta data/i);
+  });
+
+  it("salao permanente (sem dataEspecifica) continua disponivel em qualquer dia, mesmo com um salao de campanha tambem cadastrado", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "17:00", horaFechamento: "23:00" });
+    await criarSalaoSimples(unidade.id, 40);
+    await db
+      .insert(saloes)
+      .values({ unidadeId: unidade.id, nome: "Salao Campanha", modoConfiguracao: "simples", capacidadeTotal: 30, dataEspecifica: "2026-06-12" });
+
+    const foraDaData = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-06-13",
+      hora: "20:00",
+      numPessoas: 4,
+    });
+    expect(foraDaData.disponivel).toBe(true);
+  });
+});

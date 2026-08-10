@@ -1,0 +1,1 @@
+ALTER TABLE "saloes" ADD COLUMN "data_especifica" date;

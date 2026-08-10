@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, time, pgEnum, index, check } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, time, date, pgEnum, index, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { unidades } from "./unidades.js";
 
@@ -32,6 +32,11 @@ export const saloes = pgTable(
     horariosFixos: text("horarios_fixos").array(),
     intervaloInicio: time("intervalo_inicio"),
     intervaloFim: time("intervalo_fim"),
+    // Doc 30 - salao de campanha (ex: "Dia dos Namorados"): quando preenchida, esse
+    // salao so existe pra reserva (publica OU manual pelo painel) NESSA data - em
+    // qualquer outro dia ele nao aparece como opcao, como se nao existisse ainda. Nulo
+    // (padrao) = salao permanente, disponivel todos os dias normalmente.
+    dataEspecifica: date("data_especifica"),
   },
   (table) => [
     index("saloes_unidade_id_idx").on(table.unidadeId),

@@ -17,6 +17,7 @@ const modoConfiguracaoSchema = z.enum(["simples", "mapa"]);
 // (padrao) nao usa horariosFixos/intervalo* - so a janela do turno vale.
 const modoHorarioReservaSchema = z.enum(["turno", "fixo", "intervalo"]);
 const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, "Use o formato HH:MM");
+const dataSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use o formato YYYY-MM-DD");
 
 const criarSalaoSchema = z.object({
   nome: z.string().min(1),
@@ -26,6 +27,9 @@ const criarSalaoSchema = z.object({
   horariosFixos: z.array(horaSchema).max(20).nullable().optional(),
   intervaloInicio: horaSchema.nullable().optional(),
   intervaloFim: horaSchema.nullable().optional(),
+  // Doc 30 - salao de campanha (ex: "Dia dos Namorados"): so existe pra reserva nessa
+  // data especifica. Nulo (padrao) = salao permanente.
+  dataEspecifica: dataSchema.nullable().optional(),
 });
 const atualizarSalaoSchema = criarSalaoSchema
   .partial()

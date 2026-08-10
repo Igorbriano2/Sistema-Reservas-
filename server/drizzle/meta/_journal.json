@@ -225,6 +225,13 @@
       "when": 1786370132809,
       "tag": "0031_add_horario_reserva_saloes",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1786376129543,
+      "tag": "0032_add_data_especifica_saloes",
+      "breakpoints": true
     }
   ]
 }
