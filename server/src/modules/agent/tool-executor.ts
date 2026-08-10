@@ -323,7 +323,17 @@ async function escalateToHuman(db: Database, ctx: AgentContext, input: unknown):
   // process-event.ts) e ninguem da equipe fica sabendo que precisa responder, a nao
   // ser que alguem abra o Instagram por conta propria. So dispara quando a unidade ja
   // esta resolvida (antes disso ainda nao ha unidade especifica pra notificar).
+  let contatoUrgencia: { nome: string | null; telefone: string } | null = null;
   if (ctx.unidadeId) {
+    const [unidadeRow] = await db
+      .select({ contatoUrgenciaNome: unidades.contatoUrgenciaNome, contatoUrgenciaTelefone: unidades.contatoUrgenciaTelefone })
+      .from(unidades)
+      .where(eq(unidades.id, ctx.unidadeId))
+      .limit(1);
+    if (unidadeRow?.contatoUrgenciaTelefone) {
+      contatoUrgencia = { nome: unidadeRow.contatoUrgenciaNome, telefone: unidadeRow.contatoUrgenciaTelefone };
+    }
+
     enviarPushParaUnidade(db, ctx.unidadeId, {
       titulo: "Cliente esperando atendimento",
       corpo: motivo,
@@ -333,7 +343,16 @@ async function escalateToHuman(db: Database, ctx: AgentContext, input: unknown):
     });
   }
 
-  return { output: { encaminhado: true, motivo } };
+  return {
+    output: {
+      encaminhado: true,
+      motivo,
+      // Presente so quando o dono cadastrou um contato de urgencia pra esta unidade
+      // (Unidades > editar). Se vier null, NUNCA ofereca um telefone por conta
+      // propria - so diga que um atendente vai continuar por aqui.
+      contato_urgencia: contatoUrgencia,
+    },
+  };
 }
 
 export async function executarTool(

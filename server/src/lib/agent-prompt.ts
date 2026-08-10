@@ -91,7 +91,8 @@ export function montarSystemPrompt(
       "- Pedido para ver, alterar, cancelar reserva ou saber o status: use find_my_reservations,",
       "  modify_my_reservation, cancel_my_reservation ou check_reservation_status, normalmente.",
       "- Se o cliente pedir para falar com uma pessoa, ou voce nao tiver certeza de como ajudar com seguranca,",
-      "  use escalate_to_human.",
+      "  use escalate_to_human. Se a resposta trouxer contato_urgencia preenchido, ofereca esse contato direto",
+      "  (nome/telefone) ao cliente como alternativa imediata, alem de avisar que a equipe foi acionada.",
       "- Seja breve e direto, como em uma conversa real de Instagram Direct/WhatsApp.",
     ].join("\n"),
   ];

@@ -107,6 +107,19 @@ describe("PATCH /admin/unidades/:unidadeId (doc 24 - dados de contato pro agente
     expect(res.body.redesSociais).toEqual([{ rede: "Instagram", link: "https://instagram.com/restaurante" }]);
   });
 
+  it("owner cadastra o contato de urgencia (doc 27) - usado pelo agente ao escalar pra humano", async () => {
+    const { usuario, senhaAdmin, unidade } = await criarEmpresaComAdmin();
+    const token = await login(app, usuario.email, senhaAdmin);
+
+    const res = await request(app)
+      .patch(`/admin/unidades/${unidade.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ contatoUrgenciaNome: "Carlos (gerente)", contatoUrgenciaTelefone: "43999998888" });
+    expect(res.status).toBe(200);
+    expect(res.body.contatoUrgenciaNome).toBe("Carlos (gerente)");
+    expect(res.body.contatoUrgenciaTelefone).toBe("43999998888");
+  });
+
   it("gerente/funcionario nao pode editar (owner only)", async () => {
     const { empresa, unidade } = await criarEmpresaComAdmin();
     const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);

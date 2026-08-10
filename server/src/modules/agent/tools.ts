@@ -107,7 +107,10 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     description:
       "Encaminha a conversa para um atendente humano e pausa as respostas automaticas. Use quando " +
       "o cliente pedir para falar com uma pessoa, houver uma reclamacao seria, uma duvida fora do " +
-      "escopo do agente, ou qualquer situacao que voce nao consiga resolver com seguranca.",
+      "escopo do agente, ou qualquer situacao que voce nao consiga resolver com seguranca. A resposta " +
+      "pode incluir contato_urgencia (nome/telefone de um gerente, quando a unidade tiver isso " +
+      "cadastrado) - se vier preenchido, ofereca esse contato direto ao cliente como alternativa " +
+      "imediata; se vier null, apenas diga que um atendente vai dar continuidade por aqui.",
     input_schema: {
       type: "object",
       properties: {

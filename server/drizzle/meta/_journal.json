@@ -204,6 +204,13 @@
       "when": 1786335934553,
       "tag": "0028_add_nome_excecoes_horario",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1786365469551,
+      "tag": "0029_add_contato_urgencia_unidades",
+      "breakpoints": true
     }
   ]
 }

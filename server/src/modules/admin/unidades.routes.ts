@@ -35,6 +35,8 @@ unidadesRouter.get(
         nome: unidades.nome,
         endereco: unidades.endereco,
         telefone: unidades.telefone,
+        contatoUrgenciaNome: unidades.contatoUrgenciaNome,
+        contatoUrgenciaTelefone: unidades.contatoUrgenciaTelefone,
         redesSociais: unidades.redesSociais,
         timezone: unidades.timezone,
         permissoesExtra: usuarioUnidades.permissoesExtra,
@@ -79,6 +81,8 @@ const atualizarUnidadeSchema = z
   .object({
     endereco: z.string().trim().transform((v) => v || null).nullable(),
     telefone: z.string().trim().transform((v) => v || null).nullable(),
+    contatoUrgenciaNome: z.string().trim().transform((v) => v || null).nullable(),
+    contatoUrgenciaTelefone: z.string().trim().transform((v) => v || null).nullable(),
     redesSociais: z.array(redeSocialSchema),
   })
   .partial()

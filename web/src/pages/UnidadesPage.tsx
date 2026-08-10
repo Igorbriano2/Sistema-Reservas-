@@ -113,11 +113,19 @@ function FormularioNovaUnidade({ onCriada, onCancelar }: FormularioNovaUnidadePr
 interface FormularioContatoState {
   endereco: string;
   telefone: string;
+  contatoUrgenciaNome: string;
+  contatoUrgenciaTelefone: string;
   redesSociais: RedeSocial[];
 }
 
 function paraFormulario(u: Unidade): FormularioContatoState {
-  return { endereco: u.endereco ?? "", telefone: u.telefone ?? "", redesSociais: u.redesSociais };
+  return {
+    endereco: u.endereco ?? "",
+    telefone: u.telefone ?? "",
+    contatoUrgenciaNome: u.contatoUrgenciaNome ?? "",
+    contatoUrgenciaTelefone: u.contatoUrgenciaTelefone ?? "",
+    redesSociais: u.redesSociais,
+  };
 }
 
 // Edicao dos dados de contato/presenca (doc 24) - o agente de IA usa isso pra
@@ -152,6 +160,8 @@ function FormularioContato({ unidade, onSalvo, onCancelar }: FormularioContatoPr
       const atualizada = await atualizarUnidade(unidade.id, {
         endereco: form.endereco.trim() || null,
         telefone: form.telefone.trim() || null,
+        contatoUrgenciaNome: form.contatoUrgenciaNome.trim() || null,
+        contatoUrgenciaTelefone: form.contatoUrgenciaTelefone.trim() || null,
         redesSociais: form.redesSociais.filter((r) => r.rede.trim() && r.link.trim()),
       });
       onSalvo(atualizada);
@@ -177,6 +187,29 @@ function FormularioContato({ unidade, onSalvo, onCancelar }: FormularioContatoPr
         <label>
           Telefone
           <input value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} placeholder="(11) 91234-5678" />
+        </label>
+      </div>
+      <p className="texto-secundario" style={{ fontSize: "0.85rem" }}>
+        Contato de urgência (opcional): quando o agente encaminha uma conversa pra um humano (reclamação séria,
+        pedido explícito de falar com alguém), ele oferece esse contato direto ao cliente como alternativa
+        imediata, além de avisar a equipe.
+      </p>
+      <div className="linha-form">
+        <label>
+          Nome do contato de urgência
+          <input
+            value={form.contatoUrgenciaNome}
+            onChange={(e) => setForm((f) => ({ ...f, contatoUrgenciaNome: e.target.value }))}
+            placeholder="Ex: Carlos (gerente)"
+          />
+        </label>
+        <label>
+          Telefone de urgência
+          <input
+            value={form.contatoUrgenciaTelefone}
+            onChange={(e) => setForm((f) => ({ ...f, contatoUrgenciaTelefone: e.target.value }))}
+            placeholder="(11) 91234-5678"
+          />
         </label>
       </div>
       <label style={{ marginBottom: "0.5rem" }}>Redes sociais</label>

@@ -117,6 +117,11 @@ export interface Unidade {
   // Dados obrigatorios pro agente de IA responder com precisao quando o cliente
   // perguntar (doc 24) - nunca inventados, sempre vindos daqui.
   telefone: string | null;
+  // Contato de urgencia (doc 27) - ex: telefone do gerente, usado pelo agente quando
+  // escala uma conversa pra humano, pra dar ao cliente um jeito imediato de resolver
+  // algo urgente. Diferente do telefone geral acima.
+  contatoUrgenciaNome: string | null;
+  contatoUrgenciaTelefone: string | null;
   redesSociais: RedeSocial[];
   timezone: string;
   // So vem preenchido pra gerente/funcionario (owner tem acesso implicito a tudo,

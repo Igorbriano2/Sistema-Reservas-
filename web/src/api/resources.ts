@@ -59,6 +59,8 @@ export function adicionarUnidade(dados: DadosNovaUnidade) {
 export interface DadosEditarUnidade {
   endereco?: string | null;
   telefone?: string | null;
+  contatoUrgenciaNome?: string | null;
+  contatoUrgenciaTelefone?: string | null;
   redesSociais?: RedeSocial[];
 }
 

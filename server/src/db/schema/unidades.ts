@@ -11,6 +11,12 @@ export const unidades = pgTable(
     nome: text("nome").notNull(),
     endereco: text("endereco"),
     telefone: text("telefone"),
+    // Contato de urgencia (doc 27) - ex: telefone do gerente. Diferente do "telefone"
+    // acima (linha geral da loja): usado quando o agente escala pra humano (tool
+    // escalate_to_human) e quer dar ao cliente um jeito imediato de resolver algo
+    // urgente, em vez de so deixar ele esperando alguem ver o painel.
+    contatoUrgenciaNome: text("contato_urgencia_nome"),
+    contatoUrgenciaTelefone: text("contato_urgencia_telefone"),
     // Lista de redes sociais: [{ "rede": "Instagram", "link": "https://instagram.com/..." }, ...]
     // - obrigatoria pro agente de IA responder com precisao quando o cliente perguntar
     // (ver montarSystemPrompt em lib/agent-prompt.ts).

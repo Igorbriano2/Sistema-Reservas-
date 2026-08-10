@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.js";
-import { cardapioCategorias, cardapioItens, conversas, excecoesHorario } from "../src/db/schema/index.js";
+import { cardapioCategorias, cardapioItens, conversas, excecoesHorario, unidades } from "../src/db/schema/index.js";
 import { AGENT_TOOLS } from "../src/modules/agent/tools.js";
 import { executarTool } from "../src/modules/agent/tool-executor.js";
 import { decodificarTokenDeReserva } from "../src/lib/reservation-link.js";
@@ -387,6 +387,31 @@ describe("Tools do agente - escalate_to_human", () => {
 
     const [atualizada] = await db.select().from(conversas).where(eq(conversas.id, conversa.id));
     expect(atualizada.agentPaused).toBe(true);
+  });
+
+  it("devolve contato_urgencia quando a unidade tem um cadastrado (doc 27)", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    await db
+      .update(unidades)
+      .set({ contatoUrgenciaNome: "Carlos (gerente)", contatoUrgenciaTelefone: "43999998888" })
+      .where(eq(unidades.id, unidade.id));
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "escalate_to_human", { motivo: "Reclamacao seria" });
+    expect((resultado.output as { contato_urgencia: { nome: string; telefone: string } }).contato_urgencia).toEqual({
+      nome: "Carlos (gerente)",
+      telefone: "43999998888",
+    });
+  });
+
+  it("contato_urgencia vem null quando a unidade nao tem nada cadastrado", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "escalate_to_human", { motivo: "Duvida fora do escopo" });
+    expect((resultado.output as { contato_urgencia: unknown }).contato_urgencia).toBeNull();
   });
 });
 
