@@ -23,6 +23,24 @@ pushRouter.get(
   }),
 );
 
+// Diz se ESTE endpoint (dispositivo/navegador) esta inscrito pra notificacoes
+// especificamente NESTA unidade - o endpoint e unico globalmente (um dispositivo so
+// pode apontar pra uma unidade por vez, ver POST abaixo), entao um dono com varias
+// lojas que troca de loja sem reinscrever fica "inscrito" no dispositivo mas apontando
+// pra outra unidade; o frontend usa isso pra nao mostrar o sino como ativo por engano.
+pushRouter.get(
+  "/inscrito",
+  asyncHandler(async (req, res) => {
+    const { endpoint } = z.object({ endpoint: z.string().url() }).parse(req.query);
+    const [linha] = await db
+      .select({ id: pushSubscricoes.id })
+      .from(pushSubscricoes)
+      .where(and(eq(pushSubscricoes.unidadeId, req.unidadeId!), eq(pushSubscricoes.endpoint, endpoint)))
+      .limit(1);
+    res.json({ inscrito: !!linha });
+  }),
+);
+
 // Owner e funcionario podem inscrever o proprio dispositivo (qualquer um na portaria
 // pode querer receber as notificacoes).
 pushRouter.post(

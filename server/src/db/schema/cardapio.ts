@@ -32,9 +32,18 @@ export const cardapioItens = pgTable(
     nome: text("nome").notNull(),
     descricao: text("descricao"),
     precoCentavos: integer("preco_centavos").notNull(),
-    // URL da imagem (sem upload de arquivo no MVP - o dono cola o link de uma
-    // imagem ja hospedada em algum lugar).
+    // URL da imagem - ou colada pelo dono (link externo ja hospedado em algum lugar)
+    // ou preenchida automaticamente pelo upload (doc 32): nesse caso aponta pra
+    // /public/cardapio-imagem/:itemId, que serve os bytes gravados abaixo. O resto do
+    // sistema (pagina publica, tool get_menu do agente) so consome imagemUrl, sem
+    // saber a origem.
     imagemUrl: text("imagem_url"),
+    // Bytes da imagem enviada por upload, em base64 - nulo quando imagemUrl e um link
+    // externo colado pelo dono (sem upload). Guardado no proprio Postgres (sem
+    // depender de disco local, que e efemero no App Platform) pra ficar
+    // "autohospedado" sem precisar de credenciais de object storage novas.
+    imagemDados: text("imagem_dados"),
+    imagemMimeType: text("imagem_mime_type"),
     // Quantas pessoas a porcao serve (ex: "serve ate 2") - nulo = nao se aplica.
     porcaoServePessoas: integer("porcao_serve_pessoas"),
     somenteMaiorIdade: boolean("somente_maior_idade").notNull().default(false),

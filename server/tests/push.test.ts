@@ -100,6 +100,40 @@ describe("POST /admin/unidades/:id/push (inscricao)", () => {
   });
 });
 
+describe("GET /admin/unidades/:id/push/inscrito", () => {
+  it("retorna inscrito=true so pra unidade que de fato tem esse endpoint cadastrado", async () => {
+    const { unidade, token } = await setupUnidadeCompleta();
+    const outra = await setupUnidadeCompleta();
+    await request(app).post(`/admin/unidades/${unidade.id}/push`).set("Authorization", `Bearer ${token}`).send(SUBSCRIPTION_EXEMPLO);
+
+    const nestaUnidade = await request(app)
+      .get(`/admin/unidades/${unidade.id}/push/inscrito`)
+      .query({ endpoint: SUBSCRIPTION_EXEMPLO.endpoint })
+      .set("Authorization", `Bearer ${token}`);
+    expect(nestaUnidade.status).toBe(200);
+    expect(nestaUnidade.body.inscrito).toBe(true);
+
+    // Doc 31 - mesmo dispositivo (endpoint), mas o dono trocou de loja no painel sem
+    // reativar: a unidade atual nao deve aparecer como inscrita so porque OUTRA e.
+    const noOutraUnidade = await request(app)
+      .get(`/admin/unidades/${outra.unidade.id}/push/inscrito`)
+      .query({ endpoint: SUBSCRIPTION_EXEMPLO.endpoint })
+      .set("Authorization", `Bearer ${outra.token}`);
+    expect(noOutraUnidade.status).toBe(200);
+    expect(noOutraUnidade.body.inscrito).toBe(false);
+  });
+
+  it("retorna inscrito=false pra um endpoint nunca cadastrado", async () => {
+    const { unidade, token } = await setupUnidadeCompleta();
+    const res = await request(app)
+      .get(`/admin/unidades/${unidade.id}/push/inscrito`)
+      .query({ endpoint: "https://fcm.googleapis.com/fcm/send/nunca-cadastrado" })
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.inscrito).toBe(false);
+  });
+});
+
 describe("DELETE /admin/unidades/:id/push (desinscricao)", () => {
   it("remove a inscricao pelo endpoint", async () => {
     const { unidade, token } = await setupUnidadeCompleta();

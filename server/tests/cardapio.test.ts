@@ -251,3 +251,71 @@ describe("GET /public/cardapio/:unidadeId (pagina publica, QR code na mesa)", ()
     expect(resposta.body.categorias[0].itens[0].nome).toBe("Bruschetta");
   });
 });
+
+// 1x1 px PNG valido (menor imagem real possivel), usado so pra testar o pipeline de
+// upload/armazenamento/serving - o conteudo em si nao importa pro teste.
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
+
+describe("Doc 32 - upload autohospedado da foto do item do cardapio", () => {
+  async function criarItem(unidade: { id: string }, token: string) {
+    const categoria = await request(app)
+      .post(`/admin/unidades/${unidade.id}/cardapio/categorias`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Pratos" });
+    const item = await request(app)
+      .post(`/admin/unidades/${unidade.id}/cardapio/itens`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ categoriaId: categoria.body.id, nome: "Pizza", precoCentavos: 4500 });
+    return item.body as { id: string };
+  }
+
+  it("envia a imagem, grava no Postgres, e serve os bytes pela rota publica", async () => {
+    const { unidade, token } = await setup();
+    const item = await criarItem(unidade, token);
+
+    const upload = await request(app)
+      .post(`/admin/unidades/${unidade.id}/cardapio/itens/${item.id}/imagem`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("imagem", PNG_1X1, { filename: "foto.png", contentType: "image/png" });
+    expect(upload.status).toBe(200);
+    expect(upload.body.imagemUrl).toContain(`/public/cardapio/imagem/${item.id}`);
+
+    const servida = await request(app).get(`/public/cardapio/imagem/${item.id}`);
+    expect(servida.status).toBe(200);
+    expect(servida.headers["content-type"]).toBe("image/png");
+    expect(Buffer.compare(servida.body, PNG_1X1)).toBe(0);
+  });
+
+  it("rejeita arquivo de formato nao suportado", async () => {
+    const { unidade, token } = await setup();
+    const item = await criarItem(unidade, token);
+
+    const upload = await request(app)
+      .post(`/admin/unidades/${unidade.id}/cardapio/itens/${item.id}/imagem`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("imagem", Buffer.from("nao e uma imagem"), { filename: "arquivo.txt", contentType: "text/plain" });
+    expect(upload.status).toBe(400);
+  });
+
+  it("404 ao enviar imagem pra item de outra unidade", async () => {
+    const { unidade, token } = await setup();
+    const outraEmpresa = await criarEmpresaComAdmin({ nomeEmpresa: "Outra Empresa Upload", emailAdmin: "outro-upload@teste.com" });
+    const outroToken = await login(app, outraEmpresa.usuario.email, outraEmpresa.senhaAdmin);
+    const itemDeOutra = await criarItem(outraEmpresa.unidade, outroToken);
+
+    const upload = await request(app)
+      .post(`/admin/unidades/${unidade.id}/cardapio/itens/${itemDeOutra.id}/imagem`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("imagem", PNG_1X1, { filename: "foto.png", contentType: "image/png" });
+    expect(upload.status).toBe(404);
+  });
+
+  it("404 pra imagem de item inexistente na rota publica", async () => {
+    const idFalso = "00000000-0000-0000-0000-000000000000";
+    const resposta = await request(app).get(`/public/cardapio/imagem/${idFalso}`);
+    expect(resposta.status).toBe(404);
+  });
+});

@@ -31,8 +31,8 @@ export function NotificacaoToggle({ unidadeId }: { unidadeId: string }) {
 
   useEffect(() => {
     if (!suportaPush()) return;
-    estaInscrito().then(setInscrito);
-  }, []);
+    estaInscrito(unidadeId).then(setInscrito);
+  }, [unidadeId]);
 
   if (!suportaPush()) return null;
 
@@ -70,7 +70,10 @@ export function NotificacaoToggle({ unidadeId }: { unidadeId: string }) {
       title={
         permissaoNegada
           ? "Notificacoes bloqueadas nas configuracoes do navegador"
-          : erro ?? (inscrito ? "Notificacoes ativas - clique pra desativar" : "Ativar notificacoes de novas reservas")
+          : erro ??
+            (inscrito
+              ? "Notificacoes ativas - clique pra desativar"
+              : "Ativar notificacoes de novas reservas (nesse dispositivo, so pra uma loja por vez)")
       }
     >
       {inscrito ? <IconeSino /> : <IconeSinoDesligado />}

@@ -1,4 +1,4 @@
-import { desinscreverPush, inscreverPush, obterChavePublicaPush } from "../api/resources.js";
+import { desinscreverPush, inscreverPush, obterChavePublicaPush, verificarInscricaoPush } from "../api/resources.js";
 
 // Push API pede a chave VAPID em Uint8Array, mas o backend manda em base64url -
 // conversao padrao recomendada pela MDN.
@@ -64,9 +64,18 @@ export async function desativarNotificacoes(unidadeId: string): Promise<void> {
   await desinscreverPush(unidadeId, endpoint);
 }
 
-export async function estaInscrito(): Promise<boolean> {
+// Verifica a inscricao PARA ESTA unidade especificamente - nao basta o dispositivo ter
+// alguma subscription (pushManager.getSubscription() e por navegador/origem, nao por
+// loja). Um endpoint so aponta pra uma unidade por vez no servidor (POST acima faz
+// upsert por endpoint): um dono com varias lojas que ativa numa e troca pra outra,
+// sem reativar, ainda teria subscription no navegador mas apontando pra unidade
+// errada - checar so o lado do navegador mostraria o sino "ativo" por engano, e a
+// unidade certa nunca receberia push nenhum.
+export async function estaInscrito(unidadeId: string): Promise<boolean> {
   if (!suportaPush()) return false;
   const registro = await navigator.serviceWorker.ready;
   const subscription = await registro.pushManager.getSubscription();
-  return !!subscription;
+  if (!subscription) return false;
+  const { inscrito } = await verificarInscricaoPush(unidadeId, subscription.endpoint);
+  return inscrito;
 }

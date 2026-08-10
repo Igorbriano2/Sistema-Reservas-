@@ -62,3 +62,22 @@ cardapioPublicRouter.get(
     });
   }),
 );
+
+// Doc 32 - serve os bytes de uma imagem de item enviada por upload (armazenada em
+// base64 no proprio Postgres, ver imagemUrl/imagemDados em db/schema/cardapio.ts).
+// Publica igual ao resto do cardapio: a foto do produto nao e informacao sensivel.
+cardapioPublicRouter.get(
+  "/imagem/:itemId",
+  asyncHandler(async (req, res) => {
+    const [item] = await db
+      .select({ imagemDados: cardapioItens.imagemDados, imagemMimeType: cardapioItens.imagemMimeType })
+      .from(cardapioItens)
+      .where(eq(cardapioItens.id, req.params.itemId))
+      .limit(1);
+    if (!item || !item.imagemDados || !item.imagemMimeType) throw new RecursoNaoEncontradoError("Imagem nao encontrada");
+
+    res.set("Content-Type", item.imagemMimeType);
+    res.set("Cache-Control", "public, max-age=86400");
+    res.send(Buffer.from(item.imagemDados, "base64"));
+  }),
+);

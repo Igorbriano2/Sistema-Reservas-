@@ -1,4 +1,4 @@
-import { API_URL, api } from "./client.js";
+import { API_URL, api, apiUpload } from "./client.js";
 import type {
   AgenteConfig,
   Bloqueio,
@@ -201,6 +201,14 @@ export function excluirItemCardapio(unidadeId: string, itemId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/cardapio/itens/${itemId}`);
 }
 
+// Doc 32 - upload autohospedado da foto do produto (o backend guarda os bytes no
+// proprio Postgres e devolve o item com imagemUrl ja apontando pra rota publica que os serve).
+export function enviarImagemItemCardapio(unidadeId: string, itemId: string, arquivo: File) {
+  const formData = new FormData();
+  formData.append("imagem", arquivo);
+  return apiUpload<CardapioItem>(`/admin/unidades/${unidadeId}/cardapio/itens/${itemId}/imagem`, formData);
+}
+
 // Notificacoes push (doc 15) - inscricao do proprio dispositivo/navegador pra
 // receber avisos de nova reserva / cancelamento pelo chat.
 export function obterChavePublicaPush(unidadeId: string) {
@@ -218,6 +226,10 @@ export function inscreverPush(unidadeId: string, dados: DadosInscricaoPush) {
 
 export function desinscreverPush(unidadeId: string, endpoint: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/push?endpoint=${encodeURIComponent(endpoint)}`);
+}
+
+export function verificarInscricaoPush(unidadeId: string, endpoint: string) {
+  return api.get<{ inscrito: boolean }>(`/admin/unidades/${unidadeId}/push/inscrito?endpoint=${encodeURIComponent(endpoint)}`);
 }
 
 // Turnos/horarios de funcionamento (doc 19).
@@ -284,6 +296,12 @@ export function listarMensagensDaConversa(unidadeId: string, conversaId: string)
 
 export function definirAgentePausado(unidadeId: string, conversaId: string, agentPaused: boolean) {
   return api.patch<Conversa>(`/admin/unidades/${unidadeId}/conversas/${conversaId}`, { agentPaused });
+}
+
+// Doc 31 - dono/funcionario responde direto pelo painel (envia de verdade pelo
+// Instagram e pausa o agente automaticamente).
+export function enviarMensagemConversa(unidadeId: string, conversaId: string, texto: string) {
+  return api.post<Mensagem>(`/admin/unidades/${unidadeId}/conversas/${conversaId}/mensagens`, { texto });
 }
 
 // Fila de espera de walk-in (doc 20).

@@ -232,6 +232,13 @@
       "when": 1786376129543,
       "tag": "0032_add_data_especifica_saloes",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1786383611799,
+      "tag": "0033_add_imagem_upload_cardapio_itens",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   atualizarItemCardapio,
   criarCategoriaCardapio,
   criarItemCardapio,
+  enviarImagemItemCardapio,
   excluirCategoriaCardapio,
   excluirItemCardapio,
   listarCardapio,
@@ -84,6 +85,9 @@ export function MenuPage() {
 
   const [editandoItemId, setEditandoItemId] = useState<string | null>(null);
   const [formEdicaoItem, setFormEdicaoItem] = useState<FormItemState>(FORM_ITEM_VAZIO);
+
+  const [enviandoImagemItemId, setEnviandoImagemItemId] = useState<string | null>(null);
+  const [erroImagem, setErroImagem] = useState<string | null>(null);
 
   async function carregar() {
     if (!unidade) return;
@@ -194,6 +198,21 @@ export function MenuPage() {
       await carregar();
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Nao foi possivel atualizar o item.");
+    }
+  }
+
+  async function enviarImagem(itemId: string, arquivo: File) {
+    if (!unidade) return;
+    setEnviandoImagemItemId(itemId);
+    setErroImagem(null);
+    try {
+      const itemAtualizado = await enviarImagemItemCardapio(unidade.id, itemId, arquivo);
+      setFormEdicaoItem((form) => ({ ...form, imagemUrl: itemAtualizado.imagemUrl ?? "" }));
+      await carregar();
+    } catch (err) {
+      setErroImagem(err instanceof ApiError ? err.message : "Nao foi possivel enviar a imagem.");
+    } finally {
+      setEnviandoImagemItemId(null);
     }
   }
 
@@ -341,7 +360,7 @@ export function MenuPage() {
                 </label>
                 <div className="linha-form">
                   <label style={{ flex: 1 }}>
-                    URL da imagem
+                    URL da imagem (opcional - dá pra enviar uma foto depois, editando o item)
                     <input
                       value={formItem.imagemUrl}
                       onChange={(e) => setFormItem({ ...formItem, imagemUrl: e.target.value })}
@@ -424,7 +443,7 @@ export function MenuPage() {
                             </label>
                             <div className="linha-form">
                               <label style={{ flex: 1 }}>
-                                URL da imagem
+                                URL da imagem (ou cole um link já hospedado)
                                 <input
                                   value={formEdicaoItem.imagemUrl}
                                   onChange={(e) => setFormEdicaoItem({ ...formEdicaoItem, imagemUrl: e.target.value })}
@@ -438,6 +457,30 @@ export function MenuPage() {
                                 />
                               </label>
                             </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+                              {formEdicaoItem.imagemUrl && (
+                                <img
+                                  src={formEdicaoItem.imagemUrl}
+                                  alt=""
+                                  style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "6px" }}
+                                />
+                              )}
+                              <label style={{ flex: 1 }}>
+                                Ou envie uma foto do produto (JPG, PNG, WEBP ou GIF, até 3MB)
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp,image/gif"
+                                  disabled={enviandoImagemItemId === item.id}
+                                  onChange={(e) => {
+                                    const arquivo = e.target.files?.[0];
+                                    if (arquivo) enviarImagem(item.id, arquivo);
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                              {enviandoImagemItemId === item.id && <span className="texto-secundario">Enviando...</span>}
+                            </div>
+                            {erroImagem && <p className="erro">{erroImagem}</p>}
                             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
                               <input
                                 type="checkbox"
@@ -460,12 +503,23 @@ export function MenuPage() {
                     ) : (
                       <tr key={item.id}>
                         <td>
-                          {item.nome} {!item.ativo && <span className="texto-secundario">(desativado)</span>}
-                          {item.descricao && (
-                            <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>
-                              {item.descricao}
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            {item.imagemUrl && (
+                              <img
+                                src={item.imagemUrl}
+                                alt=""
+                                style={{ width: "36px", height: "36px", objectFit: "cover", borderRadius: "6px", flexShrink: 0 }}
+                              />
+                            )}
+                            <div>
+                              {item.nome} {!item.ativo && <span className="texto-secundario">(desativado)</span>}
+                              {item.descricao && (
+                                <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+                                  {item.descricao}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </td>
                         <td>{formatarPreco(item.precoCentavos)}</td>
                         <td style={{ fontSize: "0.8rem" }}>

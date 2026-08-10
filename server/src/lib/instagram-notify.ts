@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/client.js";
-import { instagramConnections, mensagens } from "../db/schema/index.js";
+import { instagramConnections, mensagens, type Mensagem } from "../db/schema/index.js";
 import { env } from "../config/env.js";
 import { decrypt } from "./crypto.js";
 import { enviarMensagemInstagram, InstagramAuthError } from "./instagram-api.js";
@@ -35,16 +35,22 @@ export interface EnviarRespostaDoAgenteParams {
   igSenderId: string;
   conversaId: string;
   texto: string;
+  // Doc 31 - true quando quem escreveu foi um funcionario/dono respondendo pelo
+  // painel (nao o agente de IA). So muda o que fica gravado no historico da mensagem
+  // (mesmo campo ja usado pra distinguir resposta humana via Meta Business Suite).
+  enviadoPorHumano?: boolean;
 }
 
 // Ponto unico de saida pro Instagram, usado tanto apos um turno do agente quanto apos
-// uma reserva criada pela pagina publica (/reservar/:token). Decifra o token da
-// unidade, envia, e registra a mensagem no historico (papel "assistant") pra manter a
-// conversa consistente independente de quem/o que gerou a resposta.
-export async function enviarRespostaDoAgente(db: Database, params: EnviarRespostaDoAgenteParams): Promise<void> {
+// uma reserva criada pela pagina publica (/reservar/:token) quanto por uma resposta
+// manual do dono/funcionario pelo painel (doc 31). Decifra o token da unidade, envia,
+// e registra a mensagem no historico (papel "assistant") pra manter a conversa
+// consistente independente de quem/o que gerou a resposta. Lanca (nao retorna null)
+// quando a conexao nao existe/o envio falha, pra callers que precisam saber - os dois
+// callers "best-effort" (agente e confirmacao de reserva) ja tratam isso undefined-safe.
+export async function enviarRespostaDoAgente(db: Database, params: EnviarRespostaDoAgenteParams): Promise<Mensagem> {
   if (!env.TOKEN_ENCRYPTION_KEY) {
-    console.error("[instagram] TOKEN_ENCRYPTION_KEY nao configurada - mensagem gerada mas nao enviada");
-    return;
+    throw new Error("[instagram] TOKEN_ENCRYPTION_KEY nao configurada - mensagem nao pode ser enviada");
   }
 
   const conexao = params.unidadeId
@@ -53,8 +59,7 @@ export async function enviarRespostaDoAgente(db: Database, params: EnviarRespost
       ? await buscarConexaoCompartilhadaDaEmpresa(db, params.empresaId)
       : null;
   if (!conexao) {
-    console.error(`[instagram] nenhuma conexao ativa para ${params.unidadeId ? `a unidade ${params.unidadeId}` : `a empresa ${params.empresaId}`}`);
-    return;
+    throw new Error(`[instagram] nenhuma conexao ativa para ${params.unidadeId ? `a unidade ${params.unidadeId}` : `a empresa ${params.empresaId}`}`);
   }
 
   const accessToken = decrypt(conexao.accessTokenEncrypted, env.TOKEN_ENCRYPTION_KEY);
@@ -79,10 +84,15 @@ export async function enviarRespostaDoAgente(db: Database, params: EnviarRespost
     marcarComoEnviadoPeloAgente(igMessageId);
   }
 
-  await db.insert(mensagens).values({
-    conversaId: params.conversaId,
-    papel: "assistant",
-    conteudo: params.texto,
-    igMessageId: igMessageId || null,
-  });
+  const [mensagem] = await db
+    .insert(mensagens)
+    .values({
+      conversaId: params.conversaId,
+      papel: "assistant",
+      conteudo: params.texto,
+      igMessageId: igMessageId || null,
+      enviadoPorHumano: params.enviadoPorHumano ?? false,
+    })
+    .returning();
+  return mensagem;
 }

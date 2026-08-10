@@ -85,3 +85,23 @@ export const api = {
     apiFetch<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
 };
+
+// Upload multipart (ex: foto de produto do cardapio) - sem o Content-Type: application/json
+// que apiFetch sempre injeta, pra o navegador setar o boundary correto do multipart sozinho.
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_URL}${path}`, { method: "POST", body: formData, headers });
+
+  if (res.status === 401) {
+    onUnauthorized?.();
+  }
+
+  if (!res.ok) {
+    const corpo = await res.json().catch(() => ({}));
+    throw new ApiError(corpo.error ?? `Erro na requisicao (${res.status})`, res.status);
+  }
+  return res.json() as Promise<T>;
+}

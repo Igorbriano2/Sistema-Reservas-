@@ -1,13 +1,31 @@
 import { Router } from "express";
+import multer from "multer";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import { cardapioCategorias, cardapioItens } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
-import { RecursoNaoEncontradoError } from "../../lib/errors.js";
+import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { validarCategoriaDaUnidade } from "../../lib/cardapio-helpers.js";
 
 export const cardapioRouter = Router({ mergeParams: true });
+
+// Doc 32 - upload autohospedado da foto do produto. Guarda em memoria (nao em disco:
+// o App Platform e efemero e perderia o arquivo no proximo deploy) so pra converter
+// pra base64 e gravar no Postgres logo em seguida. 3MB cobre uma foto de produto com
+// folga sem deixar o payload/coluna descontrolado.
+const TIPOS_IMAGEM_ACEITOS = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const uploadImagem = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!TIPOS_IMAGEM_ACEITOS.has(file.mimetype)) {
+      cb(new RequisicaoInvalidaError("Formato de imagem nao suportado. Use JPG, PNG, WEBP ou GIF."));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
 // "cardapio_itens" nao tem unidade_id direto (so categoria_id) - esta subquery deixa
 // o UPDATE/DELETE abaixo filtrar por unidade no MESMO where do SELECT que ja confirma
@@ -153,6 +171,38 @@ cardapioRouter.patch(
       .where(and(eq(cardapioItens.id, req.params.itemId), inArray(cardapioItens.categoriaId, categoriaIdsDaUnidade(req.unidadeId!))))
       .returning();
     if (!item) throw new RecursoNaoEncontradoError("Item nao encontrado");
+    res.json(item);
+  }),
+);
+
+// Doc 32 - upload da foto do produto: grava os bytes em base64 direto no Postgres e
+// aponta imagemUrl pra rota publica que os serve (GET /public/cardapio/imagem/:itemId),
+// construida a partir do host da propria requisicao (sem depender de env var nova, ja
+// que API e web sao dois apps/dominios separados no App Platform).
+cardapioRouter.post(
+  "/itens/:itemId/imagem",
+  uploadImagem.single("imagem"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw new RequisicaoInvalidaError("Envie um arquivo de imagem no campo 'imagem'.");
+
+    const [itemAtual] = await db
+      .select({ id: cardapioItens.id })
+      .from(cardapioItens)
+      .innerJoin(cardapioCategorias, eq(cardapioItens.categoriaId, cardapioCategorias.id))
+      .where(and(eq(cardapioItens.id, req.params.itemId), eq(cardapioCategorias.unidadeId, req.unidadeId!)))
+      .limit(1);
+    if (!itemAtual) throw new RecursoNaoEncontradoError("Item nao encontrado");
+
+    const imagemUrl = `${req.protocol}://${req.get("host")}/public/cardapio/imagem/${req.params.itemId}`;
+    const [item] = await db
+      .update(cardapioItens)
+      .set({
+        imagemUrl,
+        imagemDados: req.file.buffer.toString("base64"),
+        imagemMimeType: req.file.mimetype,
+      })
+      .where(and(eq(cardapioItens.id, req.params.itemId), inArray(cardapioItens.categoriaId, categoriaIdsDaUnidade(req.unidadeId!))))
+      .returning();
     res.json(item);
   }),
 );

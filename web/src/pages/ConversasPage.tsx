@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import {
   definirAgentePausado,
+  enviarMensagemConversa,
   listarConversas,
   listarMensagensDaConversa,
   obterConexaoInstagram,
@@ -108,6 +109,9 @@ export function ConversasPage() {
   const [carregandoMensagens, setCarregandoMensagens] = useState(false);
   const [reativando, setReativando] = useState(false);
 
+  const [textoResposta, setTextoResposta] = useState("");
+  const [enviandoResposta, setEnviandoResposta] = useState(false);
+
   async function carregar() {
     if (!unidade) return;
     setCarregando(true);
@@ -129,6 +133,7 @@ export function ConversasPage() {
   async function abrirConversa(conversa: Conversa) {
     if (!unidade) return;
     setConversaAberta(conversa);
+    setTextoResposta("");
     setCarregandoMensagens(true);
     try {
       setMensagens(await listarMensagensDaConversa(unidade.id, conversa.id));
@@ -136,6 +141,26 @@ export function ConversasPage() {
       setErro(err instanceof ApiError ? err.message : "Não foi possível carregar as mensagens.");
     } finally {
       setCarregandoMensagens(false);
+    }
+  }
+
+  async function enviarResposta(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!unidade || !conversaAberta || !textoResposta.trim()) return;
+    setEnviandoResposta(true);
+    setErro(null);
+    try {
+      const mensagem = await enviarMensagemConversa(unidade.id, conversaAberta.id, textoResposta.trim());
+      setMensagens((lista) => [...lista, mensagem]);
+      setTextoResposta("");
+      // Enviar pausa o agente automaticamente no backend - reflete isso aqui tambem,
+      // sem precisar recarregar a lista inteira so pra atualizar um badge.
+      setConversaAberta((atual) => (atual ? { ...atual, agentPaused: true } : atual));
+      setConversas((lista) => lista.map((c) => (c.id === conversaAberta.id ? { ...c, agentPaused: true } : c)));
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Não foi possível enviar a resposta.");
+    } finally {
+      setEnviandoResposta(false);
     }
   }
 
@@ -251,6 +276,24 @@ export function ConversasPage() {
               ))}
             </div>
           )}
+          <form onSubmit={enviarResposta} style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+            <textarea
+              value={textoResposta}
+              onChange={(e) => setTextoResposta(e.target.value)}
+              placeholder="Escreva a resposta e envie direto pro Instagram do cliente..."
+              rows={2}
+              style={{ flex: 1, resize: "vertical" }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                }
+              }}
+            />
+            <button className="btn" type="submit" disabled={enviandoResposta || !textoResposta.trim()} style={{ alignSelf: "flex-end" }}>
+              {enviandoResposta ? "Enviando..." : "Enviar"}
+            </button>
+          </form>
         </div>
       )}
     </div>
