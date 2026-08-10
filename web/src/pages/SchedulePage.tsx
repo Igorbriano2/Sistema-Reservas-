@@ -3,11 +3,14 @@ import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import {
   atualizarRegraHorario,
+  criarExcecaoHorario,
   criarRegraHorario,
+  excluirExcecaoHorario,
   excluirRegraHorario,
+  listarExcecoesHorario,
   listarRegrasHorario,
 } from "../api/resources.js";
-import type { RegraHorario } from "../types.js";
+import type { ExcecaoHorario, RegraHorario } from "../types.js";
 
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -87,13 +90,19 @@ export function SchedulePage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [formEdicao, setFormEdicao] = useState<FormState>(FORM_VAZIO);
 
+  const [excecoes, setExcecoes] = useState<ExcecaoHorario[]>([]);
+  const [formExcecao, setFormExcecao] = useState({ data: "", nome: "", fechado: false });
+  const [salvandoExcecao, setSalvandoExcecao] = useState(false);
+  const [erroExcecao, setErroExcecao] = useState<string | null>(null);
+
   async function carregar() {
     if (!unidade) return;
     setCarregando(true);
     setErro(null);
     try {
-      const lista = await listarRegrasHorario(unidade.id);
+      const [lista, listaExcecoes] = await Promise.all([listarRegrasHorario(unidade.id), listarExcecoesHorario(unidade.id)]);
       setRegras(lista);
+      setExcecoes(listaExcecoes);
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Não foi possível carregar os horários.");
     } finally {
@@ -105,6 +114,38 @@ export function SchedulePage() {
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unidade?.id]);
+
+  async function salvarExcecao(e: React.FormEvent) {
+    e.preventDefault();
+    if (!unidade || !formExcecao.data) return;
+    setSalvandoExcecao(true);
+    setErroExcecao(null);
+    try {
+      await criarExcecaoHorario(unidade.id, {
+        data: formExcecao.data,
+        nome: formExcecao.nome.trim() || undefined,
+        fechado: formExcecao.fechado,
+      });
+      setFormExcecao({ data: "", nome: "", fechado: false });
+      await carregar();
+    } catch (err) {
+      setErroExcecao(err instanceof ApiError ? err.message : "Não foi possível cadastrar a data especial.");
+    } finally {
+      setSalvandoExcecao(false);
+    }
+  }
+
+  async function excluirExcecao(excecao: ExcecaoHorario) {
+    if (!unidade) return;
+    if (!confirm(`Remover a data especial ${excecao.data.split("-").reverse().join("/")}${excecao.nome ? ` (${excecao.nome})` : ""}?`))
+      return;
+    try {
+      await excluirExcecaoHorario(unidade.id, excecao.id);
+      await carregar();
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Não foi possível remover a data especial.");
+    }
+  }
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
@@ -414,6 +455,78 @@ export function SchedulePage() {
                 )}
             </tbody>
           </table>
+          </div>
+        )}
+      </div>
+
+      <div className="cartao">
+        <h3 style={{ marginTop: 0 }}>Feriados e datas especiais</h3>
+        <p className="texto-secundario" style={{ fontSize: "0.85rem", marginTop: 0 }}>
+          Cadastre feriados municipais e outras datas fora do padrão. Feriados nacionais já são reconhecidos
+          automaticamente. Toda data aqui — mesmo sem marcar "fechado" — passa a contar como feriado para o cálculo
+          do valor do rodízio (dia útil x fim de semana/feriado) quando o agente responder o cliente.
+        </p>
+        <form onSubmit={salvarExcecao}>
+          <div className="linha-form">
+            <label>
+              Data
+              <input type="date" value={formExcecao.data} onChange={(e) => setFormExcecao({ ...formExcecao, data: e.target.value })} required />
+            </label>
+            <label>
+              Nome (opcional)
+              <input
+                value={formExcecao.nome}
+                onChange={(e) => setFormExcecao({ ...formExcecao, nome: e.target.value })}
+                placeholder="Ex: Aniversário da cidade"
+              />
+            </label>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <input
+              type="checkbox"
+              checked={formExcecao.fechado}
+              onChange={(e) => setFormExcecao({ ...formExcecao, fechado: e.target.checked })}
+            />
+            A loja fica fechada nesse dia
+          </label>
+          {erroExcecao && <p className="erro">{erroExcecao}</p>}
+          <button className="btn" type="submit" disabled={salvandoExcecao}>
+            {salvandoExcecao ? "Salvando..." : "Adicionar data especial"}
+          </button>
+        </form>
+
+        {excecoes.length === 0 ? (
+          <p className="texto-secundario" style={{ marginTop: "1rem" }}>
+            Nenhuma data especial cadastrada.
+          </p>
+        ) : (
+          <div className="tabela-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Nome</th>
+                  <th>Situação</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...excecoes]
+                  .sort((a, b) => a.data.localeCompare(b.data))
+                  .map((excecao) => (
+                    <tr key={excecao.id}>
+                      <td>{excecao.data.split("-").reverse().join("/")}</td>
+                      <td>{excecao.nome ?? "-"}</td>
+                      <td>{excecao.fechado ? "Fechado" : "Aberto (feriado p/ preço)"}</td>
+                      <td>
+                        <button className="btn btn-perigo" onClick={() => excluirExcecao(excecao)}>
+                          Remover
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

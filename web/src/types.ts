@@ -198,6 +198,19 @@ export interface RegraHorario {
   valorDepositoCentavos: number | null;
 }
 
+// Feriado/data especial (doc 26) - fechamento pontual, horario excepcional e/ou (o
+// caso mais comum) uma data que passa a contar como feriado municipal no calculo do
+// valor do rodizio (ver check_rodizio_price), mesmo continuando aberta normalmente.
+export interface ExcecaoHorario {
+  id: string;
+  unidadeId: string;
+  data: string;
+  nome: string | null;
+  fechado: boolean;
+  horaAbertura: string | null;
+  horaFechamento: string | null;
+}
+
 export interface Bloqueio {
   id: string;
   unidadeId: string;

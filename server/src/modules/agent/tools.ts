@@ -88,6 +88,21 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "check_rodizio_price",
+    description:
+      "Consulta o valor do rodizio (adulto e crianca) para uma data especifica, ja considerando se e dia " +
+      "util, fim de semana, feriado (nacional ou municipal) ou vespera de feriado - a data certa e o " +
+      "calendario de feriados NUNCA devem ser calculados por voce, sempre use esta tool. Use quando o " +
+      "cliente perguntar quanto custa o rodizio, especialmente se mencionar um dia especifico (ex: 'quanto " +
+      "custa no sabado', 'e se eu for no feriado'). Se nenhuma data for informada, considera hoje.",
+    input_schema: {
+      type: "object",
+      properties: {
+        data: { type: "string", description: "Data no formato YYYY-MM-DD (opcional; se omitido, usa hoje)" },
+      },
+    },
+  },
+  {
     name: "escalate_to_human",
     description:
       "Encaminha a conversa para um atendente humano e pausa as respostas automaticas. Use quando " +

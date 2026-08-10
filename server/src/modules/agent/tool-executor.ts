@@ -4,6 +4,7 @@ import type { Database } from "../../db/client.js";
 import { cardapioCategorias, cardapioItens, conversas, unidades } from "../../db/schema/index.js";
 import { verificarDisponibilidade } from "../../lib/availability.js";
 import { agoraNoFuso } from "../../lib/time.js";
+import { resolverTierDoRodizio } from "../../lib/feriados.js";
 import { atualizarReservaDoCliente, buscarReservasDoCliente, cancelarReservaDoCliente } from "../../lib/reservations.js";
 import { AppError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { env } from "../../config/env.js";
@@ -212,6 +213,57 @@ async function getMenu(db: Database, ctx: AgentContext): Promise<ToolResultado> 
   return { output: { cardapio_disponivel: true, categorias } };
 }
 
+const TAG_ADULTO_DIA_UTIL = "rodizio_adulto_dia_util";
+const TAG_ADULTO_FIM_DE_SEMANA = "rodizio_adulto_fim_de_semana_feriado";
+const TAG_CRIANCA_DIA_UTIL = "rodizio_crianca_dia_util";
+const TAG_CRIANCA_FIM_DE_SEMANA = "rodizio_crianca_fim_de_semana_feriado";
+
+function formatarPreco(centavos: number): string {
+  return `R$ ${(centavos / 100).toFixed(2).replace(".", ",")}`;
+}
+
+// Doc 26: o valor do rodizio muda por dia (dia util x fim de semana/feriado, incluindo
+// vespera de feriado e feriado municipal) - em vez do modelo tentar calcular isso
+// sozinho (data e calendario de feriado nao sao coisa que ele deva "adivinhar", ver
+// REGRAS_FIXAS_DO_MASTER), esta tool resolve o dia certo no backend e devolve so o
+// preco ja aplicavel, buscado nos itens do cardapio marcados com a tag correspondente
+// (ver cardapio.routes.ts / tela de cardapio - tags "rodizio_adulto_dia_util" etc.).
+async function checkRodizioPrice(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
+  const unidadeId = unidadeResolvida(ctx);
+  const { data } = z.object({ data: dataSchema.optional() }).parse(input ?? {});
+
+  const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
+  const dataAlvo = data ?? agoraNoFuso(unidadeRow?.timezone ?? "America/Sao_Paulo").data;
+
+  const { tier, motivo } = await resolverTierDoRodizio(db, unidadeId, dataAlvo);
+  const tagAdulto = tier === "dia_util" ? TAG_ADULTO_DIA_UTIL : TAG_ADULTO_FIM_DE_SEMANA;
+  const tagCrianca = tier === "dia_util" ? TAG_CRIANCA_DIA_UTIL : TAG_CRIANCA_FIM_DE_SEMANA;
+
+  const itens = await db
+    .select({ nome: cardapioItens.nome, precoCentavos: cardapioItens.precoCentavos, tags: cardapioItens.tags })
+    .from(cardapioItens)
+    .innerJoin(cardapioCategorias, eq(cardapioItens.categoriaId, cardapioCategorias.id))
+    .where(and(eq(cardapioCategorias.unidadeId, unidadeId), eq(cardapioItens.ativo, true)));
+
+  const itemAdulto = itens.find((i) => (i.tags ?? []).includes(tagAdulto));
+  const itemCrianca = itens.find((i) => (i.tags ?? []).includes(tagCrianca));
+
+  if (!itemAdulto) {
+    return { output: { rodizio_configurado: false, erro: "Nao ha preco de rodizio configurado no cardapio desta unidade" }, isError: true };
+  }
+
+  return {
+    output: {
+      rodizio_configurado: true,
+      data: dataAlvo,
+      dia_util_ou_fim_de_semana: tier,
+      motivo,
+      preco_adulto: formatarPreco(itemAdulto.precoCentavos),
+      preco_crianca: itemCrianca ? formatarPreco(itemCrianca.precoCentavos) : null,
+    },
+  };
+}
+
 // Doc 17, parte 4: so chamada quando ctx.unidadeId ainda e nulo (conexao
 // compartilhada, unidade ainda nao resolvida). Valida que o id escolhido pertence
 // MESMO a empresa da conversa antes de gravar - o modelo recebe a lista de unidades
@@ -263,6 +315,8 @@ export async function executarTool(
         return await checkReservationStatus(db, ctx);
       case "get_menu":
         return await getMenu(db, ctx);
+      case "check_rodizio_price":
+        return await checkRodizioPrice(db, ctx, input);
       case "escalate_to_human":
         return await escalateToHuman(db, ctx, input);
       case "resolver_unidade_da_conversa":

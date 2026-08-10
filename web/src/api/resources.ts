@@ -4,6 +4,7 @@ import type {
   Bloqueio,
   CardapioCategoria,
   CardapioItem,
+  ExcecaoHorario,
   Feedback,
   FilaEsperaEntrada,
   FilaEsperaStatus,
@@ -232,6 +233,27 @@ export function atualizarRegraHorario(unidadeId: string, regraId: string, dados:
 
 export function excluirRegraHorario(unidadeId: string, regraId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/regras-horario/${regraId}`);
+}
+
+// Feriados e datas especiais (doc 26).
+export function listarExcecoesHorario(unidadeId: string) {
+  return api.get<ExcecaoHorario[]>(`/admin/unidades/${unidadeId}/excecoes-horario`);
+}
+
+export interface DadosExcecaoHorario {
+  data: string;
+  nome?: string;
+  fechado?: boolean;
+  horaAbertura?: string;
+  horaFechamento?: string;
+}
+
+export function criarExcecaoHorario(unidadeId: string, dados: DadosExcecaoHorario) {
+  return api.post<ExcecaoHorario>(`/admin/unidades/${unidadeId}/excecoes-horario`, dados);
+}
+
+export function excluirExcecaoHorario(unidadeId: string, excecaoId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/excecoes-horario/${excecaoId}`);
 }
 
 // Fila de espera de walk-in (doc 20).

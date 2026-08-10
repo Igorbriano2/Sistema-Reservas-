@@ -7,6 +7,7 @@ import { saloesRouter } from "./saloes.routes.js";
 import { mesasRouter } from "./mesas.routes.js";
 import { salaoElementosRouter } from "./salao-elementos.routes.js";
 import { regrasHorarioRouter } from "./regras-horario.routes.js";
+import { excecoesHorarioRouter } from "./excecoes-horario.routes.js";
 import { availabilityRouter } from "./availability.routes.js";
 import { reservationsRouter } from "./reservations.routes.js";
 import { bloqueiosRouter } from "./bloqueios.routes.js";
@@ -65,6 +66,7 @@ unidadeRouter.use("/saloes", requirePermissaoUnidade("editar_salao"), saloesRout
 unidadeRouter.use("/mesas", requirePermissaoUnidade("editar_salao"), mesasRouter);
 unidadeRouter.use("/salao-elementos", requirePermissaoUnidade("editar_salao"), salaoElementosRouter);
 unidadeRouter.use("/regras-horario", requirePermissaoUnidade("editar_salao"), regrasHorarioRouter);
+unidadeRouter.use("/excecoes-horario", requirePermissaoUnidade("editar_salao"), excecoesHorarioRouter);
 unidadeRouter.use("/bloqueios", requirePermissaoUnidade("editar_salao"), bloqueiosRouter);
 unidadeRouter.use("/relatorios", requirePermissaoUnidade("ver_relatorios"), relatoriosRouter);
 unidadeRouter.use("/cardapio", requirePermissaoUnidade("editar_cardapio"), cardapioRouter);

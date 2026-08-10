@@ -1,0 +1,1 @@
+ALTER TABLE "excecoes_horario" ADD COLUMN "nome" text;

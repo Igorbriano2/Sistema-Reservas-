@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.js";
-import { cardapioCategorias, cardapioItens, conversas } from "../src/db/schema/index.js";
+import { cardapioCategorias, cardapioItens, conversas, excecoesHorario } from "../src/db/schema/index.js";
 import { AGENT_TOOLS } from "../src/modules/agent/tools.js";
 import { executarTool } from "../src/modules/agent/tool-executor.js";
 import { decodificarTokenDeReserva } from "../src/lib/reservation-link.js";
@@ -286,6 +286,67 @@ describe("Tools do agente - get_menu (doc 18)", () => {
 
     const resultado = await executarTool(db, ctx, "get_menu", {});
     expect(resultado.isError).toBe(true);
+  });
+});
+
+describe("Tools do agente - check_rodizio_price (doc 26)", () => {
+  async function criarCardapioDeRodizio(unidadeId: string) {
+    const [categoria] = await db.insert(cardapioCategorias).values({ unidadeId, nome: "Rodizio" }).returning();
+    await db.insert(cardapioItens).values([
+      { categoriaId: categoria.id, nome: "Adulto seg-qui", precoCentavos: 5990, tags: ["rodizio_adulto_dia_util"] },
+      { categoriaId: categoria.id, nome: "Adulto sex-dom-feriado", precoCentavos: 6990, tags: ["rodizio_adulto_fim_de_semana_feriado"] },
+      { categoriaId: categoria.id, nome: "Crianca seg-qui", precoCentavos: 2990, tags: ["rodizio_crianca_dia_util"] },
+      { categoriaId: categoria.id, nome: "Crianca sex-dom-feriado", precoCentavos: 3490, tags: ["rodizio_crianca_fim_de_semana_feriado"] },
+    ]);
+  }
+
+  it("erro quando o cardapio nao tem item de rodizio marcado com as tags esperadas", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "check_rodizio_price", { data: "2026-08-10" });
+    expect(resultado.isError).toBe(true);
+  });
+
+  it("segunda-feira: devolve o preco de dia util", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    await criarCardapioDeRodizio(unidade.id);
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "check_rodizio_price", { data: "2026-08-10" });
+    const output = resultado.output as { dia_util_ou_fim_de_semana: string; preco_adulto: string; preco_crianca: string };
+    expect(output.dia_util_ou_fim_de_semana).toBe("dia_util");
+    expect(output.preco_adulto).toBe("R$ 59,90");
+    expect(output.preco_crianca).toBe("R$ 29,90");
+  });
+
+  it("sabado: devolve o preco de fim de semana/feriado", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    await criarCardapioDeRodizio(unidade.id);
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "check_rodizio_price", { data: "2026-08-15" });
+    const output = resultado.output as { dia_util_ou_fim_de_semana: string; preco_adulto: string; preco_crianca: string };
+    expect(output.dia_util_ou_fim_de_semana).toBe("fim_de_semana_feriado");
+    expect(output.preco_adulto).toBe("R$ 69,90");
+    expect(output.preco_crianca).toBe("R$ 34,90");
+  });
+
+  it("feriado municipal cadastrado (dia de semana) tambem usa o preco de fim de semana/feriado", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    await criarCardapioDeRodizio(unidade.id);
+    await db.insert(excecoesHorario).values({ unidadeId: unidade.id, data: "2026-08-11", nome: "Aniversario da cidade" });
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "check_rodizio_price", { data: "2026-08-11" });
+    const output = resultado.output as { dia_util_ou_fim_de_semana: string; motivo: string; preco_adulto: string };
+    expect(output.dia_util_ou_fim_de_semana).toBe("fim_de_semana_feriado");
+    expect(output.motivo).toContain("Aniversario da cidade");
+    expect(output.preco_adulto).toBe("R$ 69,90");
   });
 });
 
