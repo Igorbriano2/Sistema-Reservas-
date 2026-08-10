@@ -1,14 +1,17 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { db } from "../src/db/client.js";
+import { regrasHorario } from "../src/db/schema/index.js";
 import { verificarDisponibilidade } from "../src/lib/availability.js";
 import { agoraNoFuso, paraHora } from "../src/lib/time.js";
+import { gerarTokenDeReserva } from "../src/lib/reservation-link.js";
 import { executarTool } from "../src/modules/agent/tool-executor.js";
 import type { AgentContext } from "../src/modules/agent/context.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
 import { login } from "./helpers/auth.js";
-import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
+import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarSalao, criarSalaoSimples } from "./helpers/fixtures.js";
 
 const app = createApp();
 
@@ -206,5 +209,104 @@ describe("verificarDisponibilidade - reserva perto do fechamento (doc 25: bug co
     });
     expect(resultado.disponivel).toBe(false);
     expect(resultado.motivo).toMatch(/fora do horario/i);
+  });
+});
+
+describe("horarios fixos por turno (doc 28 - ex: Cervegela so aceita reserva as 19h)", () => {
+  it("admin cria uma regra com horariosFixos, e reserva PUBLICA fora desses horarios e recusada", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    await criarSalaoSimples(unidade.id, 200);
+    await criarRegraHorarioTodosOsDias(unidade.id, {
+      horaAbertura: "17:00",
+      horaFechamento: "23:00",
+    });
+    await db
+      .update(regrasHorario)
+      .set({ horariosFixos: ["19:00"] })
+      .where(eq(regrasHorario.unidadeId, unidade.id));
+
+    const noHorarioFixo = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-11-20",
+      hora: "19:00",
+      numPessoas: 4,
+      respeitarHorariosFixos: true,
+    });
+    expect(noHorarioFixo.disponivel).toBe(true);
+
+    const foraDoHorarioFixo = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-11-20",
+      hora: "20:00",
+      numPessoas: 4,
+      respeitarHorariosFixos: true,
+    });
+    expect(foraDoHorarioFixo.disponivel).toBe(false);
+    expect(foraDoHorarioFixo.motivo).toMatch(/19:00/);
+  });
+
+  it("sem respeitarHorariosFixos (fluxo do painel admin), horariosFixos e ignorado - dono pode reservar manualmente a qualquer horario da janela", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    await criarSalaoSimples(unidade.id, 200);
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "17:00", horaFechamento: "23:00" });
+    await db.update(regrasHorario).set({ horariosFixos: ["19:00"] }).where(eq(regrasHorario.unidadeId, unidade.id));
+
+    const resultado = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-11-20",
+      hora: "20:00",
+      numPessoas: 4,
+    });
+    expect(resultado.disponivel).toBe(true);
+  });
+
+  it("tool check_availability do agente respeita horarios fixos (nunca oferece um horario que o link publico vai recusar)", async () => {
+    const { unidade, empresa } = await criarEmpresaComAdmin();
+    await criarSalaoSimples(unidade.id, 200);
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "17:00", horaFechamento: "23:00" });
+    await db.update(regrasHorario).set({ horariosFixos: ["19:00"] }).where(eq(regrasHorario.unidadeId, unidade.id));
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+    const resultado = await executarTool(db, ctx, "check_availability", {
+      data: "2026-11-20",
+      hora: "20:00",
+      num_pessoas: 4,
+    });
+    expect((resultado.output as { disponivel: boolean }).disponivel).toBe(false);
+  });
+
+  it("POST /:token/reservations recusa reserva fora do horario fixo (fluxo modo simples, o caso real da Cervegela)", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    await criarSalaoSimples(unidade.id, 200);
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "17:00", horaFechamento: "23:00" });
+    await db.update(regrasHorario).set({ horariosFixos: ["19:00"] }).where(eq(regrasHorario.unidadeId, unidade.id));
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+
+    const fora = await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-11-20",
+      horaInicio: "20:00",
+      numPessoas: 4,
+      clienteNome: "Cliente Teste",
+    });
+    expect(fora.status).toBeGreaterThanOrEqual(400);
+
+    const noHorario = await request(app).post(`/public/reservation-link/${token}/reservations`).send({
+      data: "2026-11-20",
+      horaInicio: "19:00",
+      numPessoas: 4,
+      clienteNome: "Cliente Teste",
+    });
+    expect(noHorario.status).toBe(201);
+  });
+
+  it("rejeita cadastrar horario fixo fora da janela de abertura/fechamento do turno", async () => {
+    const { unidade, token } = await setup();
+
+    const resposta = await request(app)
+      .post(`/admin/unidades/${unidade.id}/regras-horario`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ diaSemana: 1, horaAbertura: "17:00", horaFechamento: "23:00", horariosFixos: ["10:00"] });
+    expect(resposta.status).toBe(400);
   });
 });

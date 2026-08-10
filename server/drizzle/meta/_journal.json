@@ -211,6 +211,13 @@
       "when": 1786365469551,
       "tag": "0029_add_contato_urgencia_unidades",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1786366664655,
+      "tag": "0030_add_horarios_fixos_regras_horario",
+      "breakpoints": true
     }
   ]
 }

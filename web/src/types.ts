@@ -201,6 +201,10 @@ export interface RegraHorario {
   // PUBLICA nesse turno (reserva manual pelo painel nunca exige).
   exigeDeposito: boolean;
   valorDepositoCentavos: number | null;
+  // Horarios fixos (doc 28) - quando preenchido, a reserva PUBLICA (link do agente,
+  // widget) so aceita esses horarios de inicio (ex.: ["19:00"]). Vazio/nulo = qualquer
+  // horario dentro da janela abertura/fechamento.
+  horariosFixos: string[] | null;
 }
 
 // Feriado/data especial (doc 26) - fechamento pontual, horario excepcional e/ou (o

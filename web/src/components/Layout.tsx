@@ -178,6 +178,7 @@ const NAV: EntradaDeNav[] = [
       { to: "/admin/reservas", label: "Reservas", icone: <IconeReservas />, operacao: true },
       { to: "/admin/fila-espera", label: "Fila de espera", icone: <IconeFilaEspera />, operacao: true },
       { to: "/admin/mesas", label: "Salão / Mesas", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeMesas />, operacao: true },
+      { to: "/admin/bloqueios", label: "Bloqueios", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeBloqueios /> },
     ],
   },
   { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
@@ -188,7 +189,6 @@ const NAV: EntradaDeNav[] = [
     itens: [
       { to: "/admin/horarios", label: "Horários", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeHorarios /> },
       { to: "/admin/cardapio", label: "Cardápio", permissao: { valor: "editar_cardapio", escopo: "unidade" }, icone: <IconeCardapio /> },
-      { to: "/admin/bloqueios", label: "Bloqueios", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeBloqueios /> },
     ],
   },
   { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },

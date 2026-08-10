@@ -25,6 +25,9 @@ interface FormState {
   descontoPercentual: string;
   exigeDeposito: boolean;
   valorDeposito: string;
+  // Horarios fixos (doc 28) - texto bruto com horarios separados por virgula (ex:
+  // "19:00" ou "12:00, 19:00"), convertido pra lista so na hora de enviar.
+  horariosFixos: string;
 }
 
 const FORM_VAZIO: FormState = {
@@ -38,6 +41,7 @@ const FORM_VAZIO: FormState = {
   descontoPercentual: "",
   exigeDeposito: false,
   valorDeposito: "",
+  horariosFixos: "",
 };
 
 function regraParaForm(regra: RegraHorario): FormState {
@@ -52,10 +56,15 @@ function regraParaForm(regra: RegraHorario): FormState {
     descontoPercentual: regra.descontoPercentual != null ? String(regra.descontoPercentual) : "",
     exigeDeposito: regra.exigeDeposito,
     valorDeposito: regra.valorDepositoCentavos != null ? (regra.valorDepositoCentavos / 100).toFixed(2) : "",
+    horariosFixos: regra.horariosFixos && regra.horariosFixos.length > 0 ? regra.horariosFixos.map((h) => h.slice(0, 5)).join(", ") : "",
   };
 }
 
 function formParaDados(form: FormState) {
+  const horariosFixos = form.horariosFixos
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean);
   return {
     diaSemana: form.diaSemana,
     nome: form.nome.trim() || undefined,
@@ -67,6 +76,7 @@ function formParaDados(form: FormState) {
     descontoPercentual: form.descontoPercentual ? Number(form.descontoPercentual) : undefined,
     exigeDeposito: form.exigeDeposito,
     valorDepositoCentavos: form.valorDeposito ? Math.round(Number(form.valorDeposito.replace(",", ".")) * 100) : undefined,
+    horariosFixos: horariosFixos.length > 0 ? horariosFixos : null,
   };
 }
 
@@ -283,6 +293,18 @@ export function SchedulePage() {
               />
             </label>
           )}
+          <label style={{ marginBottom: "0.75rem" }}>
+            Horários fixos (opcional)
+            <input
+              value={form.horariosFixos}
+              onChange={(e) => setForm({ ...form, horariosFixos: e.target.value })}
+              placeholder="Ex: 19:00 (deixe em branco para aceitar qualquer horário no turno)"
+            />
+            <span className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+              Separe vários horários por vírgula. Quando preenchido, a reserva feita pelo cliente (link/agente) só
+              aceita esses horários exatos — reserva manual pelo painel continua livre.
+            </span>
+          </label>
           {erroForm && <p className="erro">{erroForm}</p>}
           <button className="btn" type="submit" disabled={salvando}>
             {salvando ? "Salvando..." : "Adicionar turno"}
@@ -307,6 +329,7 @@ export function SchedulePage() {
                 <th>Antecedência</th>
                 <th>Desconto</th>
                 <th>Depósito</th>
+                <th>Horários fixos</th>
                 <th></th>
               </tr>
             </thead>
@@ -316,7 +339,7 @@ export function SchedulePage() {
                 .map((regra) =>
                   editandoId === regra.id ? (
                     <tr key={regra.id}>
-                      <td colSpan={7}>
+                      <td colSpan={8}>
                         <form onSubmit={salvarEdicao}>
                           <div className="linha-form">
                             <label>
@@ -415,6 +438,14 @@ export function SchedulePage() {
                               />
                             </label>
                           )}
+                          <label style={{ marginBottom: "0.75rem" }}>
+                            Horários fixos (opcional)
+                            <input
+                              value={formEdicao.horariosFixos}
+                              onChange={(e) => setFormEdicao({ ...formEdicao, horariosFixos: e.target.value })}
+                              placeholder="Ex: 19:00"
+                            />
+                          </label>
                           <div className="acoes">
                             <button className="btn" type="submit">
                               Salvar
@@ -438,6 +469,11 @@ export function SchedulePage() {
                       <td>
                         {regra.exigeDeposito && regra.valorDepositoCentavos != null
                           ? (regra.valorDepositoCentavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                          : "-"}
+                      </td>
+                      <td>
+                        {regra.horariosFixos && regra.horariosFixos.length > 0
+                          ? regra.horariosFixos.map((h) => h.slice(0, 5)).join(", ")
                           : "-"}
                       </td>
                       <td>

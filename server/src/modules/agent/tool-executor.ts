@@ -47,7 +47,16 @@ async function checkAvailability(db: Database, ctx: AgentContext, input: unknown
 
   // Tool puramente informativa: nunca cria, reserva ou bloqueia nada. So diz se ha
   // (ou nao) capacidade compativel disponivel para esse horario.
-  const resultado = await verificarDisponibilidade(db, { unidadeId: unidadeResolvida(ctx), data, hora, numPessoas: num_pessoas });
+  const resultado = await verificarDisponibilidade(db, {
+    unidadeId: unidadeResolvida(ctx),
+    data,
+    hora,
+    numPessoas: num_pessoas,
+    // Doc 28 - o agente so oferece link de reserva pro cliente (nunca cria a reserva
+    // direto), entao a resposta aqui precisa respeitar horarios fixos, senao o agente
+    // diz "disponivel" pra um horario que o link publico vai recusar.
+    respeitarHorariosFixos: true,
+  });
 
   return {
     output: {

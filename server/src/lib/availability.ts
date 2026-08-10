@@ -27,9 +27,9 @@ export type ResultadoValidacaoDeJanela = { ok: true; janela: JanelaValidada } | 
 // uma reserva pra um dia fechado ou fora do horario de funcionamento.
 export async function validarJanelaDeFuncionamento(
   db: Queryable,
-  params: { unidadeId: string; data: string; horaInicio: string },
+  params: { unidadeId: string; data: string; horaInicio: string; respeitarHorariosFixos?: boolean },
 ): Promise<ResultadoValidacaoDeJanela> {
-  const { unidadeId, data, horaInicio } = params;
+  const { unidadeId, data, horaInicio, respeitarHorariosFixos } = params;
 
   const [excecao] = await db
     .select()
@@ -69,6 +69,19 @@ export async function validarJanelaDeFuncionamento(
     return { ok: false, motivo: "Fora do horario de funcionamento." };
   }
 
+  // Horarios fixos (doc 28) - so vale pro fluxo PUBLICO (respeitarHorariosFixos=true),
+  // mesmo criterio ja usado por exigeDeposito: reserva manual do dono/funcionario no
+  // painel, ou edicao feita pelo proprio dono, nunca fica presa a essa restricao.
+  const horariosFixos = janela.regra?.horariosFixos;
+  if (respeitarHorariosFixos && horariosFixos && horariosFixos.length > 0) {
+    const horaNormalizada = horaInicio.slice(0, 5);
+    const permitido = horariosFixos.some((h) => h.slice(0, 5) === horaNormalizada);
+    if (!permitido) {
+      const lista = horariosFixos.map((h) => h.slice(0, 5)).join(", ");
+      return { ok: false, motivo: `Reservas neste turno so estao disponiveis nos horarios: ${lista}.` };
+    }
+  }
+
   const duracaoPadraoMin = janela.regra?.duracaoPadraoMin ?? 90;
   const bufferMin = janela.regra?.bufferMin ?? 0;
   const horaFim = somarMinutos(horaInicio, duracaoPadraoMin);
@@ -104,6 +117,10 @@ export interface VerificarDisponibilidadeParams {
   data: string; // YYYY-MM-DD
   hora: string; // HH:MM ou HH:MM:SS
   numPessoas: number;
+  // Horarios fixos (doc 28) - true nos fluxos publicos (link do agente, widget) pra
+  // rejeitar horarios fora da lista configurada no turno. Admin/painel nao passa isso,
+  // mesmo criterio ja usado por exigeDeposito.
+  respeitarHorariosFixos?: boolean;
 }
 
 export interface MesaDisponivel {
@@ -162,7 +179,12 @@ export async function verificarDisponibilidade(
     saloesSimplesDisponiveis: [],
   });
 
-  const validacaoDaJanela = await validarJanelaDeFuncionamento(db, { unidadeId, data, horaInicio });
+  const validacaoDaJanela = await validarJanelaDeFuncionamento(db, {
+    unidadeId,
+    data,
+    horaInicio,
+    respeitarHorariosFixos: params.respeitarHorariosFixos,
+  });
   if (!validacaoDaJanela.ok) {
     return semDisponibilidade(validacaoDaJanela.motivo);
   }

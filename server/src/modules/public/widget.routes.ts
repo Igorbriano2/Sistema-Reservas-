@@ -4,9 +4,9 @@ import { z } from "zod";
 import { db } from "../../db/client.js";
 import { agenteConfig, mesas, salaoElementos, saloes, unidades } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
-import { RecursoNaoEncontradoError } from "../../lib/errors.js";
+import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { criarReserva, criarReservaComMesaAutomatica } from "../../lib/reservations.js";
-import { verificarDisponibilidade } from "../../lib/availability.js";
+import { validarJanelaDeFuncionamento, verificarDisponibilidade } from "../../lib/availability.js";
 import { enviarPushParaUnidade } from "../../lib/push.js";
 import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
 import { env } from "../../config/env.js";
@@ -76,7 +76,13 @@ widgetRouter.get(
     const salaoIds = saloesMapa.map((s) => s.id);
 
     const [disponibilidade, todasMesas, todosElementos] = await Promise.all([
-      verificarDisponibilidade(db, { unidadeId: unidade.id, data: query.data, hora: query.horaInicio, numPessoas: query.numPessoas }),
+      verificarDisponibilidade(db, {
+        unidadeId: unidade.id,
+        data: query.data,
+        hora: query.horaInicio,
+        numPessoas: query.numPessoas,
+        respeitarHorariosFixos: true,
+      }),
       db
         .select({
           id: mesas.id,
@@ -153,6 +159,25 @@ widgetRouter.post(
     if (!unidade) throw new RecursoNaoEncontradoError("Unidade nao encontrada");
 
     const dados = criarReservaWidgetSchema.parse(req.body);
+
+    // Doc 28 - mesmo motivo do link de reserva do agente: criarReserva com mesaId nao
+    // valida horario de funcionamento/horarios fixos por conta propria, entao confere
+    // aqui antes (criarReservaComMesaAutomatica, no outro braco, ja revalida sozinha).
+    // Usa validarJanelaDeFuncionamento (nao verificarDisponibilidade) de proposito: essa
+    // ultima tambem reflete falta de CAPACIDADE (mesa ocupada), que ja tem seu proprio
+    // tratamento (409 ConflitoDeHorarioError) dentro de criarReserva mais abaixo -
+    // misturar os dois faria uma mesa ocupada virar 400 aqui em vez do 409 esperado.
+    if (dados.mesaId) {
+      const janela = await validarJanelaDeFuncionamento(db, {
+        unidadeId: unidade.id,
+        data: dados.data,
+        horaInicio: dados.horaInicio,
+        respeitarHorariosFixos: true,
+      });
+      if (!janela.ok) {
+        throw new RequisicaoInvalidaError(janela.motivo);
+      }
+    }
 
     const reserva = dados.mesaId
       ? await criarReserva(db, {

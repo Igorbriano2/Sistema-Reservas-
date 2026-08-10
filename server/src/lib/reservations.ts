@@ -373,6 +373,7 @@ async function atualizarReservaComCondicoes(
   unidadeId: string,
   condicoesDeIdentidade: SQL[],
   patch: AtualizarReservaParams,
+  respeitarHorariosFixos = false,
 ): Promise<Reserva> {
   return db.transaction(async (tx) => {
     const [atual] = await tx
@@ -417,7 +418,7 @@ async function atualizarReservaComCondicoes(
     // editar so o numero de pessoas ou o nome do cliente, por exemplo, nao precisa
     // reconferir o horario.
     if (!patch.horaFim && (data !== atual.data || horaInicio !== atual.horaInicio)) {
-      const validacaoDaJanela = await validarJanelaDeFuncionamento(tx, { unidadeId, data, horaInicio });
+      const validacaoDaJanela = await validarJanelaDeFuncionamento(tx, { unidadeId, data, horaInicio, respeitarHorariosFixos });
       if (!validacaoDaJanela.ok) {
         throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
       }
@@ -593,6 +594,10 @@ export async function atualizarReservaDoCliente(
       eq(reservas.igSenderId, params.igSenderId),
     ],
     patch,
+    // Doc 28 - o proprio cliente remarcando via chat respeita horarios fixos, igual a
+    // reserva nova; o dono/funcionario editando pelo painel (atualizarReservaDaUnidade)
+    // continua sem essa restricao.
+    true,
   );
 }
 
@@ -666,6 +671,9 @@ export async function criarReservaComMesaAutomatica(
     data: params.data,
     hora: params.horaInicio,
     numPessoas: params.numPessoas,
+    // Essa funcao so e chamada pelo fluxo publico (widget/link de reserva) - nunca
+    // pelo painel admin - entao respeita horarios fixos (doc 28) sempre.
+    respeitarHorariosFixos: true,
   });
 
   if (!disponibilidade.disponivel) {

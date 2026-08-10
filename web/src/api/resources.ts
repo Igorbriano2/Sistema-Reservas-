@@ -225,6 +225,7 @@ export interface DadosRegraHorario {
   descontoPercentual?: number;
   exigeDeposito?: boolean;
   valorDepositoCentavos?: number;
+  horariosFixos?: string[] | null;
 }
 
 export function criarRegraHorario(unidadeId: string, dados: DadosRegraHorario) {

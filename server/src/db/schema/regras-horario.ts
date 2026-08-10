@@ -30,6 +30,13 @@ export const regrasHorario = pgTable(
     // minima, que so vale pro fluxo publico.
     exigeDeposito: boolean("exige_deposito").notNull().default(false),
     valorDepositoCentavos: integer("valor_deposito_centavos"),
+    // Horarios fixos (doc 28) - quando preenchido, a reserva PUBLICA (link do agente,
+    // widget) so aceita esses horarios de INICIO especificos (ex.: ["19:00"] pra um
+    // rodizio que so abre reserva as 19h), em vez de qualquer horario dentro da janela
+    // abertura/fechamento. Nulo/vazio = comportamento anterior (qualquer horario na
+    // janela). NAO restringe reserva manual feita pelo dono/funcionario no painel -
+    // mesmo criterio de "so vale pro fluxo publico" ja usado em exigeDeposito.
+    horariosFixos: text("horarios_fixos").array(),
   },
   (table) => [
     index("regras_horario_unidade_id_idx").on(table.unidadeId),

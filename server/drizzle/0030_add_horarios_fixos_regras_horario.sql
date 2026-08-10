@@ -1,0 +1,1 @@
+ALTER TABLE "regras_horario" ADD COLUMN "horarios_fixos" text[];

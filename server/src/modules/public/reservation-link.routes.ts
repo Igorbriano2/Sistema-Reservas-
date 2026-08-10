@@ -7,7 +7,7 @@ import { agenteConfig, conversas, mesas, salaoElementos, saloes, unidades } from
 import { asyncHandler } from "../../lib/async-handler.js";
 import { decodificarTokenDeReserva, TokenDeReservaInvalidoError } from "../../lib/reservation-link.js";
 import { criarReserva, criarReservaComMesaAutomatica } from "../../lib/reservations.js";
-import { verificarDisponibilidade } from "../../lib/availability.js";
+import { validarJanelaDeFuncionamento, verificarDisponibilidade } from "../../lib/availability.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 import { enviarPushParaUnidade } from "../../lib/push.js";
 import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
@@ -89,8 +89,26 @@ reservationLinkRouter.get(
       .from(saloes)
       .where(and(eq(saloes.unidadeId, payload.unidadeId), eq(saloes.modoConfiguracao, "mapa")));
 
+    // Unidades que so usam saloes em "modo simples" (sem mapa visual, ex: Cervegela)
+    // nao tem saloesMapa - mas o frontend sempre le resposta.disponibilidade.disponivel
+    // antes de olhar resposta.saloes.length, entao esse objeto precisa vir preenchido
+    // mesmo aqui, ou a checagem de disponibilidade do proprio horario nunca acontece.
     if (saloesMapa.length === 0) {
-      res.json({ saloes: [] });
+      const disponibilidadeSemMapa = await verificarDisponibilidade(db, {
+        unidadeId: payload.unidadeId,
+        data: query.data,
+        hora: query.horaInicio,
+        numPessoas: query.numPessoas,
+        respeitarHorariosFixos: true,
+      });
+      res.json({
+        disponibilidade: {
+          disponivel: disponibilidadeSemMapa.disponivel,
+          motivo: disponibilidadeSemMapa.motivo,
+          turno: disponibilidadeSemMapa.turno,
+        },
+        saloes: [],
+      });
       return;
     }
     const salaoIds = saloesMapa.map((s) => s.id);
@@ -101,6 +119,7 @@ reservationLinkRouter.get(
         data: query.data,
         hora: query.horaInicio,
         numPessoas: query.numPessoas,
+        respeitarHorariosFixos: true,
       }),
       db
         .select({
@@ -199,6 +218,7 @@ reservationLinkRouter.post(
       data: dados.data,
       hora: dados.horaInicio,
       numPessoas: dados.numPessoas,
+      respeitarHorariosFixos: true,
     });
     if (!disponibilidade.disponivel) {
       throw new RequisicaoInvalidaError(disponibilidade.motivo ?? "Nao ha disponibilidade para esse horario");
@@ -271,7 +291,29 @@ reservationLinkRouter.post(
       data: dados.data,
       hora: dados.horaInicio,
       numPessoas: dados.numPessoas,
+      respeitarHorariosFixos: true,
     });
+
+    // Doc 28 - fecha o caminho de reserva com mesa escolhida (dados.mesaId): sem essa
+    // checagem aqui, criarReserva/criarReservaComMesa nao valida horario de
+    // funcionamento nem horarios fixos (so confere capacidade/conflito da propria
+    // mesa), entao um cliente poderia reservar fora do turno so escolhendo uma mesa
+    // pelo mapa. criarReservaComMesaAutomatica (sem mesaId) ja revalida por conta
+    // propria mais abaixo. Usa validarJanelaDeFuncionamento (nao o "disponibilidade"
+    // agregado acima) de proposito: aquele tambem reflete falta de CAPACIDADE (mesa
+    // ocupada), e um paymentIntentId ja pago com a mesa ocupada por uma corrida tem seu
+    // proprio fluxo de reembolso mais abaixo (ver catch de criarReserva) - misturar os
+    // dois faria essa reserva ser rejeitada aqui, ANTES do reembolso, com o status
+    // errado (400 em vez de 409) e sem devolver o dinheiro do cliente.
+    const janela = await validarJanelaDeFuncionamento(db, {
+      unidadeId: payload.unidadeId,
+      data: dados.data,
+      horaInicio: dados.horaInicio,
+      respeitarHorariosFixos: true,
+    });
+    if (!janela.ok) {
+      throw new RequisicaoInvalidaError(janela.motivo);
+    }
 
     // Se o cliente mandou um paymentIntentId, valida ele SEMPRE (independente do que a
     // re-checagem acima disser sobre exigir deposito agora) - a capacidade pode ter

@@ -337,7 +337,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
 });
 
 describe("GET /public/reservation-link/:token/mesas-disponiveis", () => {
-  it("retorna saloes vazio quando a unidade nao tem nenhum salao em modo mapa", async () => {
+  it("retorna saloes vazio E disponibilidade preenchida quando a unidade nao tem nenhum salao em modo mapa (bug real da Cervegela - modo simples)", async () => {
     const { unidade } = await criarEmpresaComAdmin();
     await criarSalaoSimples(unidade.id, 20);
     await criarRegraHorarioTodosOsDias(unidade.id);
@@ -349,6 +349,24 @@ describe("GET /public/reservation-link/:token/mesas-disponiveis", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.saloes).toEqual([]);
+    expect(res.body.disponibilidade).toBeDefined();
+    expect(res.body.disponibilidade.disponivel).toBe(true);
+  });
+
+  it("disponibilidade.disponivel vem false com motivo quando o horario esta fora do funcionamento, mesmo sem salao em modo mapa", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    await criarSalaoSimples(unidade.id, 20);
+    await criarRegraHorarioTodosOsDias(unidade.id);
+    const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-cliente-1" });
+
+    const res = await request(app)
+      .get(`/public/reservation-link/${token}/mesas-disponiveis`)
+      .query({ data: "2026-11-20", horaInicio: "04:00", numPessoas: 2 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.saloes).toEqual([]);
+    expect(res.body.disponibilidade.disponivel).toBe(false);
+    expect(res.body.disponibilidade.motivo).toBeTruthy();
   });
 
   it("marca mesa livre e compativel como disponivel, e mesa com capacidade incompativel como indisponivel", async () => {
