@@ -157,6 +157,15 @@ function IconeCardapio() {
   );
 }
 
+function IconeMarketing() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11v2a2 2 0 0 0 2 2h1l3 5V4l-3 5H5a2 2 0 0 0-2 2z" />
+      <path d="M14 8.5a4 4 0 0 1 0 7M17.5 6a8 8 0 0 1 0 12" />
+    </svg>
+  );
+}
+
 function IconeChevron() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -181,7 +190,6 @@ const NAV: EntradaDeNav[] = [
       { to: "/admin/bloqueios", label: "Bloqueios", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeBloqueios /> },
     ],
   },
-  { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
   {
     chave: "configuracoes",
     label: "Configurações",
@@ -192,8 +200,16 @@ const NAV: EntradaDeNav[] = [
     ],
   },
   { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },
-  { to: "/admin/agente", label: "Agente de IA", permissao: { valor: "editar_agente", escopo: "empresa" }, icone: <IconeAgente /> },
-  { to: "/admin/conversas", label: "Conversas", ownerOnly: true, icone: <IconeConversas /> },
+  {
+    chave: "marketing",
+    label: "Marketing",
+    icone: <IconeMarketing />,
+    itens: [
+      { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
+      { to: "/admin/agente", label: "Agente de IA", permissao: { valor: "editar_agente", escopo: "empresa" }, icone: <IconeAgente /> },
+      { to: "/admin/conversas", label: "Conversas", ownerOnly: true, icone: <IconeConversas /> },
+    ],
+  },
   { to: "/admin/usuarios", label: "Usuarios", permissao: { valor: "criar_usuarios", escopo: "empresa" }, icone: <IconeUsuarios /> },
   { to: "/admin/unidades", label: "Unidades", ownerOnly: true, icone: <IconeUnidades /> },
 ];
