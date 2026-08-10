@@ -18,7 +18,9 @@ import { MenuPage } from "./pages/MenuPage.js";
 import { SchedulePage } from "./pages/SchedulePage.js";
 import { WaitingListPage } from "./pages/WaitingListPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
+import { CampanhasPage } from "./pages/CampanhasPage.js";
 import { ConversasPage } from "./pages/ConversasPage.js";
+import { FeedbackPage } from "./pages/FeedbackPage.js";
 import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
 import { PublicMenuPage } from "./pages/PublicMenuPage.js";
@@ -191,6 +193,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="feedback"
+          element={
+            <RequirePermissaoNaUnidade permissao="ver_relatorios">
+              <FeedbackPage />
+            </RequirePermissaoNaUnidade>
+          }
+        />
+        <Route
           path="agente"
           element={
             <RequirePermissaoNaEmpresa permissao="editar_agente">
@@ -203,6 +213,14 @@ function AppRoutes() {
           element={
             <RequireOwner>
               <ConversasPage />
+            </RequireOwner>
+          }
+        />
+        <Route
+          path="campanhas"
+          element={
+            <RequireOwner>
+              <CampanhasPage />
             </RequireOwner>
           }
         />

@@ -5,8 +5,11 @@ import { db } from "../../db/client.js";
 import { saloes } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
+import { codigoDoErroPostgres } from "../../lib/pg-error.js";
 
 export const saloesRouter = Router({ mergeParams: true });
+
+const PG_FOREIGN_KEY_VIOLATION = "23503";
 
 const modoConfiguracaoSchema = z.enum(["simples", "mapa"]);
 
@@ -100,10 +103,23 @@ saloesRouter.patch(
 saloesRouter.delete(
   "/:salaoId",
   asyncHandler(async (req, res) => {
-    const [salao] = await db
-      .delete(saloes)
-      .where(and(eq(saloes.id, req.params.salaoId), eq(saloes.unidadeId, req.unidadeId!)))
-      .returning();
+    let salao;
+    try {
+      [salao] = await db
+        .delete(saloes)
+        .where(and(eq(saloes.id, req.params.salaoId), eq(saloes.unidadeId, req.unidadeId!)))
+        .returning();
+    } catch (err) {
+      // reservas.salao_id/mesa_id sao "restrict" de proposito (nunca perder o historico
+      // de uma reserva ja feita, mesmo excluindo o salao/mesa) - qualquer salao que ja
+      // teve reserva (inclusive antiga/cancelada) bate nessa violacao ao tentar excluir.
+      if (codigoDoErroPostgres(err) === PG_FOREIGN_KEY_VIOLATION) {
+        throw new RequisicaoInvalidaError(
+          "Não é possível excluir: este salão já tem reservas registradas (inclusive antigas). Para não usá-lo mais, edite e remova a capacidade/mesas em vez de excluir.",
+        );
+      }
+      throw err;
+    }
     if (!salao) throw new RecursoNaoEncontradoError("Salao nao encontrado");
     res.status(204).send();
   }),

@@ -252,3 +252,37 @@ describe("Modo simples do salao (rotas /admin)", () => {
     expect(linha.salaoId).not.toBeNull();
   });
 });
+
+describe("DELETE /admin/unidades/:id/saloes/:salaoId", () => {
+  it("exclui um salao sem reservas normalmente", async () => {
+    const { unidade, token } = await setup();
+    const salao = await criarSalaoSimples(unidade.id, 20);
+
+    const res = await request(app)
+      .delete(`/admin/unidades/${unidade.id}/saloes/${salao.id}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+    expect(await db.select().from(saloes).where(eq(saloes.id, salao.id))).toHaveLength(0);
+  });
+
+  it("devolve uma mensagem clara (nao um 500 cru) quando o salao ja tem reserva vinculada, mesmo antiga", async () => {
+    const { unidade, token } = await setup();
+    const salao = await criarSalaoSimples(unidade.id, 20);
+    await criarReserva(db, {
+      unidadeId: unidade.id,
+      salaoId: salao.id,
+      data: "2026-01-10",
+      horaInicio: "19:00",
+      numPessoas: 2,
+      clienteNome: "Reserva Antiga",
+      canalOrigem: "manual",
+    });
+
+    const res = await request(app)
+      .delete(`/admin/unidades/${unidade.id}/saloes/${salao.id}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/reservas registradas/i);
+    expect(await db.select().from(saloes).where(eq(saloes.id, salao.id))).toHaveLength(1);
+  });
+});

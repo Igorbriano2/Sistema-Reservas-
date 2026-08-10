@@ -157,6 +157,24 @@ function IconeCardapio() {
   );
 }
 
+function IconeCampanhas() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 8V4M8 8V6a2 2 0 0 1 4 0M16 8V6a2 2 0 0 0-4 0" />
+      <rect x="4" y="8" width="16" height="12" rx="1.5" />
+      <path d="M12 8v12M4 13h16" />
+    </svg>
+  );
+}
+
+function IconeFeedback() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.3l-5.8 3 1.1-6.4-4.7-4.6 6.5-.9z" />
+    </svg>
+  );
+}
+
 function IconeMarketing() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -197,17 +215,26 @@ const NAV: EntradaDeNav[] = [
     itens: [
       { to: "/admin/horarios", label: "Horários", permissao: { valor: "editar_salao", escopo: "unidade" }, icone: <IconeHorarios /> },
       { to: "/admin/cardapio", label: "Cardápio", permissao: { valor: "editar_cardapio", escopo: "unidade" }, icone: <IconeCardapio /> },
+      { to: "/admin/agente", label: "Informações da empresa", permissao: { valor: "editar_agente", escopo: "empresa" }, icone: <IconeAgente /> },
     ],
   },
-  { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },
+  {
+    chave: "relatorios",
+    label: "Relatórios",
+    icone: <IconeRelatorios />,
+    itens: [
+      { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },
+      { to: "/admin/feedback", label: "Feedback", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeFeedback /> },
+    ],
+  },
   {
     chave: "marketing",
     label: "Marketing",
     icone: <IconeMarketing />,
     itens: [
       { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
-      { to: "/admin/agente", label: "Agente de IA", permissao: { valor: "editar_agente", escopo: "empresa" }, icone: <IconeAgente /> },
-      { to: "/admin/conversas", label: "Conversas", ownerOnly: true, icone: <IconeConversas /> },
+      { to: "/admin/conversas", label: "Instagram", ownerOnly: true, icone: <IconeConversas /> },
+      { to: "/admin/campanhas", label: "Campanhas", ownerOnly: true, icone: <IconeCampanhas /> },
     ],
   },
   { to: "/admin/usuarios", label: "Usuarios", permissao: { valor: "criar_usuarios", escopo: "empresa" }, icone: <IconeUsuarios /> },
