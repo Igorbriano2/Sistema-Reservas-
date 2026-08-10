@@ -35,6 +35,18 @@ export function converterLead(leadId: string, senha: string) {
   return plataformaApi.post<{ empresa: Cliente; lead: Lead }>(`/plataforma/leads/${leadId}/converter`, { senha });
 }
 
+export interface DadosRedefinirSenhaOwner {
+  senha: string;
+  email?: string;
+}
+
+export function redefinirSenhaOwner(empresaId: string, dados: DadosRedefinirSenhaOwner) {
+  return plataformaApi.post<{ id: string; nome: string; email: string | null; username: string | null }>(
+    `/plataforma/clientes/${empresaId}/redefinir-senha-owner`,
+    dados,
+  );
+}
+
 export function entrarEmModoTeste() {
   return plataformaApi.post<{ token: string; usuario: { id: string; nome: string; email: string; papel: string; empresaId: string } }>(
     "/plataforma/modo-teste",

@@ -4,9 +4,13 @@ import { z } from "zod";
 import { db } from "../../db/client.js";
 import { assinaturaStatusEnum, empresas, usuarios } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
-import { RecursoNaoEncontradoError } from "../../lib/errors.js";
+import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
+import { hashPassword } from "../../lib/password.js";
+import { codigoDoErroPostgres } from "../../lib/pg-error.js";
 
 export const clientesRouter = Router();
+
+const PG_UNIQUE_VIOLATION = "23505";
 
 clientesRouter.get(
   "/",
@@ -67,5 +71,47 @@ clientesRouter.patch(
       throw new RecursoNaoEncontradoError("Cliente nao encontrado");
     }
     res.json(empresa);
+  }),
+);
+
+const redefinirSenhaOwnerSchema = z.object({
+  senha: z.string().min(8, "Senha deve ter pelo menos 8 caracteres"),
+  // Opcional: so troca o e-mail de login se o admin da plataforma explicitamente
+  // informar um novo. Sem isso, so a senha muda - o dono nao perde o proprio e-mail
+  // sem querer.
+  email: z.string().email().optional(),
+});
+
+// Suporte: o dono do restaurante perdeu a senha (ou nunca chegou a receber - nao
+// existe convite por e-mail no MVP) e nao ha fluxo de "esqueci minha senha" ainda.
+// So o admin da plataforma pode redefinir, direto pelo login "owner" da empresa
+// (sempre existe exatamente um, criado em criarEmpresaComOwner).
+clientesRouter.post(
+  "/:empresaId/redefinir-senha-owner",
+  asyncHandler(async (req, res) => {
+    const dados = redefinirSenhaOwnerSchema.parse(req.body);
+    const [owner] = await db
+      .select({ id: usuarios.id })
+      .from(usuarios)
+      .where(and(eq(usuarios.empresaId, req.params.empresaId), eq(usuarios.papel, "owner")))
+      .limit(1);
+    if (!owner) {
+      throw new RecursoNaoEncontradoError("Cliente (ou login de dono) nao encontrado");
+    }
+
+    const senhaHash = await hashPassword(dados.senha);
+    try {
+      const [atualizado] = await db
+        .update(usuarios)
+        .set({ senhaHash, ...(dados.email && { email: dados.email.toLowerCase() }) })
+        .where(eq(usuarios.id, owner.id))
+        .returning({ id: usuarios.id, nome: usuarios.nome, email: usuarios.email, username: usuarios.username });
+      res.json(atualizado);
+    } catch (err) {
+      if (codigoDoErroPostgres(err) === PG_UNIQUE_VIOLATION) {
+        throw new RequisicaoInvalidaError(`Ja existe um login com o email ${dados.email}`);
+      }
+      throw err;
+    }
   }),
 );

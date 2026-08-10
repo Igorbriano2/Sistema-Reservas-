@@ -97,6 +97,52 @@ describe("Clientes (assinaturas)", () => {
     expect(resposta.body.assinaturaStatus).toBe("ativo");
     expect(resposta.body.observacoes).toBe("Cliente pagante desde agosto");
   });
+
+  it("redefine a senha do dono (suporte: dono perdeu acesso, nao ha 'esqueci minha senha')", async () => {
+    const { admin, senha } = await criarPlataformaAdmin();
+    const tokenPlataforma = await loginPlataforma(admin.email, senha);
+    const { empresa, usuario } = await criarEmpresaComAdmin({ emailAdmin: "antigo@cervegela.com" });
+
+    const resposta = await request(app)
+      .post(`/plataforma/clientes/${empresa.id}/redefinir-senha-owner`)
+      .set("Authorization", `Bearer ${tokenPlataforma}`)
+      .send({ senha: "NovaSenha@123" });
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body.email).toBe("antigo@cervegela.com");
+
+    const loginComSenhaNova = await login(app, usuario.email, "NovaSenha@123");
+    expect(loginComSenhaNova).toBeTruthy();
+  });
+
+  it("redefinir senha tambem pode trocar o e-mail de login, se informado", async () => {
+    const { admin, senha } = await criarPlataformaAdmin();
+    const tokenPlataforma = await loginPlataforma(admin.email, senha);
+    const { empresa } = await criarEmpresaComAdmin({ emailAdmin: "antigo@cervegela.com" });
+
+    const resposta = await request(app)
+      .post(`/plataforma/clientes/${empresa.id}/redefinir-senha-owner`)
+      .set("Authorization", `Bearer ${tokenPlataforma}`)
+      .send({ senha: "NovaSenha@123", email: "novo@cervegela.com" });
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body.email).toBe("novo@cervegela.com");
+
+    const loginComEmailNovo = await login(app, "novo@cervegela.com", "NovaSenha@123");
+    expect(loginComEmailNovo).toBeTruthy();
+  });
+
+  it("404 ao redefinir senha de uma empresa que nao existe", async () => {
+    const { admin, senha } = await criarPlataformaAdmin();
+    const tokenPlataforma = await loginPlataforma(admin.email, senha);
+
+    const resposta = await request(app)
+      .post(`/plataforma/clientes/00000000-0000-0000-0000-000000000000/redefinir-senha-owner`)
+      .set("Authorization", `Bearer ${tokenPlataforma}`)
+      .send({ senha: "NovaSenha@123" });
+
+    expect(resposta.status).toBe(404);
+  });
 });
 
 describe("Leads (lista de espera da landing)", () => {

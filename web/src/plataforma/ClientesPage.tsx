@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client.js";
-import { atualizarCliente, listarClientes } from "./resources.js";
+import { atualizarCliente, listarClientes, redefinirSenhaOwner } from "./resources.js";
 import type { AssinaturaStatus, Cliente } from "./types.js";
 
 const STATUS_LABEL: Record<AssinaturaStatus, string> = {
@@ -17,6 +17,10 @@ export function ClientesPage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
+  const [redefinindoId, setRedefinindoId] = useState<string | null>(null);
+  const [novoEmail, setNovoEmail] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [mensagemRedefinicao, setMensagemRedefinicao] = useState<string | null>(null);
 
   async function carregar() {
     setCarregando(true);
@@ -50,6 +54,31 @@ export function ClientesPage() {
     }
   }
 
+  function abrirRedefinicao(cliente: Cliente) {
+    setRedefinindoId(cliente.id);
+    setNovoEmail("");
+    setNovaSenha("");
+    setMensagemRedefinicao(null);
+    setErro(null);
+  }
+
+  async function confirmarRedefinicao(cliente: Cliente) {
+    setErro(null);
+    setMensagemRedefinicao(null);
+    try {
+      const atualizado = await redefinirSenhaOwner(cliente.id, {
+        senha: novaSenha,
+        ...(novoEmail.trim() && { email: novoEmail.trim() }),
+      });
+      setMensagemRedefinicao(`Senha redefinida. Login: ${atualizado.email ?? atualizado.username}.`);
+      setClientes((lista) =>
+        lista.map((c) => (c.id === cliente.id ? { ...c, contato: { nome: c.contato?.nome ?? "Administrador", email: atualizado.email ?? "" } } : c)),
+      );
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Nao foi possivel redefinir a senha.");
+    }
+  }
+
   return (
     <div>
       {erro && <p className="erro">{erro}</p>}
@@ -69,6 +98,7 @@ export function ClientesPage() {
                 <th>Plano</th>
                 <th>Assinatura</th>
                 <th>Desde</th>
+                <th>Acesso</th>
               </tr>
             </thead>
             <tbody>
@@ -102,6 +132,37 @@ export function ClientesPage() {
                     </select>
                   </td>
                   <td>{cliente.criadoEm.slice(0, 10).split("-").reverse().join("/")}</td>
+                  <td>
+                    {redefinindoId === cliente.id ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", minWidth: "220px" }}>
+                        <input
+                          type="email"
+                          placeholder="novo e-mail (opcional)"
+                          value={novoEmail}
+                          onChange={(e) => setNovoEmail(e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          placeholder="nova senha (min. 8 caracteres)"
+                          value={novaSenha}
+                          onChange={(e) => setNovaSenha(e.target.value)}
+                        />
+                        {mensagemRedefinicao && <p className="texto-secundario" style={{ fontSize: "0.8rem" }}>{mensagemRedefinicao}</p>}
+                        <div style={{ display: "flex", gap: "0.4rem" }}>
+                          <button type="button" className="btn" disabled={novaSenha.length < 8} onClick={() => confirmarRedefinicao(cliente)}>
+                            Salvar
+                          </button>
+                          <button type="button" className="btn btn-secundario" onClick={() => setRedefinindoId(null)}>
+                            Fechar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button type="button" className="btn btn-secundario" onClick={() => abrirRedefinicao(cliente)}>
+                        Redefinir senha do dono
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
