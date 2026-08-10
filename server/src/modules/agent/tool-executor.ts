@@ -240,13 +240,42 @@ async function checkRodizioPrice(db: Database, ctx: AgentContext, input: unknown
   const tagCrianca = tier === "dia_util" ? TAG_CRIANCA_DIA_UTIL : TAG_CRIANCA_FIM_DE_SEMANA;
 
   const itens = await db
-    .select({ nome: cardapioItens.nome, precoCentavos: cardapioItens.precoCentavos, tags: cardapioItens.tags })
+    .select({
+      nome: cardapioItens.nome,
+      precoCentavos: cardapioItens.precoCentavos,
+      tags: cardapioItens.tags,
+      categoriaNome: cardapioCategorias.nome,
+    })
     .from(cardapioItens)
     .innerJoin(cardapioCategorias, eq(cardapioItens.categoriaId, cardapioCategorias.id))
     .where(and(eq(cardapioCategorias.unidadeId, unidadeId), eq(cardapioItens.ativo, true)));
 
-  const itemAdulto = itens.find((i) => (i.tags ?? []).includes(tagAdulto));
-  const itemCrianca = itens.find((i) => (i.tags ?? []).includes(tagCrianca));
+  // Achando pela tag: preciso quando o dono marcou os itens (ver tela de cardapio).
+  // Sem tag nenhuma configurada ainda, cai no fallback abaixo em vez de falhar de
+  // primeira - um cardapio "Rodizio" com 2 precos de adulto (o mais barato = dia
+  // util, o mais caro = fim de semana/feriado) e um sinal forte o suficiente pra
+  // nao deixar o cliente sem resposta so porque a tag ainda nao foi cadastrada.
+  // sem-acento pra "Rodízio"/"Adulto"/"Criança" baterem com "rodiz"/"adulto"/"crian".
+  function semAcento(texto: string): string {
+    return texto
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase();
+  }
+  const rodizioItens = itens.filter((i) => semAcento(i.categoriaNome).includes("rodiz"));
+  function porNome(termo: string) {
+    return rodizioItens.filter((i) => i.precoCentavos > 0 && semAcento(i.nome).includes(termo)).sort((a, b) => a.precoCentavos - b.precoCentavos);
+  }
+
+  function porTagOuPreco(tag: string, termoNome: string) {
+    const porTag = itens.find((i) => (i.tags ?? []).includes(tag));
+    if (porTag) return porTag;
+    const candidatos = porNome(termoNome);
+    return tier === "dia_util" ? candidatos[0] : candidatos[candidatos.length - 1];
+  }
+
+  const itemAdulto = porTagOuPreco(tagAdulto, "adulto");
+  const itemCrianca = porTagOuPreco(tagCrianca, "crian");
 
   if (!itemAdulto) {
     return { output: { rodizio_configurado: false, erro: "Nao ha preco de rodizio configurado no cardapio desta unidade" }, isError: true };
@@ -289,6 +318,20 @@ async function escalateToHuman(db: Database, ctx: AgentContext, input: unknown):
   const { motivo } = z.object({ motivo: z.string().min(1) }).parse(input);
 
   await db.update(conversas).set({ agentPaused: true }).where(eq(conversas.id, ctx.conversaId));
+
+  // Sem isso, a conversa fica pausada (agente calado ate reativacao manual - ver
+  // process-event.ts) e ninguem da equipe fica sabendo que precisa responder, a nao
+  // ser que alguem abra o Instagram por conta propria. So dispara quando a unidade ja
+  // esta resolvida (antes disso ainda nao ha unidade especifica pra notificar).
+  if (ctx.unidadeId) {
+    enviarPushParaUnidade(db, ctx.unidadeId, {
+      titulo: "Cliente esperando atendimento",
+      corpo: motivo,
+      url: "/admin/conversas",
+    }).catch((err) => {
+      console.error("[escalate_to_human] falha ao enviar push:", err);
+    });
+  }
 
   return { output: { encaminhado: true, motivo } };
 }

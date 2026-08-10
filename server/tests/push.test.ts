@@ -4,7 +4,7 @@ import request from "supertest";
 import { db } from "../src/db/client.js";
 import { pushSubscricoes } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
-import { criarMesa, criarRegraHorarioTodosOsDias, criarReservaDireta, criarSalao } from "./helpers/fixtures.js";
+import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarReservaDireta, criarSalao } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
 
 vi.mock("web-push", () => ({
@@ -186,5 +186,39 @@ describe("Push disparado em cancelamento pelo cliente (chat)", () => {
     const payload = JSON.parse(payloadArg as string);
     expect(payload.titulo).toBe("Reserva cancelada");
     expect(payload.corpo).toContain("Cliente Cancelou");
+  });
+});
+
+describe("Push disparado em escalate_to_human (doc 26)", () => {
+  it("avisa a equipe quando o agente escala a conversa pra um humano - sem isso ninguem sabe que precisa responder", async () => {
+    const { empresa, unidade, token } = await setupUnidadeCompleta();
+    await request(app).post(`/admin/unidades/${unidade.id}/push`).set("Authorization", `Bearer ${token}`).send(SUBSCRIPTION_EXEMPLO);
+
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-escalar-push");
+    const ctx = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-escalar-push", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "escalate_to_human", { motivo: "Cliente quer negociar valor" });
+    expect(resultado.isError).toBeFalsy();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(webpush.sendNotification).toHaveBeenCalledTimes(1);
+    const [, payloadArg] = vi.mocked(webpush.sendNotification).mock.calls[0];
+    const payload = JSON.parse(payloadArg as string);
+    expect(payload.titulo).toBe("Cliente esperando atendimento");
+    expect(payload.corpo).toBe("Cliente quer negociar valor");
+  });
+
+  it("nao tenta notificar quando a unidade da conversa ainda nao foi resolvida", async () => {
+    const { empresa, unidade, token } = await setupUnidadeCompleta();
+    await request(app).post(`/admin/unidades/${unidade.id}/push`).set("Authorization", `Bearer ${token}`).send(SUBSCRIPTION_EXEMPLO);
+
+    // ctx.unidadeId null simula a conversa ainda sem unidade resolvida (doc 17, parte
+    // 4) - nao ha uma unidade especifica pra notificar nesse momento ainda.
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-sem-unidade");
+    const ctx = { empresaId: empresa.id, unidadeId: null, igSenderId: "ig-sem-unidade", conversaId: conversa.id };
+
+    await executarTool(db, ctx, "escalate_to_human", { motivo: "Ainda escolhendo a loja" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(webpush.sendNotification).not.toHaveBeenCalled();
   });
 });

@@ -4,11 +4,13 @@ import type {
   Bloqueio,
   CardapioCategoria,
   CardapioItem,
+  Conversa,
   ExcecaoHorario,
   Feedback,
   FilaEsperaEntrada,
   FilaEsperaStatus,
   InstagramConnection,
+  Mensagem,
   Mesa,
   MesaFormato,
   ModoConfiguracaoSalao,
@@ -254,6 +256,20 @@ export function criarExcecaoHorario(unidadeId: string, dados: DadosExcecaoHorari
 
 export function excluirExcecaoHorario(unidadeId: string, excecaoId: string) {
   return api.delete<void>(`/admin/unidades/${unidadeId}/excecoes-horario/${excecaoId}`);
+}
+
+// Conversas do agente (doc 26) - ver/reativar conversas pausadas (escaladas pra
+// humano ou assumidas manualmente pela Meta Business Suite).
+export function listarConversas(unidadeId: string) {
+  return api.get<Conversa[]>(`/admin/unidades/${unidadeId}/conversas`);
+}
+
+export function listarMensagensDaConversa(unidadeId: string, conversaId: string) {
+  return api.get<Mensagem[]>(`/admin/unidades/${unidadeId}/conversas/${conversaId}/mensagens`);
+}
+
+export function definirAgentePausado(unidadeId: string, conversaId: string, agentPaused: boolean) {
+  return api.patch<Conversa>(`/admin/unidades/${unidadeId}/conversas/${conversaId}`, { agentPaused });
 }
 
 // Fila de espera de walk-in (doc 20).

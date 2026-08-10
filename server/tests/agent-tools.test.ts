@@ -300,13 +300,37 @@ describe("Tools do agente - check_rodizio_price (doc 26)", () => {
     ]);
   }
 
-  it("erro quando o cardapio nao tem item de rodizio marcado com as tags esperadas", async () => {
+  it("erro quando o cardapio nao tem nenhum item de rodizio (nem tag nem nome reconhecivel)", async () => {
     const { empresa, unidade } = await setupUnidadeCompleta();
     const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
     const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
 
     const resultado = await executarTool(db, ctx, "check_rodizio_price", { data: "2026-08-10" });
     expect(resultado.isError).toBe(true);
+  });
+
+  it("sem NENHUMA tag configurada (estado real do cardapio recem-cadastrado): ainda resolve pelo nome/preco, nao escala pro humano a toa", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const [categoria] = await db.insert(cardapioCategorias).values({ unidadeId: unidade.id, nome: "Rodízio" }).returning();
+    await db.insert(cardapioItens).values([
+      { categoriaId: categoria.id, nome: "Rodízio Adulto — Segunda a Quinta", precoCentavos: 5990, ordem: 0 },
+      { categoriaId: categoria.id, nome: "Rodízio Adulto — Sexta, Sábado, Domingo e Feriados", precoCentavos: 6990, ordem: 1 },
+      { categoriaId: categoria.id, nome: "Rodízio Criança (6 a 12 anos) — Segunda a Quinta", precoCentavos: 2990, ordem: 2 },
+      { categoriaId: categoria.id, nome: "Rodízio Criança (6 a 12 anos) — Sexta, Sábado, Domingo e Feriados", precoCentavos: 3490, ordem: 3 },
+      { categoriaId: categoria.id, nome: "Criança até 5 anos", precoCentavos: 0, ordem: 4 },
+    ]);
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const segunda = await executarTool(db, ctx, "check_rodizio_price", { data: "2026-08-10" });
+    expect(segunda.isError).toBeUndefined();
+    expect((segunda.output as { preco_adulto: string; preco_crianca: string }).preco_adulto).toBe("R$ 59,90");
+    expect((segunda.output as { preco_adulto: string; preco_crianca: string }).preco_crianca).toBe("R$ 29,90");
+
+    const sabado = await executarTool(db, ctx, "check_rodizio_price", { data: "2026-08-15" });
+    expect(sabado.isError).toBeUndefined();
+    expect((sabado.output as { preco_adulto: string; preco_crianca: string }).preco_adulto).toBe("R$ 69,90");
+    expect((sabado.output as { preco_adulto: string; preco_crianca: string }).preco_crianca).toBe("R$ 34,90");
   });
 
   it("segunda-feira: devolve o preco de dia util", async () => {

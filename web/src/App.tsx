@@ -18,6 +18,7 @@ import { MenuPage } from "./pages/MenuPage.js";
 import { SchedulePage } from "./pages/SchedulePage.js";
 import { WaitingListPage } from "./pages/WaitingListPage.js";
 import { AgentConfigPage } from "./pages/AgentConfigPage.js";
+import { ConversasPage } from "./pages/ConversasPage.js";
 import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
 import { PublicMenuPage } from "./pages/PublicMenuPage.js";
@@ -195,6 +196,14 @@ function AppRoutes() {
             <RequirePermissaoNaEmpresa permissao="editar_agente">
               <AgentConfigPage />
             </RequirePermissaoNaEmpresa>
+          }
+        />
+        <Route
+          path="conversas"
+          element={
+            <RequireOwner>
+              <ConversasPage />
+            </RequireOwner>
           }
         />
         <Route

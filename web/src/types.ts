@@ -211,6 +211,26 @@ export interface ExcecaoHorario {
   horaFechamento: string | null;
 }
 
+// Thread de conversa do Instagram (doc 26 - antes so existia a API, sem tela pra ver
+// as conversas escaladas/pausadas pelo agente).
+export interface Conversa {
+  id: string;
+  empresaId: string;
+  unidadeId: string | null;
+  igSenderId: string;
+  agentPaused: boolean;
+  ultimaAtividadeHumanaEm: string | null;
+}
+
+export interface Mensagem {
+  id: string;
+  conversaId: string;
+  papel: "user" | "assistant";
+  conteudo: string;
+  enviadoPorHumano: boolean;
+  criadoEm: string;
+}
+
 export interface Bloqueio {
   id: string;
   unidadeId: string;
