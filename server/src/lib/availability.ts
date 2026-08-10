@@ -164,6 +164,28 @@ const STATUS_QUE_OCUPA_MESA = ["pendente", "confirmada"] as const;
 // "pendente" nao chega a existir na pratica hoje (toda reserva nasce "confirmada").
 const STATUS_QUE_OCUPA_SALAO_SIMPLES = ["confirmada", "concluida"] as const;
 
+// Doc 29 - horario de reserva proprio de UM salao (independente do turno da unidade).
+// "turno" (padrao) sempre aceita - so os modos "fixo"/"intervalo" restringem.
+function salaoAceitaHorario(
+  salao: {
+    modoHorarioReserva: "turno" | "fixo" | "intervalo";
+    horariosFixos: string[] | null;
+    intervaloInicio: string | null;
+    intervaloFim: string | null;
+  },
+  horaInicio: string,
+  respeitarHorariosFixos: boolean | undefined,
+): boolean {
+  if (!respeitarHorariosFixos || salao.modoHorarioReserva === "turno") return true;
+  if (salao.modoHorarioReserva === "fixo") {
+    const horaNormalizada = horaInicio.slice(0, 5);
+    return (salao.horariosFixos ?? []).some((h) => h.slice(0, 5) === horaNormalizada);
+  }
+  // "intervalo"
+  if (!salao.intervaloInicio || !salao.intervaloFim) return false;
+  return horaInicio >= salao.intervaloInicio && horaInicio < salao.intervaloFim;
+}
+
 export async function verificarDisponibilidade(
   db: Database,
   params: VerificarDisponibilidadeParams,
@@ -192,18 +214,31 @@ export async function verificarDisponibilidade(
   const inicioMin = paraMinutos(horaInicio);
   const fimMin = paraMinutos(horaFim);
 
-  const todosSaloes = await db
+  const todosSaloesComHorario = await db
     .select({
       id: saloes.id,
       nome: saloes.nome,
       modoConfiguracao: saloes.modoConfiguracao,
       capacidadeTotal: saloes.capacidadeTotal,
+      modoHorarioReserva: saloes.modoHorarioReserva,
+      horariosFixos: saloes.horariosFixos,
+      intervaloInicio: saloes.intervaloInicio,
+      intervaloFim: saloes.intervaloFim,
     })
     .from(saloes)
     .where(eq(saloes.unidadeId, unidadeId));
 
-  if (todosSaloes.length === 0) {
+  if (todosSaloesComHorario.length === 0) {
     return semDisponibilidade("Nenhum salao cadastrado para esta unidade.");
+  }
+
+  // Doc 29 - horario de reserva proprio do salao, alem da janela do turno acima: so
+  // vale pro fluxo PUBLICO (mesmo criterio de horariosFixos do turno). Um salao com
+  // modoHorarioReserva "turno" (padrao) nunca e filtrado aqui.
+  const todosSaloes = todosSaloesComHorario.filter((s) => salaoAceitaHorario(s, horaInicio, params.respeitarHorariosFixos));
+
+  if (todosSaloes.length === 0) {
+    return semDisponibilidade("Nenhum salao aceita reserva nesse horario.");
   }
 
   const saloesMapaIds = todosSaloes.filter((s) => s.modoConfiguracao === "mapa").map((s) => s.id);

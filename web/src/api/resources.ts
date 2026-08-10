@@ -14,6 +14,7 @@ import type {
   Mesa,
   MesaFormato,
   ModoConfiguracaoSalao,
+  ModoHorarioReservaSalao,
   PapelUsuario,
   Permissao,
   PesquisaPergunta,
@@ -76,6 +77,11 @@ export interface DadosSalao {
   nome: string;
   modoConfiguracao?: ModoConfiguracaoSalao;
   capacidadeTotal?: number;
+  // Doc 29 - horario de reserva proprio do salao, alem do turno da unidade.
+  modoHorarioReserva?: ModoHorarioReservaSalao;
+  horariosFixos?: string[] | null;
+  intervaloInicio?: string | null;
+  intervaloFim?: string | null;
 }
 
 export function criarSalao(unidadeId: string, dados: DadosSalao) {
@@ -84,6 +90,10 @@ export function criarSalao(unidadeId: string, dados: DadosSalao) {
 
 export function atualizarSalao(unidadeId: string, salaoId: string, dados: Partial<DadosSalao>) {
   return api.patch<Salao>(`/admin/unidades/${unidadeId}/saloes/${salaoId}`, dados);
+}
+
+export function excluirSalao(unidadeId: string, salaoId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/saloes/${salaoId}`);
 }
 
 export function listarMesas(unidadeId: string) {

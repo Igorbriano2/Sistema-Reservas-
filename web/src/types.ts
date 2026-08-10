@@ -131,12 +131,20 @@ export interface Unidade {
 
 export type ModoConfiguracaoSalao = "simples" | "mapa";
 
+// Doc 29 - horario de reserva proprio do salao, alem do turno da unidade. "turno"
+// (padrao) so usa a janela do turno; "fixo"/"intervalo" restringem so ESTE salao.
+export type ModoHorarioReservaSalao = "turno" | "fixo" | "intervalo";
+
 export interface Salao {
   id: string;
   unidadeId: string;
   nome: string;
   modoConfiguracao: ModoConfiguracaoSalao;
   capacidadeTotal: number | null;
+  modoHorarioReserva: ModoHorarioReservaSalao;
+  horariosFixos: string[] | null;
+  intervaloInicio: string | null;
+  intervaloFim: string | null;
 }
 
 export type MesaFormato = "redonda" | "quadrada" | "retangular";

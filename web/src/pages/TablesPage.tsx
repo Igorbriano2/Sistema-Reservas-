@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
-import { atualizarSalao, criarSalao, listarElementosSalao, listarMesas, listarSaloes } from "../api/resources.js";
-import type { Mesa, ModoConfiguracaoSalao, Salao, SalaoElemento } from "../types.js";
+import { atualizarSalao, criarSalao, excluirSalao, listarElementosSalao, listarMesas, listarSaloes } from "../api/resources.js";
+import type { Mesa, ModoConfiguracaoSalao, ModoHorarioReservaSalao, Salao, SalaoElemento } from "../types.js";
 import { SalaoCanvasEditor } from "../components/salao-canvas/SalaoCanvasEditor.js";
 
 const MODO_LABEL: Record<ModoConfiguracaoSalao, string> = {
@@ -10,13 +10,63 @@ const MODO_LABEL: Record<ModoConfiguracaoSalao, string> = {
   mapa: "Mapa (mesas individuais)",
 };
 
+// Doc 29 - horario de reserva proprio do salao (alem do turno da unidade, sempre
+// valido). So restringe a reserva PUBLICA - reserva manual pelo painel nunca e afetada.
+const MODO_HORARIO_LABEL: Record<ModoHorarioReservaSalao, string> = {
+  turno: "Segue o turno da unidade (padrão)",
+  fixo: "Reserva fixa (horários específicos)",
+  intervalo: "Reserva por intervalo",
+};
+
 interface FormSalaoState {
   nome: string;
   modoConfiguracao: ModoConfiguracaoSalao;
   capacidadeTotal: string;
+  modoHorarioReserva: ModoHorarioReservaSalao;
+  horariosFixos: string;
+  intervaloInicio: string;
+  intervaloFim: string;
 }
 
-const FORM_SALAO_VAZIO: FormSalaoState = { nome: "", modoConfiguracao: "simples", capacidadeTotal: "" };
+const FORM_SALAO_VAZIO: FormSalaoState = {
+  nome: "",
+  modoConfiguracao: "simples",
+  capacidadeTotal: "",
+  modoHorarioReserva: "turno",
+  horariosFixos: "",
+  intervaloInicio: "",
+  intervaloFim: "",
+};
+
+function salaoParaForm(s: Salao): FormSalaoState {
+  return {
+    nome: s.nome,
+    modoConfiguracao: s.modoConfiguracao,
+    capacidadeTotal: s.capacidadeTotal != null ? String(s.capacidadeTotal) : "",
+    modoHorarioReserva: s.modoHorarioReserva,
+    horariosFixos: s.horariosFixos && s.horariosFixos.length > 0 ? s.horariosFixos.map((h) => h.slice(0, 5)).join(", ") : "",
+    intervaloInicio: s.intervaloInicio?.slice(0, 5) ?? "",
+    intervaloFim: s.intervaloFim?.slice(0, 5) ?? "",
+  };
+}
+
+function formSalaoParaDados(form: FormSalaoState) {
+  return {
+    nome: form.nome.trim(),
+    modoConfiguracao: form.modoConfiguracao,
+    capacidadeTotal: form.capacidadeTotal ? Number(form.capacidadeTotal) : undefined,
+    modoHorarioReserva: form.modoHorarioReserva,
+    horariosFixos:
+      form.modoHorarioReserva === "fixo"
+        ? form.horariosFixos
+            .split(",")
+            .map((h) => h.trim())
+            .filter(Boolean)
+        : null,
+    intervaloInicio: form.modoHorarioReserva === "intervalo" ? form.intervaloInicio || null : null,
+    intervaloFim: form.modoHorarioReserva === "intervalo" ? form.intervaloFim || null : null,
+  };
+}
 
 export function TablesPage() {
   const { unidade } = useAuth();
@@ -73,11 +123,7 @@ export function TablesPage() {
     }
     setSalvandoSalao(true);
     try {
-      await criarSalao(unidade.id, {
-        nome: novoSalao.nome.trim(),
-        modoConfiguracao: novoSalao.modoConfiguracao,
-        capacidadeTotal: novoSalao.capacidadeTotal ? Number(novoSalao.capacidadeTotal) : undefined,
-      });
+      await criarSalao(unidade.id, formSalaoParaDados(novoSalao));
       setNovoSalao(FORM_SALAO_VAZIO);
       await carregar();
     } catch (err) {
@@ -89,11 +135,19 @@ export function TablesPage() {
 
   function abrirEdicaoSalao(salao: Salao) {
     setEditandoSalaoId(salao.id);
-    setEdicaoSalao({
-      nome: salao.nome,
-      modoConfiguracao: salao.modoConfiguracao,
-      capacidadeTotal: salao.capacidadeTotal != null ? String(salao.capacidadeTotal) : "",
-    });
+    setEdicaoSalao(salaoParaForm(salao));
+  }
+
+  async function removerSalao(salao: Salao) {
+    if (!unidade) return;
+    if (!confirm(`Excluir o salão "${salao.nome}"? Isso também remove as mesas cadastradas nele.`)) return;
+    setErro(null);
+    try {
+      await excluirSalao(unidade.id, salao.id);
+      await carregar();
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Não foi possível excluir o salão.");
+    }
   }
 
   async function salvarEdicaoSalao(e: React.FormEvent) {
@@ -105,11 +159,7 @@ export function TablesPage() {
     }
     setSalvandoEdicaoSalao(true);
     try {
-      await atualizarSalao(unidade.id, editandoSalaoId, {
-        nome: edicaoSalao.nome.trim(),
-        modoConfiguracao: edicaoSalao.modoConfiguracao,
-        capacidadeTotal: edicaoSalao.capacidadeTotal ? Number(edicaoSalao.capacidadeTotal) : undefined,
-      });
+      await atualizarSalao(unidade.id, editandoSalaoId, formSalaoParaDados(edicaoSalao));
       setEditandoSalaoId(null);
       await carregar();
     } catch (err) {
@@ -166,6 +216,52 @@ export function TablesPage() {
               />
             </label>
           )}
+          <label>
+            Horário de reserva
+            <select
+              value={novoSalao.modoHorarioReserva}
+              onChange={(e) => setNovoSalao({ ...novoSalao, modoHorarioReserva: e.target.value as ModoHorarioReservaSalao })}
+            >
+              {(Object.keys(MODO_HORARIO_LABEL) as ModoHorarioReservaSalao[]).map((m) => (
+                <option key={m} value={m}>
+                  {MODO_HORARIO_LABEL[m]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {novoSalao.modoHorarioReserva === "fixo" && (
+            <label>
+              Horários fixos (separados por vírgula)
+              <input
+                value={novoSalao.horariosFixos}
+                onChange={(e) => setNovoSalao({ ...novoSalao, horariosFixos: e.target.value })}
+                placeholder="Ex: 19:00, 20:00, 21:00"
+                required
+              />
+            </label>
+          )}
+          {novoSalao.modoHorarioReserva === "intervalo" && (
+            <>
+              <label>
+                Das
+                <input
+                  type="time"
+                  value={novoSalao.intervaloInicio}
+                  onChange={(e) => setNovoSalao({ ...novoSalao, intervaloInicio: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Até
+                <input
+                  type="time"
+                  value={novoSalao.intervaloFim}
+                  onChange={(e) => setNovoSalao({ ...novoSalao, intervaloFim: e.target.value })}
+                  required
+                />
+              </label>
+            </>
+          )}
           <div style={{ display: "flex", alignItems: "flex-end" }}>
             <button className="btn" type="submit" disabled={salvandoSalao}>
               Adicionar salão
@@ -180,6 +276,7 @@ export function TablesPage() {
                 <th>Salão</th>
                 <th>Modo</th>
                 <th>Capacidade</th>
+                <th>Horário de reserva</th>
                 <th></th>
               </tr>
             </thead>
@@ -187,7 +284,7 @@ export function TablesPage() {
               {saloes.map((s) =>
                 editandoSalaoId === s.id ? (
                   <tr key={s.id}>
-                    <td colSpan={4}>
+                    <td colSpan={5}>
                       <form className="linha-form" onSubmit={salvarEdicaoSalao} style={{ margin: 0 }}>
                         <label>
                           Nome
@@ -224,6 +321,54 @@ export function TablesPage() {
                             />
                           </label>
                         )}
+                        <label>
+                          Horário de reserva
+                          <select
+                            value={edicaoSalao.modoHorarioReserva}
+                            onChange={(e) =>
+                              setEdicaoSalao({ ...edicaoSalao, modoHorarioReserva: e.target.value as ModoHorarioReservaSalao })
+                            }
+                          >
+                            {(Object.keys(MODO_HORARIO_LABEL) as ModoHorarioReservaSalao[]).map((m) => (
+                              <option key={m} value={m}>
+                                {MODO_HORARIO_LABEL[m]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {edicaoSalao.modoHorarioReserva === "fixo" && (
+                          <label>
+                            Horários fixos (separados por vírgula)
+                            <input
+                              value={edicaoSalao.horariosFixos}
+                              onChange={(e) => setEdicaoSalao({ ...edicaoSalao, horariosFixos: e.target.value })}
+                              placeholder="Ex: 19:00, 20:00, 21:00"
+                              required
+                            />
+                          </label>
+                        )}
+                        {edicaoSalao.modoHorarioReserva === "intervalo" && (
+                          <>
+                            <label>
+                              Das
+                              <input
+                                type="time"
+                                value={edicaoSalao.intervaloInicio}
+                                onChange={(e) => setEdicaoSalao({ ...edicaoSalao, intervaloInicio: e.target.value })}
+                                required
+                              />
+                            </label>
+                            <label>
+                              Até
+                              <input
+                                type="time"
+                                value={edicaoSalao.intervaloFim}
+                                onChange={(e) => setEdicaoSalao({ ...edicaoSalao, intervaloFim: e.target.value })}
+                                required
+                              />
+                            </label>
+                          </>
+                        )}
                         <div className="acoes">
                           <button className="btn" type="submit" disabled={salvandoEdicaoSalao}>
                             Salvar
@@ -241,9 +386,21 @@ export function TablesPage() {
                     <td>{MODO_LABEL[s.modoConfiguracao]}</td>
                     <td>{s.modoConfiguracao === "simples" ? s.capacidadeTotal ?? "nao configurada" : "-"}</td>
                     <td>
-                      <button className="btn btn-secundario" onClick={() => abrirEdicaoSalao(s)}>
-                        Editar
-                      </button>
+                      {s.modoHorarioReserva === "fixo" && s.horariosFixos
+                        ? s.horariosFixos.map((h) => h.slice(0, 5)).join(", ")
+                        : s.modoHorarioReserva === "intervalo" && s.intervaloInicio && s.intervaloFim
+                          ? `${s.intervaloInicio.slice(0, 5)} – ${s.intervaloFim.slice(0, 5)}`
+                          : "Segue o turno"}
+                    </td>
+                    <td>
+                      <div className="acoes">
+                        <button className="btn btn-secundario" onClick={() => abrirEdicaoSalao(s)}>
+                          Editar
+                        </button>
+                        <button className="btn btn-perigo" onClick={() => removerSalao(s)}>
+                          Excluir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ),

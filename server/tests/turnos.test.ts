@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { db } from "../src/db/client.js";
-import { regrasHorario } from "../src/db/schema/index.js";
+import { regrasHorario, saloes } from "../src/db/schema/index.js";
 import { verificarDisponibilidade } from "../src/lib/availability.js";
 import { agoraNoFuso, paraHora } from "../src/lib/time.js";
 import { gerarTokenDeReserva } from "../src/lib/reservation-link.js";
@@ -308,5 +308,120 @@ describe("horarios fixos por turno (doc 28 - ex: Cervegela so aceita reserva as 
       .set("Authorization", `Bearer ${token}`)
       .send({ diaSemana: 1, horaAbertura: "17:00", horaFechamento: "23:00", horariosFixos: ["10:00"] });
     expect(resposta.status).toBe(400);
+  });
+});
+
+describe("horario de reserva por SALAO (doc 29 - modo fixo/intervalo, alem do turno)", () => {
+  it("admin cria salao no modo 'fixo' com varios horarios; reserva publica so aceita esses horarios exatos", async () => {
+    const { unidade, token } = await setup();
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "17:00", horaFechamento: "23:00" });
+
+    const criado = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        nome: "Salao Rodizio",
+        modoConfiguracao: "simples",
+        capacidadeTotal: 50,
+        modoHorarioReserva: "fixo",
+        horariosFixos: ["19:00", "20:00", "21:00"],
+      });
+    expect(criado.status).toBe(201);
+    expect(criado.body.horariosFixos).toEqual(["19:00", "20:00", "21:00"]);
+
+    const dentro = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-11-20",
+      hora: "20:00",
+      numPessoas: 4,
+      respeitarHorariosFixos: true,
+    });
+    expect(dentro.disponivel).toBe(true);
+
+    const fora = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-11-20",
+      hora: "18:00",
+      numPessoas: 4,
+      respeitarHorariosFixos: true,
+    });
+    expect(fora.disponivel).toBe(false);
+  });
+
+  it("admin cria salao no modo 'intervalo'; reserva publica aceita qualquer horario dentro do intervalo, recusa fora", async () => {
+    const { unidade, token } = await setup();
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "11:00", horaFechamento: "23:00" });
+
+    const criado = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        nome: "Salao Eventos",
+        modoConfiguracao: "simples",
+        capacidadeTotal: 80,
+        modoHorarioReserva: "intervalo",
+        intervaloInicio: "19:00",
+        intervaloFim: "22:00",
+      });
+    expect(criado.status).toBe(201);
+
+    const dentro = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-11-20",
+      hora: "21:30",
+      numPessoas: 4,
+      respeitarHorariosFixos: true,
+    });
+    expect(dentro.disponivel).toBe(true);
+
+    const antes = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-11-20",
+      hora: "12:00",
+      numPessoas: 4,
+      respeitarHorariosFixos: true,
+    });
+    expect(antes.disponivel).toBe(false);
+  });
+
+  it("sem respeitarHorariosFixos (reserva manual pelo painel), a restricao do salao e ignorada", async () => {
+    const { unidade } = await criarEmpresaComAdmin();
+    await criarRegraHorarioTodosOsDias(unidade.id, { horaAbertura: "17:00", horaFechamento: "23:00" });
+    const [salao] = await db
+      .insert(saloes)
+      .values({
+        unidadeId: unidade.id,
+        nome: "Salao Rodizio",
+        modoConfiguracao: "simples",
+        capacidadeTotal: 50,
+        modoHorarioReserva: "fixo",
+        horariosFixos: ["19:00"],
+      })
+      .returning();
+
+    const resultado = await verificarDisponibilidade(db, {
+      unidadeId: unidade.id,
+      data: "2026-11-20",
+      hora: "18:00",
+      numPessoas: 4,
+    });
+    expect(resultado.disponivel).toBe(true);
+    expect(salao.modoHorarioReserva).toBe("fixo");
+  });
+
+  it("rejeita criar salao 'fixo' sem nenhum horario, e 'intervalo' sem os dois limites", async () => {
+    const { unidade, token } = await setup();
+
+    const semHorarios = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao A", modoConfiguracao: "simples", capacidadeTotal: 50, modoHorarioReserva: "fixo" });
+    expect(semHorarios.status).toBe(400);
+
+    const semIntervalo = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao B", modoConfiguracao: "simples", capacidadeTotal: 50, modoHorarioReserva: "intervalo", intervaloInicio: "19:00" });
+    expect(semIntervalo.status).toBe(400);
   });
 });

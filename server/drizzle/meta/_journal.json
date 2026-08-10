@@ -218,6 +218,13 @@
       "when": 1786366664655,
       "tag": "0030_add_horarios_fixos_regras_horario",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1786370132809,
+      "tag": "0031_add_horario_reserva_saloes",
+      "breakpoints": true
     }
   ]
 }
