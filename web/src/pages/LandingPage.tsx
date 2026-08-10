@@ -166,7 +166,7 @@ export function LandingPage() {
 
       <header className="lp-topo">
         <Marca />
-        <Link to="/admin/login" className="lp-link-entrar">
+        <Link to="/login" className="lp-link-entrar">
           Entrar
         </Link>
       </header>
@@ -389,7 +389,7 @@ export function LandingPage() {
 
       <footer className="lp-rodape">
         <Marca />
-        <Link to="/admin/login" className="texto-secundario">
+        <Link to="/login" className="texto-secundario">
           Já sou cliente
         </Link>
       </footer>

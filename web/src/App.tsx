@@ -38,7 +38,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     return <p style={{ padding: "2rem" }}>Carregando...</p>;
   }
   if (!usuario) {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/login" replace />;
   }
   // Continua autenticado (nao e um 401), so a assinatura da empresa nao esta em dia -
   // mostra a tela de bloqueio no lugar do painel, mas sem derrubar a sessao.
@@ -89,7 +89,7 @@ function RequirePainelEscolhido({ children }: { children: React.ReactNode }) {
 function RequirePlataformaAuth({ children }: { children: React.ReactNode }) {
   const { admin } = usePlataformaAuth();
   if (!admin) {
-    return <Navigate to="/painel/login" replace />;
+    return <Navigate to="/briano" replace />;
   }
   return <>{children}</>;
 }
@@ -105,7 +105,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={window.location.hostname.startsWith("painel.") ? <Navigate to="/painel" replace /> : <LandingPage />} />
-      <Route path="/admin/login" element={<LoginPage />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route
         path="/admin/escolher-painel"
         element={
@@ -214,7 +214,7 @@ function AppRoutes() {
           }
         />
       </Route>
-      <Route path="/painel/login" element={<PlataformaLoginPage />} />
+      <Route path="/briano" element={<PlataformaLoginPage />} />
       <Route
         path="/painel"
         element={
