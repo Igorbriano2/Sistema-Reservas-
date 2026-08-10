@@ -23,6 +23,7 @@ vi.mock("../src/lib/anthropic-client.js", () => ({
 const { enviarMensagemInstagram } = await import("../src/lib/instagram-api.js");
 const { getAnthropicClient } = await import("../src/lib/anthropic-client.js");
 const { processarEventoDoInstagram } = await import("../src/modules/agent/process-event.js");
+const { marcarComoEnviadoPeloAgente } = await import("../src/lib/instagram-notify.js");
 const { _cancelarTodosOsAgendamentosParaTeste } = await import("../src/modules/agent/debounce.js");
 
 function respostaDeTexto(texto: string): Anthropic.Message {
@@ -261,6 +262,42 @@ describe("processarEventoDoInstagram - echo (mensagens enviadas PELA conta do re
     expect(conversa.agentPaused).toBe(false);
     const lista = await db.select().from(mensagens).where(eq(mensagens.conversaId, conversa.id));
     expect(lista).toHaveLength(2); // nao duplicou a mensagem do agente
+  });
+
+  it("nao pausa quando o echo do PROPRIO envio chega ANTES da mensagem estar gravada (doc 26 - condicao de corrida real)", async () => {
+    // Simula exatamente a corrida que causava auto-pausa: o webhook de echo chega
+    // (ou e processado) antes do insert em enviarRespostaDoAgente terminar. O guard
+    // em memoria (marcado de forma sincrona assim que o Instagram confirma o envio,
+    // antes de qualquer await) precisa impedir a pausa mesmo sem NENHUMA linha em
+    // "mensagens" pra esse mid ainda existir.
+    const { unidade } = await setupCompleto();
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-1" },
+      recipient: { id: "ig-conta-restaurante" },
+      message: { mid: "mid-cliente-1", text: "quero uma mesa" },
+    });
+
+    marcarComoEnviadoPeloAgente("mid-em-corrida");
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-conta-restaurante" },
+      recipient: { id: "ig-cliente-1" },
+      message: { mid: "mid-em-corrida", text: "Resposta automatica do agente", is_echo: true },
+    });
+
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
+    expect(conversa.agentPaused).toBe(false);
+    // o echo em corrida nao deve ter inserido nada (o insert de verdade vem de
+    // enviarRespostaDoAgente, ainda por acontecer quando o turno agendado disparar).
+    const semDuplicata = await db
+      .select()
+      .from(mensagens)
+      .where(and(eq(mensagens.conversaId, conversa.id), eq(mensagens.igMessageId, "mid-em-corrida")));
+    expect(semDuplicata).toHaveLength(0);
+
+    // o turno real ainda dispara e entrega a resposta normalmente depois.
+    await aguardarTurnoAgendado();
+    const [conversaDepois] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
+    expect(conversaDepois.agentPaused).toBe(false);
   });
 
   it("pausa o agente quando detecta um echo que NAO veio do agente (humano na Meta Business Suite)", async () => {

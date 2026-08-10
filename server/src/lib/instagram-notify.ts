@@ -6,6 +6,26 @@ import { decrypt } from "./crypto.js";
 import { enviarMensagemInstagram, InstagramAuthError } from "./instagram-api.js";
 import { buscarConexaoAtivaDaUnidade, buscarConexaoCompartilhadaDaEmpresa } from "./instagram-connection.js";
 
+// Corrige uma condicao de corrida real: entre o Instagram confirmar o envio (devolve
+// o mid) e a gente gravar esse mid em "mensagens", o webhook de echo do PROPRIO envio
+// as vezes chega primeiro - e process-event.ts, sem achar o mid ainda gravado,
+// concluia (errado) que foi um humano respondendo e pausava o agente pra sempre
+// (ate reativacao manual). Um Set em memoria fecha a corrida: e preenchido de forma
+// sincrona assim que o mid volta do envio (antes de qualquer novo await), entao
+// nenhum evento de webhook consegue ser processado no meio disso (loop de eventos
+// single-threaded do Node) - so funciona pq a API roda numa unica instancia
+// (instance_count: 1 no app spec), o que ja e o caso hoje.
+const midsRecentesDoAgente = new Set<string>();
+
+export function marcarComoEnviadoPeloAgente(mid: string): void {
+  midsRecentesDoAgente.add(mid);
+  setTimeout(() => midsRecentesDoAgente.delete(mid), 30_000).unref();
+}
+
+export function foiEnviadoPeloAgente(mid: string): boolean {
+  return midsRecentesDoAgente.has(mid);
+}
+
 export interface EnviarRespostaDoAgenteParams {
   // Nulo quando a conversa ainda nao teve a unidade resolvida (doc 17, parte 4) - a
   // primeira mensagem do agente ("qual unidade voce quer?") sai pela conexao
@@ -50,6 +70,13 @@ export async function enviarRespostaDoAgente(db: Database, params: EnviarRespost
       await db.update(instagramConnections).set({ status: "expirada" }).where(eq(instagramConnections.id, conexao.id));
     }
     throw err;
+  }
+
+  // Precisa ser sincrono, sem nenhum await entre o retorno de enviarMensagemInstagram
+  // e esta linha - e o que garante que nenhum webhook de echo desse mesmo envio seja
+  // processado antes do guard estar armado (ver comentario acima).
+  if (igMessageId) {
+    marcarComoEnviadoPeloAgente(igMessageId);
   }
 
   await db.insert(mensagens).values({

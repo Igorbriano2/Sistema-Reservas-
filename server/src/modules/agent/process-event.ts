@@ -11,7 +11,7 @@ import {
   type PapelMensagem,
 } from "../../db/schema/index.js";
 import { montarSystemPrompt, montarSystemPromptResolucaoUnidade } from "../../lib/agent-prompt.js";
-import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
+import { enviarRespostaDoAgente, foiEnviadoPeloAgente } from "../../lib/instagram-notify.js";
 import { executarTurnoDoAgente } from "./orchestrator.js";
 import { executarTool } from "./tool-executor.js";
 import { agendarTurnoDoAgente } from "./debounce.js";
@@ -215,10 +215,19 @@ export async function processarEventoDoInstagram(db: Database, evento: Instagram
   const conversa = await buscarOuCriarConversa(db, conexao.empresaId, unidadeSugerida, igSenderId);
 
   if (mensagem.is_echo) {
-    // Echo de uma mensagem enviada PELA conta do restaurante. Se o mid corresponde a
-    // uma mensagem que o agente mandou, o insert abaixo colide com o unique index e e
-    // ignorado (onConflictDoNothing) - nada a fazer. Se nao corresponde a nenhuma, foi
-    // um humano respondendo pela Meta Business Suite: registra e pausa o agente.
+    // Echo de uma mensagem enviada PELA conta do restaurante. Se for o proprio agente
+    // (guard em memoria de instagram-notify.ts, ver comentario la - fecha uma corrida
+    // real onde esse echo podia chegar ANTES da gente gravar o mid, fazendo o agente
+    // se auto-pausar): nada a fazer aqui, o insert de verdade (papel assistant, sem
+    // enviadoPorHumano) ja acontece em enviarRespostaDoAgente.
+    if (mensagem.mid && foiEnviadoPeloAgente(mensagem.mid)) {
+      return;
+    }
+
+    // Se o mid corresponde a uma mensagem que o agente ja gravou normalmente (sem
+    // corrida), o insert abaixo colide com o unique index e e ignorado
+    // (onConflictDoNothing) - nada a fazer. Se nao corresponde a nenhuma, foi um
+    // humano respondendo pela Meta Business Suite: registra e pausa o agente.
     const [inserida] = await db
       .insert(mensagens)
       .values({
