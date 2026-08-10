@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import { conversas, mensagens } from "../../db/schema/index.js";
@@ -10,11 +10,48 @@ import { preencherPerfisFaltantes } from "../../lib/instagram-profile.js";
 
 export const conversasRouter = Router({ mergeParams: true });
 
+// Doc 34 - a lista vira um "chat estilo WhatsApp Web": cada conversa mostra a ultima
+// mensagem (preview) e a lista fica ordenada pela mais recente primeiro, igual
+// qualquer app de chat. Busca so as 500 mensagens mais recentes entre TODAS as
+// conversas da unidade (nao por conversa) - suficiente pra cobrir a ultima de cada
+// uma no volume normal de um restaurante, sem paginar nada aqui.
+async function anexarUltimaMensagem(lista: (typeof conversas.$inferSelect)[]) {
+  const ids = lista.map((c) => c.id);
+  const recentes =
+    ids.length === 0
+      ? []
+      : await db
+          .select({ conversaId: mensagens.conversaId, conteudo: mensagens.conteudo, criadoEm: mensagens.criadoEm })
+          .from(mensagens)
+          .where(inArray(mensagens.conversaId, ids))
+          .orderBy(desc(mensagens.criadoEm))
+          .limit(500);
+
+  const ultimaPorConversa = new Map<string, { conteudo: string; criadoEm: Date }>();
+  for (const m of recentes) {
+    if (!ultimaPorConversa.has(m.conversaId)) ultimaPorConversa.set(m.conversaId, m);
+  }
+
+  return lista
+    .map((c) => {
+      const ultima = ultimaPorConversa.get(c.id);
+      return { ...c, ultimaMensagem: ultima?.conteudo ?? null, ultimaMensagemEm: ultima?.criadoEm ?? null };
+    })
+    .sort((a, b) => {
+      const dataA = a.ultimaMensagemEm ?? a.ultimaAtividadeHumanaEm;
+      const dataB = b.ultimaMensagemEm ?? b.ultimaAtividadeHumanaEm;
+      if (!dataA && !dataB) return 0;
+      if (!dataA) return 1;
+      if (!dataB) return -1;
+      return new Date(dataB).getTime() - new Date(dataA).getTime();
+    });
+}
+
 conversasRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const lista = await db.select().from(conversas).where(eq(conversas.unidadeId, req.unidadeId!));
-    res.json(lista);
+    res.json(await anexarUltimaMensagem(lista));
     // Doc 33 - backfill de nome/foto pra conversas antigas (criadas antes desse campo
     // existir): roda depois da resposta, nao atrasa a listagem.
     void preencherPerfisFaltantes(db, lista);

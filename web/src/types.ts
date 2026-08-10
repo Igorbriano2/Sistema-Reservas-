@@ -242,6 +242,8 @@ export interface Conversa {
   ultimaAtividadeHumanaEm: string | null;
   nomeCliente: string | null;
   fotoClienteUrl: string | null;
+  ultimaMensagem: string | null;
+  ultimaMensagemEm: string | null;
 }
 
 export interface Mensagem {

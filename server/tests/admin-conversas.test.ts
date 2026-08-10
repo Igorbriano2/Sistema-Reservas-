@@ -173,3 +173,36 @@ describe("GET /admin/unidades/:id/conversas - backfill de perfil (doc 33)", () =
     expect(obterPerfilInstagram).not.toHaveBeenCalled();
   });
 });
+
+describe("GET /admin/unidades/:id/conversas - preview da ultima mensagem (doc 34)", () => {
+  it("mostra a ultima mensagem de cada conversa e ordena da mais recente pra mais antiga", async () => {
+    const { empresa, unidade, usuario, senhaAdmin } = await criarEmpresaComAdmin();
+    const conversaAntiga = await criarConversa(empresa.id, unidade.id, "ig-cliente-antiga");
+    const conversaRecente = await criarConversa(empresa.id, unidade.id, "ig-cliente-recente");
+    const token = await login(app, usuario.email, senhaAdmin);
+
+    await db.insert(mensagens).values([
+      { conversaId: conversaAntiga.id, papel: "user", conteudo: "Oi, tudo bem?", criadoEm: new Date("2026-01-01T10:00:00Z") },
+      { conversaId: conversaAntiga.id, papel: "assistant", conteudo: "Tudo sim, como posso ajudar?", criadoEm: new Date("2026-01-01T10:01:00Z") },
+      { conversaId: conversaRecente.id, papel: "user", conteudo: "Quero reservar mesa pra hoje", criadoEm: new Date("2026-01-02T10:00:00Z") },
+    ]);
+
+    const res = await request(app).get(`/admin/unidades/${unidade.id}/conversas`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0].id).toBe(conversaRecente.id);
+    expect(res.body[0].ultimaMensagem).toBe("Quero reservar mesa pra hoje");
+    expect(res.body[1].id).toBe(conversaAntiga.id);
+    expect(res.body[1].ultimaMensagem).toBe("Tudo sim, como posso ajudar?");
+  });
+
+  it("conversa sem nenhuma mensagem ainda vem com ultimaMensagem nula", async () => {
+    const { empresa, unidade, usuario, senhaAdmin } = await criarEmpresaComAdmin();
+    await criarConversa(empresa.id, unidade.id, "ig-cliente-sem-msg");
+    const token = await login(app, usuario.email, senhaAdmin);
+
+    const res = await request(app).get(`/admin/unidades/${unidade.id}/conversas`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body[0].ultimaMensagem).toBeNull();
+  });
+});
