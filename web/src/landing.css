@@ -105,8 +105,10 @@
 /* Hero ------------------------------------------------------------------ */
 
 .lp-hero {
-  padding-top: 6rem;
-  padding-bottom: 6rem;
+  /* padding-top precisa sempre cobrir a altura real da nav fixa em pilula (ver
+     .lp-nav-pilula) - senao o icone/badge do hero fica espiando por tras dela. */
+  padding-top: 5.5rem;
+  padding-bottom: 3rem;
   text-align: center;
 }
 
@@ -123,16 +125,16 @@
   padding: 0.4rem 1rem;
   font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .lp-hero h1 {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(2.1rem, 5.5vw, 3.6rem);
+  font-size: clamp(2rem, 4.8vw, 3.2rem);
   line-height: 1.12;
   letter-spacing: -0.01em;
-  margin: 0 0 1.5rem;
+  margin: 0 0 1rem;
   max-width: 780px;
 }
 
@@ -144,7 +146,7 @@
 }
 
 .lp-hero .lp-texto-grande {
-  margin: 0 auto 2.25rem;
+  margin: 0 auto 1.5rem;
 }
 
 .lp-cta-grupo {
@@ -812,7 +814,7 @@
   }
 
   .lp-hero {
-    padding-top: 3.5rem;
+    padding-top: 5rem;
   }
 
   .lp-como-funciona,
@@ -1590,10 +1592,10 @@ html[data-theme="light"] .lp-chatdemo-topo-canal {
 /* Marca gigante do hero (cadeira dentro de um cartao com gradiente + glow) */
 .lp-hero-marca {
   position: relative;
-  margin: 0 auto 2rem;
+  margin: 0 auto 1rem;
   display: flex;
-  height: 6rem;
-  width: 6rem;
+  height: 4rem;
+  width: 4rem;
   align-items: center;
   justify-content: center;
 }
@@ -1626,8 +1628,8 @@ html[data-theme="light"] .lp-chatdemo-topo-canal {
 .lp-hero-marca-tile {
   position: relative;
   display: flex;
-  height: 5rem;
-  width: 5rem;
+  height: 3.5rem;
+  width: 3.5rem;
   align-items: center;
   justify-content: center;
   border-radius: 28%;
@@ -1782,12 +1784,12 @@ html[data-theme="light"] .lp-chatdemo-topo-canal {
 
   .lp-hero-marca,
   .lp-hero-marca-flutuante {
-    height: 5rem;
-    width: 5rem;
+    height: 3.5rem;
+    width: 3.5rem;
   }
 
   .lp-hero-marca-tile {
-    height: 4.25rem;
-    width: 4.25rem;
+    height: 3rem;
+    width: 3rem;
   }
 }

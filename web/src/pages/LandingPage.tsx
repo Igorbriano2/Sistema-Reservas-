@@ -211,12 +211,9 @@ export function LandingPage() {
             </Reveal>
 
             <Reveal delay={240}>
-              <p className="lp-texto-grande">
-                Sem salário, sem encargos e sem precisar contratar mais um funcionário para ficar preso ao celular.
-              </p>
-              <p className="lp-texto-grande">
-                O agente de IA atende Instagram e WhatsApp, responde seus clientes e organiza o atendimento
-                automaticamente — enquanto sua equipe cuida do que realmente importa: o salão.
+              <p className="lp-texto-grande" style={{ margin: "0 auto 1.5rem" }}>
+                Sem salário, sem encargos e sem contratar mais um funcionário pra ficar preso ao celular: o agente de
+                IA atende Instagram e WhatsApp e organiza tudo enquanto sua equipe cuida do salão.
               </p>
             </Reveal>
 
@@ -230,12 +227,12 @@ export function LandingPage() {
                   Ver como funciona
                 </a>
               </div>
-              <p className="texto-secundario" style={{ textAlign: "center", fontSize: "0.8rem", marginTop: "1.1rem" }}>
+              <p className="texto-secundario" style={{ textAlign: "center", fontSize: "0.8rem", marginTop: "0.85rem" }}>
                 7 dias grátis · sem cobrança se cancelar antes · R$ 697/mês depois
               </p>
             </Reveal>
 
-            <Reveal delay={400} className="lp-video-wrap" style={{ maxWidth: 720, margin: "3.5rem auto 0" }}>
+            <Reveal delay={400} className="lp-video-wrap" style={{ maxWidth: 980, width: "100%", margin: "1.75rem auto 0" }}>
               <VideoDeVendas />
             </Reveal>
           </div>
