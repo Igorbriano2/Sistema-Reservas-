@@ -52,8 +52,14 @@ export async function executarTurnoDoAgente(params: ExecutarTurnoParams): Promis
     const resposta = await criarMensagem({
       model: env.ANTHROPIC_MODEL,
       max_tokens: MAX_TOKENS_RESPOSTA,
-      system: params.systemPrompt,
-      tools,
+      // Cache de prompt (doc 35): o system prompt e as tools sao IDENTICOS em toda
+      // chamada desta mesma empresa/toolset (so o historico de mensagens muda) - sem
+      // isso, cada uma das ate 6 idas-e-voltas de tool_use por turno, e cada novo
+      // turno da mesma conversa, reenviava (e pagava o preco cheio de) esse bloco
+      // fixo do zero. O marcador vai no ULTIMO bloco de cada um: a Claude API cacheia
+      // cumulativamente tudo ATE ali (aqui, prompt inteiro + tools inteiras).
+      system: [{ type: "text", text: params.systemPrompt, cache_control: { type: "ephemeral" } }],
+      tools: tools.map((tool, i) => (i === tools.length - 1 ? { ...tool, cache_control: { type: "ephemeral" as const } } : tool)),
       messages,
     });
 

@@ -27,6 +27,9 @@ const { processarEventoDoInstagram } = await import("../src/modules/agent/proces
 const { _cancelarTodosOsAgendamentosParaTeste } = await import("../src/modules/agent/debounce.js");
 const { env } = await import("../src/config/env.js");
 
+// Cast via unknown de proposito: objeto de teste minimo, so com os campos que o
+// orchestrator realmente le - nao acompanha cada campo novo que a Anthropic.Message
+// ganha em atualizacoes do SDK (usage detalhado, citations, etc).
 function respostaDeTexto(texto: string): Anthropic.Message {
   return {
     id: "msg_fake",
@@ -37,7 +40,7 @@ function respostaDeTexto(texto: string): Anthropic.Message {
     usage: { input_tokens: 1, output_tokens: 1 },
     content: [{ type: "text", text: texto }],
     stop_reason: "end_turn",
-  };
+  } as unknown as Anthropic.Message;
 }
 
 let criarMock: ReturnType<typeof vi.fn>;

@@ -17,6 +17,9 @@ afterAll(async () => {
   await closeDb();
 });
 
+// Cast via unknown de proposito: sao objetos de teste minimos, so com os campos que
+// o orchestrator realmente le (content/stop_reason) - nao acompanham cada campo novo
+// que a Anthropic.Message ganha em atualizacoes do SDK (usage detalhado, citations, etc).
 function respostaDeTexto(texto: string): Anthropic.Message {
   return {
     id: "msg_fake",
@@ -27,7 +30,7 @@ function respostaDeTexto(texto: string): Anthropic.Message {
     usage: { input_tokens: 10, output_tokens: 10 },
     content: [{ type: "text", text: texto }],
     stop_reason: "end_turn",
-  };
+  } as unknown as Anthropic.Message;
 }
 
 function respostaDeToolUse(toolUseId: string, nome: string, input: unknown): Anthropic.Message {
@@ -40,7 +43,7 @@ function respostaDeToolUse(toolUseId: string, nome: string, input: unknown): Ant
     usage: { input_tokens: 10, output_tokens: 10 },
     content: [{ type: "tool_use", id: toolUseId, name: nome, input }],
     stop_reason: "tool_use",
-  };
+  } as unknown as Anthropic.Message;
 }
 
 async function setupUnidadeCompleta() {

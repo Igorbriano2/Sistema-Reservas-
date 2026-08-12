@@ -27,6 +27,9 @@ const { processarEventoDoInstagram } = await import("../src/modules/agent/proces
 const { marcarComoEnviadoPeloAgente } = await import("../src/lib/instagram-notify.js");
 const { _cancelarTodosOsAgendamentosParaTeste } = await import("../src/modules/agent/debounce.js");
 
+// Cast via unknown de proposito: objeto de teste minimo, so com os campos que o
+// orchestrator realmente le - nao acompanha cada campo novo que a Anthropic.Message
+// ganha em atualizacoes do SDK (usage detalhado, citations, etc).
 function respostaDeTexto(texto: string): Anthropic.Message {
   return {
     id: "msg_fake",
@@ -37,7 +40,7 @@ function respostaDeTexto(texto: string): Anthropic.Message {
     usage: { input_tokens: 1, output_tokens: 1 },
     content: [{ type: "text", text: texto }],
     stop_reason: "end_turn",
-  };
+  } as unknown as Anthropic.Message;
 }
 
 // O turno do agente e disparado com atraso (debounce - ver AGENT_DEBOUNCE_MS nos
@@ -183,8 +186,10 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
     const argsDaChamada = vi.mocked(getAnthropicClient).mock.results[0].value.messages.create.mock.calls[0][0];
     const nomesDasTools = argsDaChamada.tools.map((t: { name: string }) => t.name);
     expect(nomesDasTools).toEqual(["resolver_unidade_da_conversa", "escalate_to_human"]);
-    expect(argsDaChamada.system).toContain(unidade1.nome);
-    expect(argsDaChamada.system).toContain(unidade2.nome);
+    // Doc 35 - system agora vai em bloco (array), pro cache de prompt poder marcar
+    // cache_control nele; o texto em si continua no primeiro (e unico) bloco.
+    expect(argsDaChamada.system[0].text).toContain(unidade1.nome);
+    expect(argsDaChamada.system[0].text).toContain(unidade2.nome);
   });
 
   it("resolve a unidade quando o cliente responde, e libera o toolset completo so na mensagem seguinte", async () => {
