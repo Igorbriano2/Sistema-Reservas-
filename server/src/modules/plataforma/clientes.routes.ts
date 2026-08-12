@@ -74,22 +74,29 @@ clientesRouter.patch(
   }),
 );
 
-const redefinirSenhaOwnerSchema = z.object({
-  senha: z.string().min(8, "Senha deve ter pelo menos 8 caracteres"),
-  // Opcional: so troca o e-mail de login se o admin da plataforma explicitamente
-  // informar um novo. Sem isso, so a senha muda - o dono nao perde o proprio e-mail
-  // sem querer.
-  email: z.string().email().optional(),
-});
+// Doc 36 - "editar login" cobre os 3 campos do dono (nome, email, senha) numa unica
+// rota: sem essa flexibilizacao, o admin da plataforma so conseguia trocar o e-mail
+// se TAMBEM redefinisse a senha (mesmo sem precisar). Motivado por assinaturas pagas
+// via Pix direto pro dono da plataforma (fora do fluxo automatico da Stripe) - pra
+// essas, ele precisa de controle manual total sobre a conta do cliente.
+const editarLoginOwnerSchema = z
+  .object({
+    nome: z.string().min(1).optional(),
+    // So troca o e-mail/senha de login se o admin da plataforma explicitamente
+    // informar um novo valor - sem isso, o campo correspondente fica como esta.
+    email: z.string().email().optional(),
+    senha: z.string().min(8, "Senha deve ter pelo menos 8 caracteres").optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar");
 
-// Suporte: o dono do restaurante perdeu a senha (ou nunca chegou a receber - nao
-// existe convite por e-mail no MVP) e nao ha fluxo de "esqueci minha senha" ainda.
-// So o admin da plataforma pode redefinir, direto pelo login "owner" da empresa
-// (sempre existe exatamente um, criado em criarEmpresaComOwner).
-clientesRouter.post(
-  "/:empresaId/redefinir-senha-owner",
+// Suporte: o dono do restaurante perdeu a senha (ou trocou de e-mail, ou nunca chegou
+// a receber - nao existe convite por e-mail no MVP) e nao ha fluxo de "esqueci minha
+// senha" ainda. So o admin da plataforma pode editar, direto pelo login "owner" da
+// empresa (sempre existe exatamente um, criado em criarEmpresaComOwner).
+clientesRouter.patch(
+  "/:empresaId/login-owner",
   asyncHandler(async (req, res) => {
-    const dados = redefinirSenhaOwnerSchema.parse(req.body);
+    const dados = editarLoginOwnerSchema.parse(req.body);
     const [owner] = await db
       .select({ id: usuarios.id })
       .from(usuarios)
@@ -99,11 +106,15 @@ clientesRouter.post(
       throw new RecursoNaoEncontradoError("Cliente (ou login de dono) nao encontrado");
     }
 
-    const senhaHash = await hashPassword(dados.senha);
+    const valores: { nome?: string; email?: string; senhaHash?: string } = {};
+    if (dados.nome) valores.nome = dados.nome;
+    if (dados.email) valores.email = dados.email.toLowerCase();
+    if (dados.senha) valores.senhaHash = await hashPassword(dados.senha);
+
     try {
       const [atualizado] = await db
         .update(usuarios)
-        .set({ senhaHash, ...(dados.email && { email: dados.email.toLowerCase() }) })
+        .set(valores)
         .where(eq(usuarios.id, owner.id))
         .returning({ id: usuarios.id, nome: usuarios.nome, email: usuarios.email, username: usuarios.username });
       res.json(atualizado);
@@ -113,5 +124,23 @@ clientesRouter.post(
       }
       throw err;
     }
+  }),
+);
+
+// Doc 36 - exclusao definitiva da conta (empresa + tudo dela: unidades, reservas,
+// usuarios, conversas, assinaturas, etc, via cascade do schema). Sem soft-delete: e
+// uma exclusao real, pensada pra quando o dono da plataforma decide encerrar de vez
+// uma conta (ex: cliente que pagava por Pix e parou, ou pediu pra sair). O cascade foi
+// verificado manualmente - reservas.unidade_id e cascade, entao reservas somem ANTES
+// do delete alcancar saloes/mesas (que tem reservas.salao_id/mesa_id como restrict),
+// sem violar a constraint.
+clientesRouter.delete(
+  "/:empresaId",
+  asyncHandler(async (req, res) => {
+    const [apagada] = await db.delete(empresas).where(eq(empresas.id, req.params.empresaId)).returning({ id: empresas.id });
+    if (!apagada) {
+      throw new RecursoNaoEncontradoError("Cliente nao encontrado");
+    }
+    res.status(204).send();
   }),
 );

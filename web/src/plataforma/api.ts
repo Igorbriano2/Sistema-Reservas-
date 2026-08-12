@@ -49,4 +49,5 @@ export const plataformaApi = {
     plataformaFetch<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>
     plataformaFetch<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
+  delete: <T>(path: string) => plataformaFetch<T>(path, { method: "DELETE" }),
 };

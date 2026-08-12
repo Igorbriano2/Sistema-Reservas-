@@ -3,9 +3,10 @@ import { eq } from "drizzle-orm";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { db } from "../src/db/client.js";
-import { empresas, plataformaAdmins } from "../src/db/schema/index.js";
+import { empresas, plataformaAdmins, reservas } from "../src/db/schema/index.js";
 import { hashPassword } from "../src/lib/password.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
+import { criarMesa, criarSalao } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
 
 const app = createApp();
@@ -104,7 +105,7 @@ describe("Clientes (assinaturas)", () => {
     const { empresa, usuario } = await criarEmpresaComAdmin({ emailAdmin: "antigo@cervegela.com" });
 
     const resposta = await request(app)
-      .post(`/plataforma/clientes/${empresa.id}/redefinir-senha-owner`)
+      .patch(`/plataforma/clientes/${empresa.id}/login-owner`)
       .set("Authorization", `Bearer ${tokenPlataforma}`)
       .send({ senha: "NovaSenha@123" });
 
@@ -115,13 +116,13 @@ describe("Clientes (assinaturas)", () => {
     expect(loginComSenhaNova).toBeTruthy();
   });
 
-  it("redefinir senha tambem pode trocar o e-mail de login, se informado", async () => {
+  it("editar login tambem pode trocar o e-mail, se informado junto com a senha", async () => {
     const { admin, senha } = await criarPlataformaAdmin();
     const tokenPlataforma = await loginPlataforma(admin.email, senha);
     const { empresa } = await criarEmpresaComAdmin({ emailAdmin: "antigo@cervegela.com" });
 
     const resposta = await request(app)
-      .post(`/plataforma/clientes/${empresa.id}/redefinir-senha-owner`)
+      .patch(`/plataforma/clientes/${empresa.id}/login-owner`)
       .set("Authorization", `Bearer ${tokenPlataforma}`)
       .send({ senha: "NovaSenha@123", email: "novo@cervegela.com" });
 
@@ -132,14 +133,97 @@ describe("Clientes (assinaturas)", () => {
     expect(loginComEmailNovo).toBeTruthy();
   });
 
-  it("404 ao redefinir senha de uma empresa que nao existe", async () => {
+  it("troca so o e-mail (ou so o nome), sem exigir senha nova (doc 36)", async () => {
+    const { admin, senha } = await criarPlataformaAdmin();
+    const tokenPlataforma = await loginPlataforma(admin.email, senha);
+    const { empresa, senhaAdmin } = await criarEmpresaComAdmin({ emailAdmin: "antigo2@cervegela.com" });
+
+    const resposta = await request(app)
+      .patch(`/plataforma/clientes/${empresa.id}/login-owner`)
+      .set("Authorization", `Bearer ${tokenPlataforma}`)
+      .send({ nome: "Novo Nome do Dono", email: "novo2@cervegela.com" });
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body.nome).toBe("Novo Nome do Dono");
+    expect(resposta.body.email).toBe("novo2@cervegela.com");
+
+    // A senha antiga continua valendo - nao foi tocada.
+    const loginComSenhaAntiga = await login(app, "novo2@cervegela.com", senhaAdmin);
+    expect(loginComSenhaAntiga).toBeTruthy();
+  });
+
+  it("rejeita editar login sem nenhum campo", async () => {
+    const { admin, senha } = await criarPlataformaAdmin();
+    const tokenPlataforma = await loginPlataforma(admin.email, senha);
+    const { empresa } = await criarEmpresaComAdmin();
+
+    const resposta = await request(app)
+      .patch(`/plataforma/clientes/${empresa.id}/login-owner`)
+      .set("Authorization", `Bearer ${tokenPlataforma}`)
+      .send({});
+
+    expect(resposta.status).toBe(400);
+  });
+
+  it("404 ao editar login de uma empresa que nao existe", async () => {
     const { admin, senha } = await criarPlataformaAdmin();
     const tokenPlataforma = await loginPlataforma(admin.email, senha);
 
     const resposta = await request(app)
-      .post(`/plataforma/clientes/00000000-0000-0000-0000-000000000000/redefinir-senha-owner`)
+      .patch(`/plataforma/clientes/00000000-0000-0000-0000-000000000000/login-owner`)
       .set("Authorization", `Bearer ${tokenPlataforma}`)
       .send({ senha: "NovaSenha@123" });
+
+    expect(resposta.status).toBe(404);
+  });
+
+  it("exclui a conta (empresa + tudo dela) definitivamente (doc 36)", async () => {
+    const { admin, senha } = await criarPlataformaAdmin();
+    const tokenPlataforma = await loginPlataforma(admin.email, senha);
+    const { empresa } = await criarEmpresaComAdmin();
+
+    const resposta = await request(app)
+      .delete(`/plataforma/clientes/${empresa.id}`)
+      .set("Authorization", `Bearer ${tokenPlataforma}`);
+
+    expect(resposta.status).toBe(204);
+
+    const lista = await request(app)
+      .get("/plataforma/clientes")
+      .set("Authorization", `Bearer ${tokenPlataforma}`);
+    expect(lista.body.find((c: { id: string }) => c.id === empresa.id)).toBeUndefined();
+  });
+
+  it("exclui a conta mesmo com salao/mesa/reserva - o cascade nao esbarra no restrict de reservas.mesa_id/salao_id (doc 36)", async () => {
+    const { admin, senha } = await criarPlataformaAdmin();
+    const tokenPlataforma = await loginPlataforma(admin.email, senha);
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const salao = await criarSalao(unidade.id);
+    const mesa = await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+    await db.insert(reservas).values({
+      unidadeId: unidade.id,
+      mesaId: mesa.id,
+      clienteNome: "Cliente Teste",
+      numPessoas: 2,
+      data: "2026-12-01",
+      horaInicio: "19:00",
+      horaFim: "21:00",
+    });
+
+    const resposta = await request(app)
+      .delete(`/plataforma/clientes/${empresa.id}`)
+      .set("Authorization", `Bearer ${tokenPlataforma}`);
+
+    expect(resposta.status).toBe(204);
+  });
+
+  it("404 ao excluir uma empresa que nao existe", async () => {
+    const { admin, senha } = await criarPlataformaAdmin();
+    const tokenPlataforma = await loginPlataforma(admin.email, senha);
+
+    const resposta = await request(app)
+      .delete(`/plataforma/clientes/00000000-0000-0000-0000-000000000000`)
+      .set("Authorization", `Bearer ${tokenPlataforma}`);
 
     expect(resposta.status).toBe(404);
   });

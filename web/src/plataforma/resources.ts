@@ -35,16 +35,24 @@ export function converterLead(leadId: string, senha: string) {
   return plataformaApi.post<{ empresa: Cliente; lead: Lead }>(`/plataforma/leads/${leadId}/converter`, { senha });
 }
 
-export interface DadosRedefinirSenhaOwner {
-  senha: string;
+export interface DadosEditarLoginOwner {
+  nome?: string;
   email?: string;
+  senha?: string;
 }
 
-export function redefinirSenhaOwner(empresaId: string, dados: DadosRedefinirSenhaOwner) {
-  return plataformaApi.post<{ id: string; nome: string; email: string | null; username: string | null }>(
-    `/plataforma/clientes/${empresaId}/redefinir-senha-owner`,
+export function editarLoginOwner(empresaId: string, dados: DadosEditarLoginOwner) {
+  return plataformaApi.patch<{ id: string; nome: string; email: string | null; username: string | null }>(
+    `/plataforma/clientes/${empresaId}/login-owner`,
     dados,
   );
+}
+
+// Doc 36 - exclusao definitiva (empresa + tudo dela, cascade no schema). Usado pra
+// encerrar contas pagas via Pix direto pro dono da plataforma, fora do fluxo
+// automatico da Stripe.
+export function excluirCliente(empresaId: string) {
+  return plataformaApi.delete<void>(`/plataforma/clientes/${empresaId}`);
 }
 
 export function entrarEmModoTeste() {
