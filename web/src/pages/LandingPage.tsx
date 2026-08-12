@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useState, type CSSProperties, type MouseEvent } from "react";
 import { Link } from "react-router-dom";
 import "../landing.css";
 import { Marca } from "../components/Marca.js";
-import { ComoFuncionaMidia } from "../components/landing/ComoFuncionaMidia.js";
+import { Nav, BarraFixaMobile } from "../components/landing/Nav.js";
+import { BarraDeProgresso, Aurora, SpotCard, Marquee, Reveal } from "../components/landing/Fx.js";
+import { ChatDemo } from "../components/landing/ChatDemo.js";
 import { TrustSection } from "../components/landing/TrustSection.js";
 import { FounderSection } from "../components/landing/FounderSection.js";
 import { ComparisonSection } from "../components/landing/ComparisonSection.js";
@@ -10,21 +12,6 @@ import { WaitlistForm } from "../components/landing/WaitlistForm.js";
 
 function prefereMovimentoReduzido(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function aplicarTilt(e: MouseEvent<HTMLDivElement>) {
-  if (prefereMovimentoReduzido()) return;
-  const card = e.currentTarget;
-  const rect = card.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const rotateX = (y / rect.height - 0.5) * -8;
-  const rotateY = (x / rect.width - 0.5) * 8;
-  card.style.transform = `perspective(700px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-}
-
-function removerTilt(e: MouseEvent<HTMLDivElement>) {
-  e.currentTarget.style.transform = "";
 }
 
 function aplicarIma(e: MouseEvent<HTMLElement>) {
@@ -40,18 +27,24 @@ function removerIma(e: MouseEvent<HTMLElement>) {
   e.currentTarget.style.transform = "";
 }
 
-// Escalona o reveal de itens de uma mesma grade/lista (ver --reveal-delay em
-// landing.css) - capado pra nao deixar os ultimos itens de listas longas com um
-// atraso exagerado.
-function atrasoEscalonado(indice: number, passoMs = 55, maxItens = 6) {
-  return { "--reveal-delay": `${Math.min(indice, maxItens) * passoMs}ms` } as CSSProperties;
-}
-
-const PASSOS_COMO_FUNCIONA = [
+const PROBLEMAS = [
   {
-    titulo: "Cliente manda mensagem",
-    texto: "“Oi, tem mesa pra 4 sexta às 20h?”",
+    titulo: "“Boa noite, vocês têm mesa pra hoje?”",
+    texto:
+      "Chega às 19h numa sexta lotada. Ninguém vê na hora. Quarenta minutos depois, alguém responde — mas o cliente já reservou em outro lugar.",
   },
+  {
+    titulo: "Planilha, caderno, WhatsApp pessoal",
+    texto: "Cada reserva confirmada por telefone é uma reserva que depende de alguém lembrar de anotar, sem duplicar mesa, sem esquecer.",
+  },
+  {
+    titulo: "Ferramentas que tiram o cliente do Instagram",
+    texto: "Link externo, outro app, outro cadastro. Cada clique a mais é uma chance do cliente desistir no meio do caminho.",
+  },
+];
+
+const PASSOS = [
+  { titulo: "Cliente manda mensagem", texto: "“Oi, tem mesa pra 4 sexta às 20h?”" },
   {
     titulo: "O agente responde e envia o link",
     texto: "Na hora, com o tom de voz do seu restaurante — e o link de reserva do seu próprio sistema.",
@@ -71,23 +64,29 @@ const ITENS_VALOR = [
   "Agrupamento inteligente de mensagens — o agente espera o cliente terminar de digitar antes de responder, como uma pessoa de verdade faria",
 ];
 
-interface Funcionalidade {
-  titulo: string;
-  texto: string;
-  status: "disponivel" | "em-breve";
-}
+// Doc 38 - todos ja estao no ar (auditado contra o roadmap real do produto: pixels
+// de marketing, PWA, conexao automatica do Instagram, WhatsApp Business e o editor
+// visual do salao ja foram entregues) - nao ha mais item "em breve" pendente aqui.
+const FUNCIONALIDADES = [
+  { titulo: "Agente de IA no Instagram", texto: "Responde, tira dúvida e manda o link de reserva 24 horas por dia, no tom de voz do seu restaurante." },
+  { titulo: "Painel administrativo", texto: "Reservas do dia, mesas, horários e equipe — tudo em um painel só, sem planilha." },
+  { titulo: "Link de reserva próprio", texto: "O cliente confirma dentro do seu próprio sistema, nunca em um app de terceiro." },
+  { titulo: "Mapa de mesas ou modo simples", texto: "Controle mesa por mesa, ou só a capacidade total do salão — você escolhe o que faz sentido pro seu espaço." },
+  { titulo: "Editor visual do salão", texto: "Arraste e organize suas mesas num mapa visual, e deixe o cliente escolher a própria mesa na reserva." },
+  { titulo: "Bloqueios e relatórios", texto: "Bloqueie mesas por manutenção ou evento, e acompanhe ocupação e no-show com dados reais." },
+  { titulo: "Pixels de marketing", texto: "Meça o retorno das suas campanhas com Google Tag e Facebook Pixel direto na página de reserva." },
+  { titulo: "App do painel (PWA)", texto: "Instale o painel no celular e acompanhe as reservas do dia com notificação em tempo real." },
+  { titulo: "WhatsApp Business", texto: "Peça feedback, lembre aniversários e reative clientes que sumiram, direto pelo WhatsApp do restaurante." },
+  { titulo: "Conexão automática do Instagram", texto: "Conecte sua conta em um clique, sem depender da equipe pra configurar nada manualmente." },
+];
 
-const FUNCIONALIDADES: Funcionalidade[] = [
-  { titulo: "Agente de IA no Instagram", texto: "Responde, tira dúvida e manda o link de reserva 24 horas por dia, no tom de voz do seu restaurante.", status: "disponivel" },
-  { titulo: "Painel administrativo", texto: "Reservas do dia, mesas, horários e equipe — tudo em um painel só, sem planilha.", status: "disponivel" },
-  { titulo: "Link de reserva próprio", texto: "O cliente confirma dentro do seu próprio sistema, nunca em um app de terceiro.", status: "disponivel" },
-  { titulo: "Mapa de mesas ou modo simples", texto: "Controle mesa por mesa, ou só a capacidade total do salão — você escolhe o que faz sentido pro seu espaço.", status: "disponivel" },
-  { titulo: "Bloqueios e relatórios", texto: "Bloqueie mesas por manutenção ou evento, e acompanhe ocupação e no-show com dados reais.", status: "disponivel" },
-  { titulo: "Editor visual do salão", texto: "Arraste e organize suas mesas num mapa visual, e deixe o cliente escolher a própria mesa na reserva.", status: "em-breve" },
-  { titulo: "Pixels de marketing", texto: "Meça o retorno das suas campanhas com Google Tag e Facebook Pixel direto na página de reserva.", status: "em-breve" },
-  { titulo: "App do painel (PWA)", texto: "Instale o painel no celular e acompanhe as reservas do dia com notificação em tempo real.", status: "em-breve" },
-  { titulo: "WhatsApp Business", texto: "Peça feedback, lembre aniversários e reative clientes que sumiram, direto pelo WhatsApp do restaurante.", status: "em-breve" },
-  { titulo: "Conexão automática do Instagram", texto: "Conecte sua conta em um clique, sem depender da equipe pra configurar nada manualmente.", status: "em-breve" },
+const INCLUSO = [
+  "Agente de IA no Instagram e WhatsApp, 24 horas por dia",
+  "Painel administrativo completo",
+  "Link de reserva no seu próprio sistema",
+  "Equipe ilimitada, com permissões",
+  "Mesas, horários, bloqueios e relatórios",
+  "Suporte na configuração inicial",
 ];
 
 const FAQ = [
@@ -97,8 +96,7 @@ const FAQ = [
   },
   {
     pergunta: "Funciona só pra reserva ou também tira dúvida geral?",
-    resposta:
-      "As duas coisas. O agente atende elogio, reclamação e pergunta comum (horário, endereço) — não só reserva.",
+    resposta: "As duas coisas. O agente atende elogio, reclamação e pergunta comum (horário, endereço) — não só reserva.",
   },
   {
     pergunta: "E se eu já uso outro sistema de reservas?",
@@ -115,274 +113,391 @@ const FAQ = [
   },
 ];
 
+function ChairMarkGrande() {
+  return (
+    <div className="lp-hero-marca">
+      <span className="lp-hero-marca-glow" aria-hidden="true" />
+      <span className="lp-hero-marca-flutuante">
+        <span className="lp-hero-marca-tile">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <rect x="65" y="30" width="70" height="60" rx="20" fill="currentColor" />
+            <rect x="46" y="94" width="108" height="24" rx="12" fill="currentColor" />
+            <rect x="54" y="120" width="16" height="40" rx="7" fill="currentColor" />
+            <rect x="130" y="120" width="16" height="40" rx="7" fill="currentColor" />
+          </svg>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function VideoDeVendas() {
+  return (
+    <div>
+      <p className="lp-eyebrow" style={{ textAlign: "center" }}>
+        Assista em 2 minutos como funciona
+      </p>
+      <div className="lp-video-novo lp-moldura">
+        <span className="lp-video-novo-play">
+          <span className="lp-video-novo-play-glow" aria-hidden="true" />
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ position: "relative" }}>
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </span>
+        <p className="texto-secundario">Vídeo em breve</p>
+      </div>
+    </div>
+  );
+}
+
+function PainelMock() {
+  const linhas = [
+    { hora: "19:30", nome: "Marina R.", pessoas: "2 pessoas", status: "Confirmada" },
+    { hora: "20:00", nome: "Igor B.", pessoas: "4 pessoas", status: "Confirmada" },
+    { hora: "20:30", nome: "Família Souza", pessoas: "6 pessoas", status: "Aguardando" },
+    { hora: "21:00", nome: "Caio L.", pessoas: "2 pessoas", status: "Confirmada" },
+  ];
+
+  return (
+    <div className="lp-painel-mock lp-moldura">
+      <div className="lp-painel-mock-topo">
+        <p>Reservas de hoje</p>
+        <span className="lp-painel-mock-ao-vivo">ao vivo</span>
+      </div>
+      <ul className="lp-painel-mock-lista">
+        {linhas.map((linha, i) => (
+          <li key={linha.nome} className="lp-painel-mock-linha" style={{ animationDelay: `${i * 120}ms` }}>
+            <span className="lp-painel-mock-hora">{linha.hora}</span>
+            <span className="lp-painel-mock-nome">{linha.nome}</span>
+            <span className="lp-painel-mock-pessoas">{linha.pessoas}</span>
+            <span className={`lp-painel-mock-status ${linha.status === "Confirmada" ? "confirmada" : ""}`}>{linha.status}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function atrasoEscalonado(indice: number, passoMs = 90): CSSProperties {
+  return { "--reveal-delay": `${indice * passoMs}ms` } as CSSProperties;
+}
+
 export function LandingPage() {
-  const spotlightRef = useRef<HTMLDivElement>(null);
-  const [passoAtivo, setPassoAtivo] = useState(0);
   const [mostrarFormularioContato, setMostrarFormularioContato] = useState(false);
-
-  useEffect(() => {
-    if (prefereMovimentoReduzido()) return;
-    let frame = 0;
-    function mover(e: globalThis.MouseEvent) {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        if (spotlightRef.current) {
-          spotlightRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
-        }
-        frame = 0;
-      });
-    }
-    window.addEventListener("mousemove", mover);
-    return () => {
-      window.removeEventListener("mousemove", mover);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  useEffect(() => {
-    const elementos = document.querySelectorAll<HTMLElement>(".lp-reveal");
-    if (prefereMovimentoReduzido()) {
-      elementos.forEach((el) => el.classList.add("visivel"));
-      return;
-    }
-    // Bidirecional de proposito (nunca desconecta): o elemento some de novo ao
-    // rolar pra fora da tela, e reaparece suave ao voltar - "acompanha a rolagem"
-    // em vez de um reveal unico que so acontece na primeira vez.
-    const observer = new IntersectionObserver(
-      (entradas) => {
-        for (const entrada of entradas) {
-          entrada.target.classList.toggle("visivel", entrada.isIntersecting);
-        }
-      },
-      { threshold: 0.15, rootMargin: "0px 0px -8% 0px" },
-    );
-    elementos.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <div className="lp">
-      <div className="spotlight" ref={spotlightRef} aria-hidden="true" />
-
-      <header className="lp-topo">
-        <Marca />
-        <Link to="/login" className="lp-link-entrar">
-          Entrar
-        </Link>
-      </header>
+      <BarraDeProgresso />
+      <Nav />
 
       <main>
-        {/* 1. Hero ------------------------------------------------------- */}
-        <section className="lp-secao lp-hero">
+        {/* Hero ------------------------------------------------------------ */}
+        <section id="top" className="lp-secao lp-hero lp-grao lp-secao-fundo-relativo">
+          <Aurora intenso />
           <div className="lp-container">
-            <span className="lp-selo">Pra restaurantes que vivem (e vendem) pelo Instagram</span>
-            <h1>Seu Instagram já é a sua central de reservas. Só falta alguém atendendo ele 24 horas.</h1>
-            <p className="lp-texto-grande">
-              O Quero Reservar é o agente de IA que responde, confirma e organiza as reservas do seu restaurante
-              direto no Instagram Direct — enquanto você cuida do salão.
-            </p>
-            <div className="lp-cta-grupo">
-              <Link to="/assinar" className="btn lp-btn-magnetico" onMouseMove={aplicarIma} onMouseLeave={removerIma}>
-                Quero automatizar minhas reservas
-              </Link>
-              <a href="#como-funciona" className="lp-link-secundario">
-                Ver como funciona
-              </a>
-            </div>
+            <Reveal>
+              <ChairMarkGrande />
+            </Reveal>
+
+            <Reveal delay={80}>
+              <span className="lp-selo lp-selo-vivo">
+                <span className="lp-ponto-vivo" aria-hidden="true" />
+                <span className="lp-texto-gradiente">Instagram e WhatsApp atendidos por IA</span>
+              </span>
+            </Reveal>
+
+            <Reveal delay={160} as="h1">
+              Tenha alguém atendendo seu restaurante <span className="text-carmim" style={{ color: "var(--accent)" }}>24 horas por dia.</span>
+            </Reveal>
+
+            <Reveal delay={240}>
+              <p className="lp-texto-grande">
+                Sem salário, sem encargos e sem precisar contratar mais um funcionário para ficar preso ao celular.
+              </p>
+              <p className="lp-texto-grande">
+                O agente de IA atende Instagram e WhatsApp, responde seus clientes e organiza o atendimento
+                automaticamente — enquanto sua equipe cuida do que realmente importa: o salão.
+              </p>
+            </Reveal>
+
+            <Reveal delay={320}>
+              <div className="lp-cta-grupo" style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
+                <Link to="/assinar" className="lp-btn-pilula" onMouseMove={aplicarIma} onMouseLeave={removerIma}>
+                  Quero automatizar minhas reservas
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <a href="#como-funciona" className="lp-btn-pilula-outline">
+                  Ver como funciona
+                </a>
+              </div>
+              <p className="texto-secundario" style={{ textAlign: "center", fontSize: "0.8rem", marginTop: "1.1rem" }}>
+                7 dias grátis · sem cobrança se cancelar antes · R$ 697/mês depois
+              </p>
+            </Reveal>
+
+            <Reveal delay={400} className="lp-video-wrap" style={{ maxWidth: 720, margin: "3.5rem auto 0" }}>
+              <VideoDeVendas />
+            </Reveal>
           </div>
         </section>
 
-        {/* 2. O problema --------------------------------------------------- */}
+        <Marquee itens={["Atende 24 horas", "Sem planilha", "Link de reserva próprio", "Equipe ilimitada", "Resposta imediata", "R$ 697/mês"]} />
+
+        {/* O problema -------------------------------------------------------- */}
         <section className="lp-secao">
           <div className="lp-container">
-            <h2 className="lp-reveal">Enquanto você lê isso, alguém está tentando reservar mesa no seu Instagram.</h2>
-            <div className="lp-grade-cards">
-              <div
-                className="lp-card lp-tilt lp-reveal"
-                style={atrasoEscalonado(0)}
-                onMouseMove={aplicarTilt}
-                onMouseLeave={removerTilt}
-              >
-                <h3>Boa noite, vocês têm mesa pra hoje?</h3>
-                <p>
-                  Chega às 19h numa sexta lotada. Ninguém vê na hora. Quarenta minutos depois, alguém responde — mas
-                  o cliente já reservou em outro lugar.
-                </p>
-              </div>
-              <div
-                className="lp-card lp-tilt lp-reveal"
-                style={atrasoEscalonado(1)}
-                onMouseMove={aplicarTilt}
-                onMouseLeave={removerTilt}
-              >
-                <h3>Planilha, caderno, WhatsApp pessoal</h3>
-                <p>
-                  Cada reserva confirmada por telefone é uma reserva que depende de alguém lembrar de anotar, sem
-                  duplicar mesa, sem esquecer.
-                </p>
-              </div>
-              <div
-                className="lp-card lp-tilt lp-reveal"
-                style={atrasoEscalonado(2)}
-                onMouseMove={aplicarTilt}
-                onMouseLeave={removerTilt}
-              >
-                <h3>Ferramentas que tiram o cliente do Instagram</h3>
-                <p>Link externo, outro app, outro cadastro. Cada clique a mais é uma chance do cliente desistir no meio do caminho.</p>
-              </div>
+            <Reveal as="span" className="lp-eyebrow">
+              O problema
+            </Reveal>
+            <Reveal delay={60} as="h2">
+              Enquanto você lê isso, alguém está tentando reservar mesa no seu Instagram.
+            </Reveal>
+            <div className="lp-grade-cards" style={{ marginTop: "2.5rem" }}>
+              {PROBLEMAS.map((p, i) => (
+                <Reveal key={p.titulo} delay={i * 120}>
+                  <SpotCard>
+                    <span style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: "1.4rem", color: "var(--accent)" }}>
+                      0{i + 1}
+                    </span>
+                    <h3 style={{ marginTop: "0.75rem" }}>{p.titulo}</h3>
+                    <p>{p.texto}</p>
+                  </SpotCard>
+                </Reveal>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* 3. A virada ------------------------------------------------------ */}
-        <section className="lp-secao lp-virada">
-          <div className="lp-container lp-reveal">
-            <h2>E se a resposta já estivesse sendo dada, agora, por alguém que nunca dorme?</h2>
-            <p className="lp-texto-grande">
-              O Quero Reservar coloca um agente de inteligência artificial dentro do Instagram do seu restaurante.
-              Ele conversa com o cliente na hora, tira dúvida sobre horário e disponibilidade, e manda um link — do
-              seu próprio sistema, nunca de um app terceiro — pra o cliente confirmar a reserva sozinho, em segundos.
-            </p>
-            <p className="lp-texto-grande">
-              Você e sua equipe acompanham tudo em um painel simples. Sem planilha. Sem reserva duplicada. Sem
-              cliente esperando resposta.
-            </p>
+        {/* A virada ------------------------------------------------------------ */}
+        <section className="lp-secao lp-virada lp-secao-fundo-relativo">
+          <Aurora />
+          <div className="lp-container" style={{ maxWidth: 1040, display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)", gap: "3rem", alignItems: "center" }}>
+            <Reveal>
+              <span className="lp-eyebrow">A virada</span>
+              <h2>
+                E se a resposta já estivesse sendo dada, agora, por{" "}
+                <span className="lp-italico-destaque">alguém que nunca dorme?</span>
+              </h2>
+              <p className="lp-texto-grande" style={{ marginTop: "1.25rem" }}>
+                O Quero Reservar coloca um agente de inteligência artificial dentro do Instagram e do WhatsApp do seu
+                restaurante. Ele conversa com o cliente na hora, tira dúvida sobre horário e disponibilidade, e manda
+                um link — do seu próprio sistema, nunca de um app terceiro — pra o cliente confirmar a reserva
+                sozinho, em segundos.
+              </p>
+              <p className="lp-texto-grande" style={{ marginTop: "1rem" }}>
+                Você e sua equipe acompanham tudo em um painel simples. Sem planilha. Sem reserva duplicada. Sem
+                cliente esperando resposta.
+              </p>
+            </Reveal>
+            <Reveal delay={160}>
+              <PainelMock />
+            </Reveal>
           </div>
         </section>
 
-        {/* 4. Como funciona --------------------------------------------------- */}
+        {/* Como funciona --------------------------------------------------- */}
         <section className="lp-secao" id="como-funciona">
           <div className="lp-container">
-            <h2 className="lp-reveal">Como funciona</h2>
-            <div className="lp-como-funciona lp-reveal">
-              <div className="lp-passos">
-                {PASSOS_COMO_FUNCIONA.map((passo, indice) => (
-                  <button
-                    key={passo.titulo}
-                    type="button"
-                    className={`lp-passo ${passoAtivo === indice ? "ativo" : ""}`}
-                    onClick={() => setPassoAtivo(indice)}
-                  >
-                    <span className="lp-passo-numero">{indice + 1}</span>
-                    <span>
-                      <strong>{passo.titulo}</strong>
-                      <span className="lp-passo-texto">{passo.texto}</span>
+            <Reveal as="span" className="lp-eyebrow">
+              Como funciona
+            </Reveal>
+            <Reveal delay={60} as="h2">
+              Três passos. <span className="lp-italico-destaque">Nenhum deles é seu.</span>
+            </Reveal>
+            <ol className="lp-grade-cards" style={{ marginTop: "2.5rem", listStyle: "none", padding: 0 }}>
+              {PASSOS.map((passo, i) => (
+                <Reveal key={passo.titulo} delay={i * 140} as="li">
+                  <SpotCard>
+                    <span
+                      style={{
+                        display: "flex",
+                        width: "2.75rem",
+                        height: "2.75rem",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "50%",
+                        fontFamily: "var(--font-display)",
+                        fontWeight: 800,
+                        color: "var(--text-on-accent)",
+                        background: "linear-gradient(135deg, var(--accent), var(--accent-deep))",
+                      }}
+                    >
+                      {i + 1}
                     </span>
-                  </button>
-                ))}
-              </div>
-              <ComoFuncionaMidia passoAtivo={passoAtivo} />
-            </div>
+                    <h3 style={{ marginTop: "1.1rem" }}>{passo.titulo}</h3>
+                    <p>{passo.texto}</p>
+                  </SpotCard>
+                </Reveal>
+              ))}
+            </ol>
           </div>
         </section>
 
-        {/* 4.1 Video de vendas --------------------------------------------------- */}
-        <section className="lp-secao">
-          <div className="lp-container lp-reveal">
-            <h2>Veja o Quero Reservar funcionando de verdade</h2>
-            <div className="lp-video-card">
-              <span className="lp-video-play" aria-hidden="true">
-                ▶
-              </span>
-              <p className="texto-secundario">Vídeo em breve</p>
-            </div>
-          </div>
-        </section>
+        {/* Demonstracao ao vivo (chat simulado) ------------------------------ */}
+        <ChatDemo />
 
-        {/* 5. Stack de valor --------------------------------------------------- */}
-        <section className="lp-secao">
+        {/* Stack de valor --------------------------------------------------- */}
+        <section className="lp-secao" id="recursos">
           <div className="lp-container">
-            <h2 className="lp-reveal">Tudo o que seu restaurante precisa pra nunca mais perder uma reserva por falta de resposta</h2>
-            <ul className="lp-lista-valor">
-              {ITENS_VALOR.map((item, indice) => (
-                <li key={item} className="lp-reveal" style={atrasoEscalonado(indice)}>
-                  <span className="lp-check" aria-hidden="true">
-                    ✓
-                  </span>
-                  {item}
-                </li>
+            <Reveal as="span" className="lp-eyebrow">
+              O que você leva
+            </Reveal>
+            <Reveal delay={60} as="h2">
+              Tudo o que seu restaurante precisa pra{" "}
+              <span className="lp-italico-destaque">nunca mais perder uma reserva</span> por falta de resposta
+            </Reveal>
+            <ul style={{ listStyle: "none", margin: "2.5rem 0 0", padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+              {ITENS_VALOR.map((item, i) => (
+                <Reveal key={item} delay={(i % 2) * 100} as="li">
+                  <SpotCard className="lp-item-valor" style={{ display: "flex", gap: "1rem" } as CSSProperties}>
+                    <span className="lp-check" aria-hidden="true">
+                      ✓
+                    </span>
+                    <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: 1.6 }}>{item}</p>
+                  </SpotCard>
+                </Reveal>
               ))}
             </ul>
           </div>
         </section>
 
-        {/* 5.1 Tecnologia / funcionalidades (atuais + roadmap) ------------------ */}
-        <section className="lp-secao lp-secao-neutra">
-          <div className="lp-container">
-            <span className="lp-selo lp-selo-neutro lp-reveal">Por dentro da plataforma</span>
-            <h2 className="lp-reveal">Tudo o que já está no ar — e o que estamos construindo agora</h2>
-            <div className="lp-grade-tech">
-              {FUNCIONALIDADES.map((item, indice) => (
-                <div key={item.titulo} className="lp-card-tech lp-reveal" style={atrasoEscalonado(indice)}>
-                  <span className={`lp-badge-tech ${item.status === "disponivel" ? "lp-badge-disponivel" : "lp-badge-em-breve"}`}>
-                    {item.status === "disponivel" ? "Disponível agora" : "Em breve"}
-                  </span>
-                  <h3>{item.titulo}</h3>
-                  <p>{item.texto}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* 6. Por que confiar (isolado) ------------------------------------- */}
-        <TrustSection />
-
-        {/* 6.1 Sobre o fundador (isolado) ------------------------------------- */}
-        <FounderSection />
-
-        {/* 6.2 Comparativo (isolado) ------------------------------------------- */}
-        <ComparisonSection />
-
-        {/* 7. Preco ----------------------------------------------------------- */}
-        <section className="lp-secao" id="preco">
-          <div className="lp-container">
-            <h2 className="lp-reveal">Um plano. Sem letra miúda.</h2>
-            <div className="lp-card-preco lp-tilt lp-reveal lp-card-preco-solo" onMouseMove={aplicarTilt} onMouseLeave={removerTilt}>
-              <span className="lp-preco-etiqueta">Plano único</span>
-              <strong className="lp-preco-valor">
-                R$ 697<span>/mês</span>
-              </strong>
-              <p className="texto-secundario">
-                Tudo incluso: agente de IA, painel completo, equipe ilimitada, suporte na configuração inicial. 7 dias
-                grátis pra testar, sem cobrança se você cancelar antes.
-              </p>
-              <Link to="/assinar" className="btn lp-btn-magnetico lp-btn-preco">
-                Assinar agora — 7 dias grátis
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* 8. FAQ --------------------------------------------------------------- */}
+        {/* Tecnologia / funcionalidades --------------------------------------- */}
         <section className="lp-secao">
           <div className="lp-container">
-            <h2 className="lp-reveal">Perguntas frequentes</h2>
-            <div className="lp-faq">
-              {FAQ.map((item, indice) => (
-                <details key={item.pergunta} className="lp-faq-item lp-reveal" style={atrasoEscalonado(indice, 45)}>
-                  <summary>{item.pergunta}</summary>
-                  <p>{item.resposta}</p>
-                </details>
+            <Reveal as="span" className="lp-eyebrow">
+              Por dentro da plataforma
+            </Reveal>
+            <Reveal delay={60} as="h2">
+              Tudo o que já está no ar — <span className="lp-italico-destaque">ativo e funcionando hoje</span>
+            </Reveal>
+            <div className="lp-grade-tech" style={{ marginTop: "2.5rem" }}>
+              {FUNCIONALIDADES.map((item, i) => (
+                <Reveal key={item.titulo} delay={(i % 3) * 110} style={{ height: "100%" }}>
+                  <SpotCard style={{ height: "100%" } as CSSProperties}>
+                    <span className="lp-badge-tech lp-badge-disponivel" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                      <span className="lp-ponto-vivo" aria-hidden="true" />
+                      Disponível agora
+                    </span>
+                    <h3>{item.titulo}</h3>
+                    <p>{item.texto}</p>
+                  </SpotCard>
+                </Reveal>
               ))}
             </div>
           </div>
         </section>
 
-        {/* 9. CTA final ------------------------------------------------------- */}
-        <section className="lp-secao lp-cta-final">
-          <div className="lp-container lp-reveal">
-            <h2>Seu próximo cliente já está no seu Instagram. A pergunta é só: alguém vai responder a tempo?</h2>
-            <Link to="/assinar" className="btn lp-btn-magnetico" onMouseMove={aplicarIma} onMouseLeave={removerIma}>
-              Quero automatizar minhas reservas
-            </Link>
-            {!mostrarFormularioContato ? (
-              <button type="button" className="lp-link-contato" onClick={() => setMostrarFormularioContato(true)}>
-                Prefere que a gente te ligue antes? Deixe seu contato
-              </button>
-            ) : (
-              <WaitlistForm />
-            )}
+        {/* Por que confiar / Fundador / Comparativo (conteudo real, ja isolados) */}
+        <TrustSection />
+        <FounderSection />
+        <ComparisonSection />
+
+        {/* Preco -------------------------------------------------------------- */}
+        <section className="lp-secao lp-secao-fundo-relativo" id="preco">
+          <Aurora intenso />
+          <div className="lp-container" style={{ maxWidth: 640, textAlign: "center" }}>
+            <Reveal as="span" className="lp-eyebrow">
+              Investimento
+            </Reveal>
+            <Reveal delay={60} as="h2">
+              Um plano. <span className="lp-italico-destaque">Sem letra miúda.</span>
+            </Reveal>
+            <Reveal delay={140}>
+              <SpotCard className="lp-moldura" style={{ marginTop: "2.5rem", padding: "2.25rem", textAlign: "left" } as CSSProperties}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: "1rem" }}>
+                  <div>
+                    <span className="lp-eyebrow" style={{ margin: 0 }}>
+                      Plano único
+                    </span>
+                    <strong className="lp-preco-valor" style={{ display: "block", marginTop: "0.5rem", marginBottom: 0 }}>
+                      R$ 697<span>/mês</span>
+                    </strong>
+                  </div>
+                  <span
+                    style={{
+                      borderRadius: "9999px",
+                      border: "1px solid rgba(var(--accent-rgb), 0.4)",
+                      padding: "0.4rem 0.85rem",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      color: "var(--accent)",
+                    }}
+                  >
+                    7 dias grátis
+                  </span>
+                </div>
+
+                <ul style={{ listStyle: "none", margin: "2rem 0 0", padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.75rem" }}>
+                  {INCLUSO.map((item) => (
+                    <li key={item} style={{ display: "flex", gap: "0.6rem", fontSize: "0.88rem", color: "var(--text-secondary)" }}>
+                      <span style={{ color: "var(--accent)" }}>✓</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+
+                <Link to="/assinar" className="lp-btn-pilula" style={{ width: "100%", marginTop: "2.25rem" }}>
+                  Assinar agora — 7 dias grátis
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <p className="texto-secundario" style={{ textAlign: "center", fontSize: "0.78rem", marginTop: "1rem" }}>
+                  Tudo incluso. Sem cobrança se você cancelar antes dos 7 dias.
+                </p>
+              </SpotCard>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* FAQ --------------------------------------------------------------- */}
+        <section className="lp-secao">
+          <div className="lp-container" style={{ maxWidth: 640 }}>
+            <Reveal as="span" className="lp-eyebrow">
+              Dúvidas
+            </Reveal>
+            <Reveal delay={60} as="h2">
+              Perguntas <span className="lp-italico-destaque">frequentes</span>
+            </Reveal>
+            <div className="lp-faq" style={{ marginTop: "2rem" }}>
+              {FAQ.map((item, i) => (
+                <Reveal key={item.pergunta} delay={i * 70}>
+                  <details className="lp-faq-item" style={atrasoEscalonado(i, 0)}>
+                    <summary>{item.pergunta}</summary>
+                    <p>{item.resposta}</p>
+                  </details>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA final ------------------------------------------------------- */}
+        <section className="lp-secao lp-cta-final lp-grao lp-secao-fundo-relativo">
+          <Aurora intenso />
+          <div className="lp-container">
+            <Reveal as="h2">
+              <span className="lp-moldura" style={{ display: "block", padding: "0 0.75rem" }}>
+                Seu próximo cliente já está no seu Instagram.
+              </span>
+              <span className="lp-italico-destaque" style={{ display: "block", marginTop: "0.5rem" }}>
+                A pergunta é só: alguém vai responder a tempo?
+              </span>
+            </Reveal>
+            <Reveal delay={140}>
+              <Link to="/assinar" className="lp-btn-pilula" onMouseMove={aplicarIma} onMouseLeave={removerIma} style={{ marginTop: "1.5rem" }}>
+                Quero automatizar minhas reservas
+                <span aria-hidden="true">→</span>
+              </Link>
+              <p className="texto-secundario" style={{ fontSize: "0.78rem", marginTop: "0.75rem" }}>
+                R$ 697/mês · 7 dias grátis · cancele quando quiser
+              </p>
+              {!mostrarFormularioContato ? (
+                <button type="button" className="lp-link-contato" onClick={() => setMostrarFormularioContato(true)}>
+                  Prefere que a gente te ligue antes? Deixe seu contato
+                </button>
+              ) : (
+                <WaitlistForm />
+              )}
+            </Reveal>
           </div>
         </section>
       </main>
@@ -393,6 +508,8 @@ export function LandingPage() {
           Já sou cliente
         </Link>
       </footer>
+
+      <BarraFixaMobile />
     </div>
   );
 }

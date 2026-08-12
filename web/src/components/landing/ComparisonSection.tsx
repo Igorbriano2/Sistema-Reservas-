@@ -1,3 +1,5 @@
+import { Reveal } from "./Fx.js";
+
 // Comparativo contra categorias genericas (planilha/WhatsApp manual, funcionario
 // dedicado) - de proposito, nunca cita marca de concorrente real nem numero
 // especifico de salario/mercado (ver TrustSection: nada aqui e inventado ou
@@ -38,14 +40,19 @@ const LINHAS = [
 
 export function ComparisonSection() {
   return (
-    <section className="lp-secao">
-      <div className="lp-container lp-reveal">
-        <h2>Planilha, funcionário dedicado ou Quero Reservar?</h2>
-        <p className="lp-texto-grande" style={{ marginBottom: "2rem" }}>
+    <section className="lp-secao" id="comparativo">
+      <div className="lp-container">
+        <Reveal as="span" className="lp-eyebrow">
+          Comparativo
+        </Reveal>
+        <Reveal delay={60} as="h2">
+          Planilha, funcionário dedicado ou <span className="lp-italico-destaque">Quero Reservar?</span>
+        </Reveal>
+        <Reveal delay={100} as="p" className="lp-texto-grande" style={{ marginBottom: "2rem" }}>
           Não é sobre qual ferramenta é "melhor" — é sobre o que cada opção custa de verdade, em dinheiro e em
           reserva perdida.
-        </p>
-        <div className="lp-comparativo-wrap">
+        </Reveal>
+        <Reveal delay={140} className="lp-comparativo-wrap">
           <table className="lp-comparativo">
             <thead>
               <tr>
@@ -66,7 +73,7 @@ export function ComparisonSection() {
               ))}
             </tbody>
           </table>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
