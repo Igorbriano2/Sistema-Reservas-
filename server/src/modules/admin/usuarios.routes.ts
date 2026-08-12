@@ -214,18 +214,23 @@ usuariosRouter.patch(
       }
     }
 
-    if (dados.unidadeIds || dados.permissoes) {
-      const [acessoAtual] = await db
-        .select({ permissoesExtra: usuarioUnidades.permissoesExtra })
-        .from(usuarioUnidades)
-        .where(eq(usuarioUnidades.usuarioId, alvo.id))
-        .limit(1);
-      await validarAlcanceDoAtor(
-        req,
-        dados.unidadeIds ?? [],
-        dados.permissoes ?? (acessoAtual?.permissoesExtra as string[] | undefined) ?? [],
-      );
-    }
+    // Sempre valida o alcance do ator, nunca so quando unidadeIds/permissoes vem no
+    // corpo - senao um ator com "criar_usuarios" mas sem alcance sobre o alvo
+    // conseguia trocar a SENHA (ou o nome) de um colega com mais acesso so enviando
+    // {senha}, sem nenhum campo de escopo no corpo. Usa as unidades ATUAIS do alvo
+    // como base quando o request nao informa unidadeIds - inclusive pra checar
+    // permissoes novas contra TODAS as unidades que vao recebe-las (a escrita abaixo
+    // aplica o mesmo array de permissoes a todas as unidades atuais quando so
+    // "permissoes" e enviado, entao um array vazio aqui deixaria esse caso sem checagem).
+    const acessosDoAlvo = await db
+      .select({ unidadeId: usuarioUnidades.unidadeId, permissoesExtra: usuarioUnidades.permissoesExtra })
+      .from(usuarioUnidades)
+      .where(eq(usuarioUnidades.usuarioId, alvo.id));
+    await validarAlcanceDoAtor(
+      req,
+      dados.unidadeIds ?? acessosDoAlvo.map((a) => a.unidadeId),
+      dados.permissoes ?? (acessosDoAlvo[0]?.permissoesExtra as string[] | undefined) ?? [],
+    );
 
     const valores: { nome?: string; senhaHash?: string } = {};
     if (dados.nome) valores.nome = dados.nome;
