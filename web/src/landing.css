@@ -554,7 +554,7 @@
 
 .lp-fundador {
   display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(280px, 1fr);
+  grid-template-columns: minmax(260px, 380px) minmax(280px, 1fr);
   gap: 2.5rem;
   align-items: start;
 }
@@ -1698,9 +1698,9 @@ html[data-theme="light"] .lp-chatdemo-topo-canal {
 .lp-fundador-colagem {
   position: relative;
   width: 100%;
-  max-width: 22rem;
+  max-width: 28rem;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 3rem 1.5rem;
+  padding: 3rem 2rem 3.5rem 2rem;
 }
 
 .lp-fundador-colagem-glow {
@@ -1753,15 +1753,15 @@ html[data-theme="light"] .lp-chatdemo-topo-canal {
 .lp-fundador-colagem-bloco-1 {
   top: 0;
   left: 0;
-  width: 6rem;
-  height: 6rem;
+  width: 8rem;
+  height: 8rem;
 }
 
 .lp-fundador-colagem-bloco-2 {
   bottom: 0;
   right: 0;
-  width: 7rem;
-  height: 7rem;
+  width: 9.5rem;
+  height: 9.5rem;
 }
 
 .lp-secao-fundo-relativo {

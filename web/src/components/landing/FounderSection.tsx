@@ -30,27 +30,14 @@ export function FounderSection() {
           <SpotCard style={{ padding: "2rem" }}>
             <h3 style={{ marginTop: 0 }}>Igor Briano — Fundador</h3>
             <p className="lp-texto-grande">
-              Igor Briano é empresário e estrategista de crescimento, com atuação forte em negócios locais e
-              franquias de alimentação. Foi justamente na prática, dentro da operação de seus clientes, que nasceu a
-              ideia do Quero Reservar.
+              Igor Briano é fundador do Quero Reservar. Ao liderar o crescimento de negócios como a Espetaria
+              Cervegela, percebeu que o marketing gerava demanda, mas a operação dependia de várias ferramentas
+              desconectadas para transformar isso em resultado — autoatendimento no Instagram, reservas, organização
+              da loja.
             </p>
             <p>
-              Ao liderar o crescimento de negócios como a Espetaria Cervegela — que saiu de R$90 mil para R$450 mil
-              de faturamento mensal —, Igor percebeu um padrão que se repetia em praticamente todos os clientes que
-              atendia: as campanhas de marketing traziam resultado, mas a operação não acompanhava. Não bastava gerar
-              demanda; era preciso um conjunto de ferramentas soltas e desconectadas para transformar aquele
-              interesse em cliente atendido, mesa reservada, venda concluída — geralmente um sistema para atendimento
-              no Instagram, outro para reservas, outro para organização da loja, nenhum conversando entre si.
-            </p>
-            <p>
-              Foi enxergando essa lacuna, todos os dias, dentro da rotina real de restaurantes e franquias, que Igor
-              decidiu construir a solução que ele mesmo precisava para seus clientes: uma plataforma única, que
-              unisse autoatendimento no Instagram, sistema de reservas e funcionalidades pensadas para o dia a dia da
-              operação — sem depender de múltiplas ferramentas para o marketing virar resultado de fato no salão.
-            </p>
-            <p>
-              O Quero Reservar nasceu assim: não como um produto pensado de fora para dentro, mas como resposta
-              direta a um problema que Igor via — e resolvia manualmente — em cada negócio que ele fazia crescer.
+              Criou o Quero Reservar para resolver isso em uma única plataforma, pensada para o dia a dia real de
+              restaurantes e franquias.
             </p>
           </SpotCard>
           </Reveal>
