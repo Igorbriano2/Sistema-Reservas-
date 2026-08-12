@@ -1,10 +1,10 @@
 import { Reveal, SpotCard, Aurora } from "./Fx.js";
+import fotoPrincipal from "../../assets/founder/igor-portrait.jpg";
+import fotoSentado from "../../assets/founder/igor-seated.jpg";
+import fotoVermelha from "../../assets/founder/igor-red.jpg";
 
 // Bio e dados reais fornecidos pelo fundador (Igor Briano) - nao inventar nem
-// arredondar numeros aqui. A colagem de fotos e um placeholder (3 blocos com
-// iniciais) ate os arquivos reais serem adicionados ao repositorio - ver
-// lp-fundador-colagem-* em landing.css, cada bloco vira uma <img> quando a foto
-// real chegar.
+// arredondar numeros aqui.
 export function FounderSection() {
   return (
     <section className="lp-secao lp-secao-fundo-relativo" id="fundador">
@@ -16,13 +16,13 @@ export function FounderSection() {
             <div className="lp-fundador-colagem" role="img" aria-label="Fotos de Igor Briano, fundador do Quero Reservar">
               <span className="lp-fundador-colagem-glow" aria-hidden="true" />
               <div className="lp-fundador-colagem-principal">
-                <span>IB</span>
+                <img src={fotoPrincipal} alt="Igor Briano, fundador do Quero Reservar" loading="lazy" />
               </div>
               <div className="lp-fundador-colagem-bloco lp-fundador-colagem-bloco-1">
-                <span>IB</span>
+                <img src={fotoSentado} alt="Igor Briano" loading="lazy" />
               </div>
               <div className="lp-fundador-colagem-bloco lp-fundador-colagem-bloco-2">
-                <span>IB</span>
+                <img src={fotoVermelha} alt="Igor Briano" loading="lazy" />
               </div>
             </div>
           </Reveal>
