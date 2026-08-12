@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { ApiError } from "../api/client.js";
-import { criarReservaWidget, obterInfoDoWidget, type ReservaPublicaCriada } from "../api/resources.js";
+import { criarReservaWidget, listarHorariosFixosWidget, obterInfoDoWidget, type ReservaPublicaCriada } from "../api/resources.js";
 import { Marca } from "../components/Marca.js";
 
 type Estado = "carregando" | "invalido" | "pronto";
@@ -18,6 +18,7 @@ export function WidgetReservationPage() {
 
   const [data, setData] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
+  const [horariosFixos, setHorariosFixos] = useState<string[] | null>(null);
   const [numPessoas, setNumPessoas] = useState("2");
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTelefone, setClienteTelefone] = useState("");
@@ -42,6 +43,28 @@ export function WidgetReservationPage() {
       })
       .catch(() => setEstado("invalido"));
   }, [unidadeId]);
+
+  useEffect(() => {
+    if (!unidadeId || !data) {
+      setHorariosFixos(null);
+      return;
+    }
+    let cancelado = false;
+    listarHorariosFixosWidget(unidadeId, data)
+      .then((resposta) => {
+        if (cancelado) return;
+        setHorariosFixos(resposta.horarios);
+        if (resposta.horarios && resposta.horarios.length > 0) {
+          setHoraInicio((atual) => (resposta.horarios!.includes(atual) ? atual : resposta.horarios![0]));
+        }
+      })
+      .catch(() => {
+        if (!cancelado) setHorariosFixos(null);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [unidadeId, data]);
 
   function avancar(e: FormEvent) {
     e.preventDefault();
@@ -115,13 +138,26 @@ export function WidgetReservationPage() {
           </label>
           <label>
             Horário
-            <input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} required />
+            {horariosFixos && horariosFixos.length > 0 ? (
+              <select value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} required>
+                {horariosFixos.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} required />
+            )}
           </label>
+          {horariosFixos && horariosFixos.length === 0 && (
+            <span className="erro">Não há horário disponível para reserva nesta data.</span>
+          )}
           <label>
             Número de pessoas
             <input type="number" min={1} value={numPessoas} onChange={(e) => setNumPessoas(e.target.value)} required />
           </label>
-          <button className="btn" type="submit">
+          <button className="btn" type="submit" disabled={horariosFixos?.length === 0}>
             Continuar
           </button>
         </form>

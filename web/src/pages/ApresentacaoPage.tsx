@@ -14,8 +14,8 @@ import imgNovaReserva from "../assets/apresentacao/06-nova-reserva-modal.webp";
 import imgSalao from "../assets/apresentacao/07-mesas-salao.webp";
 import imgCardapioAdmin from "../assets/apresentacao/08-cardapio-admin.webp";
 import imgHorarios from "../assets/apresentacao/09-horarios.webp";
-import imgConversaMarina from "../assets/apresentacao/10b-conversa-marina.webp";
-import imgConversaHumano from "../assets/apresentacao/10c-conversa-duda-humano.webp";
+import imgConversaAtendida from "../assets/apresentacao/10b-conversa-atendida.webp";
+import imgConversaHumano from "../assets/apresentacao/10c-conversa-humano.webp";
 import imgFilaEspera from "../assets/apresentacao/11-fila-espera.webp";
 import imgRelatorios from "../assets/apresentacao/12-relatorios.webp";
 import imgAgenteIa from "../assets/apresentacao/13-agente-ia.webp";
@@ -27,10 +27,11 @@ import imgMobileReservas from "../assets/apresentacao/18-mobile-reservas.webp";
 import imgCardapioPublico from "../assets/apresentacao/19-cardapio-publico.webp";
 import imgWidgetReserva from "../assets/apresentacao/20-widget-reserva.webp";
 
-// Doc "apresentacao" - pagina de vendas para novos clientes, no mesmo padrao visual
-// da landing (Nav/Fx/landing.css), mas detalhando cada funcionalidade com print real
-// do sistema em producao, usando a Espetaria Cervegela (Londrina/Maringa) como estudo
-// de caso - nao e mockup nem dado inventado.
+// Doc "apresentacao" - pagina de vendas generica, no mesmo padrao visual da landing
+// (Nav/Fx/landing.css), detalhando cada funcionalidade com print real do sistema
+// rodando com dados de demonstracao (empresa/lojas ficticias, sem nome de nenhum
+// cliente real) - pensada pra ser mostrada a qualquer prospect, nao so um caso
+// especifico.
 interface Feature {
   eyebrow: string;
   titulo: ReactNode;
@@ -69,13 +70,13 @@ const ACESSO: Feature[] = [
     eyebrow: "Multiunidade",
     titulo: (
       <>
-        Duas lojas, <span className="lp-italico-destaque">um único login</span>
+        Mais de uma loja, <span className="lp-italico-destaque">um único login</span>
       </>
     ),
     texto:
-      "Quem tem acesso a mais de uma unidade escolhe qual loja quer gerenciar — no caso da Cervegela, Londrina ou Maringá — e troca em um clique quando quiser.",
+      "Quem tem acesso a mais de uma unidade escolhe qual loja quer gerenciar e troca em um clique quando quiser — sem precisar de outro cadastro.",
     img: imgEscolherLoja,
-    alt: "Tela de escolha entre as lojas Cervegela Londrina e Cervegela Maringá",
+    alt: "Tela de escolha entre as lojas cadastradas",
   },
 ];
 
@@ -99,9 +100,9 @@ const OPERACAO: Feature[] = [
       </>
     ),
     texto:
-      "As 5 reservas de hoje da Cervegela Londrina — Marina, Igor, Família Souza, Rafael e o grupo de aniversário — cada uma com horário, tamanho do grupo e status.",
+      "Todas as reservas de hoje em um só lugar, com horário, tamanho do grupo e status — prontas para sentar, cancelar ou chamar o cliente no WhatsApp com um clique.",
     img: imgReservas,
-    alt: "Lista de reservas do dia da Cervegela Londrina",
+    alt: "Lista de reservas do dia com botão de WhatsApp",
   },
   {
     eyebrow: "Cadastro manual",
@@ -126,31 +127,31 @@ const CONFIGURACAO: Feature[] = [
       </>
     ),
     texto:
-      "Sem precisar desenhar mesa por mesa: a Cervegela configurou 200 lugares por loja, com horário de reserva fixo às 19h — quem precisa de mapa de mesa por mesa também tem essa opção.",
+      "Sem precisar desenhar mesa por mesa: configure a capacidade total do salão e o horário de reserva — quem precisa de mapa de mesa por mesa também tem essa opção.",
     img: imgSalao,
-    alt: "Configuração do salão principal com capacidade 200 e horário 19h",
+    alt: "Configuração do salão principal com capacidade e horário fixo",
   },
   {
     eyebrow: "Cardápio digital",
     titulo: (
       <>
-        O cardápio real, <span className="lp-italico-destaque">digitalizado</span>
+        Seu cardápio real, <span className="lp-italico-destaque">digitalizado</span>
       </>
     ),
     texto:
-      "Rodízio, espetinhos, porções e bebidas da Cervegela — importados da planilha oficial, com preço e observação de cada item, prontos para o QR code da mesa.",
+      "Categorias, itens, preço e observação — tudo cadastrado uma vez e pronto para o QR code da mesa, sem depender de impressão.",
     img: imgCardapioAdmin,
-    alt: "Cardápio digital com categorias e itens da Cervegela",
+    alt: "Cardápio digital com categorias e itens",
   },
   {
     eyebrow: "Horários e antecedência",
     titulo: (
       <>
-        Segunda a sábado, 19h, <span className="lp-italico-destaque">3h de antecedência</span>
+        Seus horários, <span className="lp-italico-destaque">do jeito que a casa funciona</span>
       </>
     ),
     texto:
-      "A regra que o cliente final sente na prática: só é possível reservar com pelo menos 3 horas de antecedência, e só no horário do rodízio — domingo fica fechado.",
+      "Configure o horário de funcionamento por dia da semana e a antecedência mínima para reservar — o cliente só vê as opções realmente disponíveis.",
     img: imgHorarios,
     alt: "Configuração de horários de funcionamento e antecedência mínima",
   },
@@ -160,19 +161,19 @@ const RESUMO_ITENS = [
   "Login com hierarquia de acesso (dono, gerente, funcionário)",
   "Dashboard com visão geral de reservas por período",
   "Reservas do dia com busca, status e edição rápida",
+  "Botão de WhatsApp direto na reserva e na fila de espera",
   "Cadastro manual de reserva pela equipe (telefone/balcão)",
   "Salão em modo simples com capacidade total, ou mapa de mesas",
   "Cardápio digital com link público em QR code",
   "Horários por dia da semana, com antecedência mínima",
+  "Só os horários realmente disponíveis aparecem para o cliente",
   "Agente de IA respondendo no Instagram 24 horas por dia",
+  "Agente sempre confirma a unidade certa antes de atender",
   "Conversas com atendimento humano quando o agente escala",
   "Fila de espera para clientes que chegam sem reserva",
   "Relatórios de ocupação e não comparecimento",
   "Multiunidade: várias lojas no mesmo login",
-  "Equipe com permissão por loja",
-  "Bloqueios de mesa/salão por manutenção ou evento",
   "Painel 100% responsivo, instalável como app (PWA)",
-  "WhatsApp Business como segundo canal de atendimento",
 ];
 
 function BlocoFeature({ feature, invertido }: { feature: Feature; invertido?: boolean }) {
@@ -226,7 +227,7 @@ export function ApresentacaoPage() {
             <Reveal delay={80}>
               <span className="lp-selo lp-selo-vivo">
                 <span className="lp-ponto-vivo" aria-hidden="true" />
-                <span className="lp-texto-gradiente">Estudo de caso real: Espetaria Cervegela</span>
+                <span className="lp-texto-gradiente">Tour completo, com telas reais do sistema</span>
               </span>
             </Reveal>
 
@@ -236,9 +237,8 @@ export function ApresentacaoPage() {
 
             <Reveal delay={240}>
               <p className="lp-texto-grande" style={{ margin: "0 auto 1.5rem" }}>
-                Esta página mostra exatamente como o Quero Reservar funciona na prática — usando a implantação real
-                da Espetaria Cervegela (Londrina e Maringá) como exemplo, do primeiro login até o que o cliente final
-                vê na mesa.
+                Esta página mostra exatamente como o Quero Reservar funciona na prática — do primeiro login até o
+                que o cliente final vê na mesa, com o sistema rodando de verdade, não uma maquete.
               </p>
             </Reveal>
 
@@ -257,20 +257,20 @@ export function ApresentacaoPage() {
             <Reveal delay={400}>
               <div className="apr-stats-row" style={{ maxWidth: 760, margin: "2.5rem auto 0" }}>
                 <div className="apr-stat">
-                  <div className="apr-stat-valor">2 unidades</div>
-                  <div className="apr-stat-label">Cervegela Londrina e Maringá, mesmo painel</div>
+                  <div className="apr-stat-valor">Multiunidade</div>
+                  <div className="apr-stat-label">Quantas lojas você tiver, mesmo painel</div>
                 </div>
                 <div className="apr-stat">
-                  <div className="apr-stat-valor">200 lugares</div>
-                  <div className="apr-stat-label">Capacidade total configurada por loja</div>
+                  <div className="apr-stat-valor">Modo simples</div>
+                  <div className="apr-stat-label">Só a capacidade total, sem mapa de mesas</div>
                 </div>
                 <div className="apr-stat">
-                  <div className="apr-stat-valor">19h fixo</div>
-                  <div className="apr-stat-label">Único horário de reserva, seg-sáb</div>
+                  <div className="apr-stat-valor">Horário fixo</div>
+                  <div className="apr-stat-label">Cliente só vê o horário que você libera</div>
                 </div>
                 <div className="apr-stat">
-                  <div className="apr-stat-valor">3h</div>
-                  <div className="apr-stat-label">Antecedência mínima para reservar</div>
+                  <div className="apr-stat-valor">Antecedência mínima</div>
+                  <div className="apr-stat-label">Configurável por dia da semana</div>
                 </div>
               </div>
             </Reveal>
@@ -319,14 +319,15 @@ export function ApresentacaoPage() {
             </Reveal>
             <Reveal delay={80}>
               <p className="lp-texto-grande" style={{ marginTop: "0.75rem", maxWidth: 720 }}>
-                Marina pergunta sobre mesa para hoje às 19h e o agente resolve sozinho, no tom de voz da Cervegela.
-                Já o pedido de aniversário para 10 pessoas é reconhecido como especial — o agente avisa o cliente e
-                chama a equipe, que responde direto pelo mesmo painel.
+                Antes de tudo, o agente sempre confirma com o cliente qual unidade ele quer — obrigatório quando a
+                empresa tem mais de uma loja. Depois disso, dúvidas simples e reservas são resolvidas sozinho, no
+                tom de voz do restaurante; pedidos especiais são reconhecidos e passados para a equipe responder
+                direto pelo mesmo painel.
               </p>
             </Reveal>
             <div className="apr-duas-telas" style={{ marginTop: "2.5rem" }}>
               <Reveal className="apr-feature-tela lp-moldura">
-                <img src={imgConversaMarina} alt="Conversa do Instagram resolvida automaticamente pelo agente de IA" loading="lazy" />
+                <img src={imgConversaAtendida} alt="Conversa do Instagram resolvida automaticamente pelo agente de IA" loading="lazy" />
               </Reveal>
               <Reveal delay={120} className="apr-feature-tela lp-moldura">
                 <img src={imgConversaHumano} alt="Conversa do Instagram com atendimento assumido pela equipe humana" loading="lazy" />
@@ -350,9 +351,10 @@ export function ApresentacaoPage() {
                   Cliente chegou sem reserva? <span className="lp-italico-destaque">Fila organizada</span>
                 </>
               ),
-              texto: "A equipe registra quem está esperando e chama quando a mesa vaga, sem depender de papel.",
+              texto:
+                "A equipe registra quem está esperando e chama quando a mesa vaga — com botão de WhatsApp direto pra avisar, sem depender de papel.",
               img: imgFilaEspera,
-              alt: "Fila de espera com clientes aguardando e chamados",
+              alt: "Fila de espera com clientes aguardando e botão de WhatsApp",
             },
             {
               eyebrow: "Relatórios",
@@ -413,7 +415,7 @@ export function ApresentacaoPage() {
               eyebrow: "Lojas da empresa",
               titulo: (
                 <>
-                  Cervegela Londrina e <span className="lp-italico-destaque">Cervegela Maringá</span>
+                  Cada loja com <span className="lp-italico-destaque">seus próprios dados</span>
                 </>
               ),
               texto: "Mesma empresa, mesmo login do dono. Cada unidade pode ter cardápio, horário e equipe próprios.",
@@ -424,7 +426,7 @@ export function ApresentacaoPage() {
               eyebrow: "Usuários e permissões",
               titulo: (
                 <>
-                  Camila, da recepção, vê <span className="lp-italico-destaque">só a loja dela</span>
+                  Cada funcionário vê <span className="lp-italico-destaque">só a loja dele</span>
                 </>
               ),
               texto: "O dono cadastra a equipe com acesso restrito por unidade, sem acesso a configurações.",
@@ -479,12 +481,12 @@ export function ApresentacaoPage() {
                     Cardápio público e <span className="lp-italico-destaque">reserva sem sair do Instagram</span>
                   </h3>
                   <p className="lp-texto-grande" style={{ marginTop: "0.75rem" }}>
-                    O cardápio completo da Cervegela, acessível pelo QR code da mesa, e o mesmo link que o agente
-                    manda no Instagram funciona como reserva direta — sem instalar nada.
+                    O cardápio completo, acessível pelo QR code da mesa, e o mesmo link que o agente manda no
+                    Instagram funciona como reserva direta — sem instalar nada.
                   </p>
                 </Reveal>
                 <Reveal delay={100} className="apr-feature-tela lp-moldura">
-                  <img src={imgCardapioPublico} alt="Cardápio público da Cervegela Londrina" loading="lazy" />
+                  <img src={imgCardapioPublico} alt="Cardápio público de exemplo" loading="lazy" />
                 </Reveal>
               </div>
 

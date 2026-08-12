@@ -229,6 +229,29 @@ button {
   box-shadow: none;
 }
 
+/* Botao verde do WhatsApp (abre wa.me com o telefone do cliente) - cor fixa da marca
+   do WhatsApp, independente do tema/acento do app, pra ficar reconhecivel de longe. */
+.btn-whatsapp {
+  background: #25d366;
+  color: #06210f;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+}
+
+.btn-whatsapp:hover {
+  background: #2eeb75;
+  box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.25);
+}
+
+.btn-whatsapp svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
 /* Campos ---------------------------------------------------------------- */
 
 input,

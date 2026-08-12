@@ -593,6 +593,16 @@ export function listarMesasDisponiveisPublico(token: string, data: string, horaI
   return api.get<RespostaMesasDisponiveis>(`/public/reservation-link/${token}/mesas-disponiveis?${params}`);
 }
 
+// horarios: null = sem restricao de horario fixo (mantem campo livre); lista = so
+// esses horarios de inicio sao aceitos nessa data.
+export interface RespostaHorariosFixos {
+  horarios: string[] | null;
+}
+
+export function listarHorariosFixosPublico(token: string, data: string) {
+  return api.get<RespostaHorariosFixos>(`/public/reservation-link/${token}/horarios?data=${data}`);
+}
+
 // Pagina publica do cardapio (QR code na mesa) - sem autenticacao, unidadeId direto
 // na URL (nao e informacao sensivel, so mostra categoria/item ativos).
 export interface CardapioPublico {
@@ -642,6 +652,10 @@ export interface DadosReservaWidget {
 
 export function criarReservaWidget(unidadeId: string, dados: DadosReservaWidget) {
   return api.post<ReservaPublicaCriada>(`/public/widget/${unidadeId}/reservations`, dados);
+}
+
+export function listarHorariosFixosWidget(unidadeId: string, data: string) {
+  return api.get<RespostaHorariosFixos>(`/public/widget/${unidadeId}/horarios?data=${data}`);
 }
 
 export function urlEmbedDoWidget(unidadeId: string): string {

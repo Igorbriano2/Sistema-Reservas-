@@ -5,6 +5,7 @@ import { ApiError } from "../api/client.js";
 import {
   criarDepositoDeReservaPublica,
   criarReservaPublica,
+  listarHorariosFixosPublico,
   listarMesasDisponiveisPublico,
   obterInfoDoLinkDeReserva,
   type DadosReservaPublica,
@@ -133,6 +134,9 @@ export function PublicReservationPage() {
 
   const [data, setData] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
+  // null = ainda nao verificou ou sem restricao (campo livre). [] ou lista = so esses
+  // horarios de inicio sao aceitos nessa data (turno/salao com horario fixo).
+  const [horariosFixos, setHorariosFixos] = useState<string[] | null>(null);
   const [numPessoas, setNumPessoas] = useState("2");
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTelefone, setClienteTelefone] = useState("");
@@ -198,6 +202,31 @@ export function PublicReservationPage() {
     dispararEventoGA4("iniciou_reserva");
     dispararEventoFacebook("InitiateCheckout");
   }, [iniciouPreenchimento, consentimento]);
+
+  // Busca os horarios fixos aceitos nessa data assim que o cliente escolhe o dia -
+  // troca o campo de horario livre por uma lista de opcoes quando o turno/salao
+  // restringe (docs 28/29). null = sem restricao, mantem o campo livre normal.
+  useEffect(() => {
+    if (!token || !data) {
+      setHorariosFixos(null);
+      return;
+    }
+    let cancelado = false;
+    listarHorariosFixosPublico(token, data)
+      .then((resposta) => {
+        if (cancelado) return;
+        setHorariosFixos(resposta.horarios);
+        if (resposta.horarios && resposta.horarios.length > 0) {
+          setHoraInicio((atual) => (resposta.horarios!.includes(atual) ? atual : resposta.horarios![0]));
+        }
+      })
+      .catch(() => {
+        if (!cancelado) setHorariosFixos(null);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [token, data]);
 
   function aceitarCookies() {
     localStorage.setItem(CHAVE_CONSENTIMENTO, "aceito");
@@ -431,16 +460,36 @@ export function PublicReservationPage() {
           </label>
           <label>
             Horario
-            <input
-              type="time"
-              value={horaInicio}
-              onChange={(e) => {
-                marcarInicioDaReserva();
-                setHoraInicio(e.target.value);
-              }}
-              required
-            />
+            {horariosFixos && horariosFixos.length > 0 ? (
+              <select
+                value={horaInicio}
+                onChange={(e) => {
+                  marcarInicioDaReserva();
+                  setHoraInicio(e.target.value);
+                }}
+                required
+              >
+                {horariosFixos.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="time"
+                value={horaInicio}
+                onChange={(e) => {
+                  marcarInicioDaReserva();
+                  setHoraInicio(e.target.value);
+                }}
+                required
+              />
+            )}
           </label>
+          {horariosFixos && horariosFixos.length === 0 && (
+            <span className="erro">Não há horário disponível para reserva nesta data.</span>
+          )}
           <label>
             Numero de pessoas
             <input
@@ -455,7 +504,7 @@ export function PublicReservationPage() {
             />
           </label>
           {erro && <span className="erro">{erro}</span>}
-          <button className="btn" type="submit" disabled={carregandoMapa}>
+          <button className="btn" type="submit" disabled={carregandoMapa || horariosFixos?.length === 0}>
             {carregandoMapa ? "Verificando..." : "Continuar"}
           </button>
         </form>

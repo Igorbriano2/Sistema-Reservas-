@@ -6,7 +6,7 @@ import { agenteConfig, mesas, salaoElementos, saloes, unidades } from "../../db/
 import { asyncHandler } from "../../lib/async-handler.js";
 import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { criarReserva, criarReservaComMesaAutomatica } from "../../lib/reservations.js";
-import { validarJanelaDeFuncionamento, verificarDisponibilidade } from "../../lib/availability.js";
+import { listarHorariosFixosDoDia, validarJanelaDeFuncionamento, verificarDisponibilidade } from "../../lib/availability.js";
 import { enviarPushParaUnidade } from "../../lib/push.js";
 import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
 import { env } from "../../config/env.js";
@@ -45,6 +45,24 @@ widgetRouter.get(
       googleTagId: config?.googleTagId ?? null,
       facebookPixelId: config?.facebookPixelId ?? null,
     });
+  }),
+);
+
+const horariosQuerySchema = z.object({
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data deve estar no formato YYYY-MM-DD"),
+});
+
+// Mesma lista de horarios fixos do link de reserva do agente, so que identificada
+// direto pelo unidadeId - ver reservation-link.routes.ts para o comentario completo.
+widgetRouter.get(
+  "/:unidadeId/horarios",
+  asyncHandler(async (req, res) => {
+    const unidade = await buscarUnidade(req.params.unidadeId);
+    if (!unidade) throw new RecursoNaoEncontradoError("Unidade nao encontrada");
+
+    const query = horariosQuerySchema.parse(req.query);
+    const horarios = await listarHorariosFixosDoDia(db, { unidadeId: unidade.id, data: query.data });
+    res.json({ horarios });
   }),
 );
 

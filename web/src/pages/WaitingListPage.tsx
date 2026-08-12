@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import { adicionarNaFilaEspera, atualizarStatusFilaEspera, listarFilaEspera, removerDaFilaEspera } from "../api/resources.js";
+import { IconeWhatsApp } from "../components/IconeWhatsApp.js";
+import { linkWhatsApp } from "../lib/whatsapp.js";
 import type { FilaEsperaEntrada, FilaEsperaStatus } from "../types.js";
 
 const STATUS_LABEL: Record<FilaEsperaStatus, string> = {
@@ -172,7 +174,11 @@ export function WaitingListPage() {
                 <tr key={entrada.id}>
                   <td>
                     {entrada.clienteNome}
-                    {entrada.clienteTelefone && <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>{entrada.clienteTelefone}</div>}
+                    {entrada.clienteTelefone && (
+                      <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+                        <a href={`tel:${entrada.clienteTelefone}`}>{entrada.clienteTelefone}</a>
+                      </div>
+                    )}
                   </td>
                   <td>{entrada.numPessoas}</td>
                   <td>{minutosDeEspera(entrada.criadoEm)} min</td>
@@ -202,6 +208,18 @@ export function WaitingListPage() {
                       <button className="btn btn-secundario" onClick={() => remover(entrada)}>
                         Remover
                       </button>
+                      {entrada.clienteTelefone && (
+                        <a
+                          className="btn btn-whatsapp"
+                          href={linkWhatsApp(entrada.clienteTelefone)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Iniciar conversa no WhatsApp"
+                        >
+                          <IconeWhatsApp />
+                          WhatsApp
+                        </a>
+                      )}
                     </div>
                   </td>
                 </tr>

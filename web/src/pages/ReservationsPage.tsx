@@ -12,6 +12,8 @@ import {
   type DadosNovaReserva,
 } from "../api/resources.js";
 import { CalendarioMes } from "../components/CalendarioMes.js";
+import { IconeWhatsApp } from "../components/IconeWhatsApp.js";
+import { linkWhatsApp } from "../lib/whatsapp.js";
 import type { Mesa, Reserva, Salao } from "../types.js";
 
 function dataLocal(offsetDias = 0): string {
@@ -494,6 +496,17 @@ export function ReservationsPage() {
                     <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "no_show")}>
                       Nao compareceu
                     </button>
+                    {reserva.clienteTelefone && (
+                      <a
+                        className="btn btn-whatsapp"
+                        href={linkWhatsApp(reserva.clienteTelefone)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <IconeWhatsApp />
+                        WhatsApp
+                      </a>
+                    )}
                   </div>
                 )}
                 {reserva.status !== "cancelada" && (
@@ -549,6 +562,18 @@ export function ReservationsPage() {
                             Nao compareceu
                           </button>
                         </>
+                      )}
+                      {reserva.clienteTelefone && (
+                        <a
+                          className="btn btn-whatsapp"
+                          href={linkWhatsApp(reserva.clienteTelefone)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Iniciar conversa no WhatsApp"
+                        >
+                          <IconeWhatsApp />
+                          WhatsApp
+                        </a>
                       )}
                       {reserva.status !== "cancelada" && (
                         <>

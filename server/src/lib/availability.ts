@@ -186,6 +186,63 @@ function salaoAceitaHorario(
   return horaInicio >= salao.intervaloInicio && horaInicio < salao.intervaloFim;
 }
 
+// Lista os horarios de INICIO fixos aceitos pra reserva PUBLICA nessa data, quando a
+// unidade/salao restringe a horarios especificos (docs 28/29) - usado pelo frontend
+// pra trocar o campo livre de horario por uma lista de opcoes, em vez do cliente
+// so descobrir depois de tentar (ver validarJanelaDeFuncionamento/salaoAceitaHorario,
+// que continuam sendo a validacao de verdade no submit). Retorna null quando NAO ha
+// restricao de horario fixo nessa data (turno livre, sem horariosFixos configurado em
+// nenhum lugar) - nesse caso o frontend mantem o campo de horario livre normal.
+export async function listarHorariosFixosDoDia(
+  db: Queryable,
+  params: { unidadeId: string; data: string },
+): Promise<string[] | null> {
+  const { unidadeId, data } = params;
+
+  const [excecao] = await db
+    .select()
+    .from(excecoesHorario)
+    .where(and(eq(excecoesHorario.unidadeId, unidadeId), eq(excecoesHorario.data, data)))
+    .limit(1);
+  if (excecao?.fechado) {
+    return [];
+  }
+
+  const regras = await db
+    .select({ horariosFixos: regrasHorario.horariosFixos })
+    .from(regrasHorario)
+    .where(and(eq(regrasHorario.unidadeId, unidadeId), eq(regrasHorario.diaSemana, diaDaSemana(data))));
+
+  const horariosDoTurno = new Set<string>();
+  for (const regra of regras) {
+    for (const h of regra.horariosFixos ?? []) horariosDoTurno.add(h.slice(0, 5));
+  }
+  if (horariosDoTurno.size > 0) {
+    return [...horariosDoTurno].sort();
+  }
+
+  const todosSaloes = await db
+    .select({
+      modoHorarioReserva: saloes.modoHorarioReserva,
+      horariosFixos: saloes.horariosFixos,
+      dataEspecifica: saloes.dataEspecifica,
+    })
+    .from(saloes)
+    .where(eq(saloes.unidadeId, unidadeId));
+
+  const horariosDoSalao = new Set<string>();
+  for (const salao of todosSaloes) {
+    if (salao.dataEspecifica && salao.dataEspecifica !== data) continue;
+    if (salao.modoHorarioReserva !== "fixo") continue;
+    for (const h of salao.horariosFixos ?? []) horariosDoSalao.add(h.slice(0, 5));
+  }
+  if (horariosDoSalao.size > 0) {
+    return [...horariosDoSalao].sort();
+  }
+
+  return null;
+}
+
 export async function verificarDisponibilidade(
   db: Database,
   params: VerificarDisponibilidadeParams,

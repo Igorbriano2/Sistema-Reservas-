@@ -7,7 +7,7 @@ import { agenteConfig, conversas, mesas, salaoElementos, saloes, unidades } from
 import { asyncHandler } from "../../lib/async-handler.js";
 import { decodificarTokenDeReserva, TokenDeReservaInvalidoError } from "../../lib/reservation-link.js";
 import { criarReserva, criarReservaComMesaAutomatica } from "../../lib/reservations.js";
-import { validarJanelaDeFuncionamento, verificarDisponibilidade } from "../../lib/availability.js";
+import { listarHorariosFixosDoDia, validarJanelaDeFuncionamento, verificarDisponibilidade } from "../../lib/availability.js";
 import { enviarRespostaDoAgente } from "../../lib/instagram-notify.js";
 import { enviarPushParaUnidade } from "../../lib/push.js";
 import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
@@ -57,6 +57,31 @@ reservationLinkRouter.get(
       googleTagId: config?.googleTagId ?? null,
       facebookPixelId: config?.facebookPixelId ?? null,
     });
+  }),
+);
+
+const horariosQuerySchema = z.object({
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data deve estar no formato YYYY-MM-DD"),
+});
+
+// Doc "horario fixo no formulario publico" - devolve a lista de horarios de inicio
+// aceitos nessa data quando o turno/salao restringe a horarios especificos, pro
+// frontend mostrar so essas opcoes em vez de um campo de horario livre. horarios: null
+// significa sem restricao (mantem o campo livre).
+reservationLinkRouter.get(
+  "/:token/horarios",
+  asyncHandler(async (req, res) => {
+    let payload;
+    try {
+      payload = decodificarTokenDeReserva(req.params.token);
+    } catch (err) {
+      if (err instanceof TokenDeReservaInvalidoError) return responderTokenInvalido(res);
+      throw err;
+    }
+
+    const query = horariosQuerySchema.parse(req.query);
+    const horarios = await listarHorariosFixosDoDia(db, { unidadeId: payload.unidadeId, data: query.data });
+    res.json({ horarios });
   }),
 );
 
