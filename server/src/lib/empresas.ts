@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { Database } from "../db/client.js";
+import type { Queryable } from "../db/client.js";
 import { agenteConfig, empresas, unidades, usuarios, type Empresa, type Unidade, type Usuario } from "../db/schema/index.js";
 import { hashPassword } from "./password.js";
 import { RequisicaoInvalidaError } from "./errors.js";
@@ -25,7 +25,7 @@ function derivarUsernameDoEmail(email: string): string {
   return local.toLowerCase().replace(/[^a-z0-9.]/g, "") || "usuario";
 }
 
-async function gerarUsernameDisponivel(db: Database, base: string): Promise<string> {
+async function gerarUsernameDisponivel(db: Queryable, base: string): Promise<string> {
   let candidato = base;
   let sufixo = 1;
   while (true) {
@@ -41,7 +41,7 @@ async function gerarUsernameDisponivel(db: Database, base: string): Promise<stri
 // (npm run db:seed) e pelo painel da plataforma (conversao de lead em cliente, e
 // criacao/garantia da empresa demo do "modo teste").
 export async function criarEmpresaComOwner(
-  db: Database,
+  db: Queryable,
   params: CriarEmpresaComOwnerParams,
 ): Promise<{ empresa: Empresa; owner: Usuario; unidade: Unidade }> {
   const emailNormalizado = params.ownerEmail.toLowerCase();

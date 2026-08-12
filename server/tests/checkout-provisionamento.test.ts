@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.js";
 import { assinaturas, empresas, usuarios } from "../src/db/schema/index.js";
 import { provisionarContaAposPagamento } from "../src/lib/checkout.js";
+import { criarEmpresaComOwner } from "../src/lib/empresas.js";
 import { RequisicaoInvalidaError } from "../src/lib/errors.js";
 import { closeDb, truncateAll } from "./helpers/db.js";
 
@@ -94,6 +95,39 @@ describe("provisionarContaAposPagamento", () => {
 
     const [empresa] = await db.select().from(empresas).where(eq(empresas.nome, DADOS_BASE.nomeEmpresa));
     expect(empresa).toBeUndefined();
+  });
+
+  it("se a linha de assinatura nao puder ser gravada (subscription_id duplicado), desfaz empresa/usuario/unidade tambem", async () => {
+    // Simula o cenario do achado de seguranca: sem a transacao, uma falha aqui deixava
+    // empresa/usuario criados MAS sem assinatura local - e o middleware de acesso trata
+    // "sem linha de assinatura" como acesso liberado, ou seja, a unidade ficava com uso
+    // gratis ilimitado sem ninguem notar. Forca a mesma falha (unique constraint em
+    // subscription_id_gateway) pre-inserindo uma linha com o MESMO id de subscription
+    // que DADOS_BASE vai tentar usar, numa empresa/unidade descartavel.
+    const { empresa: empresaAlheia, unidade: unidadeAlheia } = await criarEmpresaComOwner(db, {
+      nomeEmpresa: "Empresa alheia",
+      ownerNome: "Dono Alheio",
+      ownerEmail: "dono-alheio@teste.com",
+      ownerSenha: "senhaQualquer123",
+    });
+    await db.insert(assinaturas).values({
+      empresaId: empresaAlheia.id,
+      unidadeId: unidadeAlheia.id,
+      customerIdGateway: "cus_outro",
+      subscriptionIdGateway: DADOS_BASE.stripeSubscriptionId,
+      status: "ativa",
+    });
+
+    const stripe = criarStripeFalso({ id: DADOS_BASE.stripeSubscriptionId, customer: DADOS_BASE.stripeCustomerId, status: "trialing" });
+
+    await expect(provisionarContaAposPagamento(db, stripe, DADOS_BASE)).rejects.toThrow();
+
+    // Nem empresa, nem usuario "orfaos" (sem assinatura) devem sobrar - tudo foi
+    // desfeito pela transacao junto com a falha na assinatura.
+    const [empresaOrfa] = await db.select().from(empresas).where(eq(empresas.nome, DADOS_BASE.nomeEmpresa));
+    expect(empresaOrfa).toBeUndefined();
+    const [usuarioOrfao] = await db.select().from(usuarios).where(eq(usuarios.email, DADOS_BASE.email));
+    expect(usuarioOrfao).toBeUndefined();
   });
 
   it("nao permite reaproveitar o mesmo e-mail de um usuario ja existente", async () => {

@@ -88,4 +88,20 @@ const envSchema = z.object({
   WHATSAPP_SCHEDULER_CRON: z.string().default("0 10 * * *"),
 });
 
-export const env = envSchema.parse(process.env);
+// Em producao, alguns "optional" acima deixam de ser opcionais de verdade - sem eles o
+// app sobe normalmente mas falha (ou pior, fica inseguro) so quando o fluxo relevante
+// e usado pela primeira vez. Falha AGORA, no boot, com uma mensagem clara, em vez de
+// devolver 400/500 pro primeiro cliente que tentar pagar ou pro primeiro webhook da
+// Stripe que chegar sem ninguem notar a causa raiz.
+const envSchemaComRegrasDeProducao = envSchema.superRefine((valores, ctx) => {
+  if (valores.NODE_ENV !== "production") return;
+  if (valores.STRIPE_SECRET_KEY && !valores.STRIPE_WEBHOOK_SECRET) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["STRIPE_WEBHOOK_SECRET"],
+      message: "STRIPE_WEBHOOK_SECRET e obrigatorio em producao quando STRIPE_SECRET_KEY esta configurada (sem ele, o endpoint de webhook rejeita todo evento e assinaturas nunca atualizam).",
+    });
+  }
+});
+
+export const env = envSchemaComRegrasDeProducao.parse(process.env);

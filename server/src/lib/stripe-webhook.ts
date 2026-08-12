@@ -112,7 +112,12 @@ export async function processarEventoStripe(db: Queryable, event: Stripe.Event):
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
       const novoStatus = mapearStatusStripe(subscription.status);
-      if (!novoStatus) return;
+      if (!novoStatus) {
+        // Status da Stripe que ainda nao mapeamos pra nada local - melhor avisar do
+        // que ignorar em silencio (podia ser um status novo que devia bloquear acesso).
+        console.warn(`[stripe] status de subscription nao mapeado: "${subscription.status}" (subscription ${subscription.id})`);
+        return;
+      }
 
       const [atual] = await db.select().from(assinaturas).where(eq(assinaturas.subscriptionIdGateway, subscription.id)).limit(1);
       if (!atual) return;

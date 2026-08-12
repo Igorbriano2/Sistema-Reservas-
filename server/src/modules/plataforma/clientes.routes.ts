@@ -2,11 +2,12 @@ import { Router } from "express";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
-import { assinaturaStatusEnum, empresas, usuarios } from "../../db/schema/index.js";
+import { assinaturaStatusEnum, empresas, suporteAcessos, usuarios } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { RecursoNaoEncontradoError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { hashPassword } from "../../lib/password.js";
 import { codigoDoErroPostgres } from "../../lib/pg-error.js";
+import { signAuthToken } from "../../lib/jwt.js";
 
 export const clientesRouter = Router();
 
@@ -124,6 +125,55 @@ clientesRouter.patch(
       }
       throw err;
     }
+  }),
+);
+
+// "Acessar como" (suporte): loga o dono da plataforma DIRETO no painel do restaurante,
+// sem precisar da senha do dono - resolve o caso "o restaurante precisa de ajuda com
+// algo" sem depender de pedir a senha por telefone/WhatsApp. Emite um token de
+// restaurante normal (signAuthToken, mesmo formato do login comum) pro login "owner"
+// da empresa - o frontend abre isso numa aba nova, sem afetar a sessao de plataforma
+// da aba atual (chaves de localStorage diferentes, ver PlataformaAuthContext). Toda
+// chamada fica registrada em suporte_acessos pra auditoria (quem acessou, quando).
+clientesRouter.post(
+  "/:empresaId/acessar",
+  asyncHandler(async (req, res) => {
+    const [owner] = await db
+      .select()
+      .from(usuarios)
+      .where(and(eq(usuarios.empresaId, req.params.empresaId), eq(usuarios.papel, "owner")))
+      .orderBy(asc(usuarios.criadoEm))
+      .limit(1);
+    if (!owner) {
+      throw new RecursoNaoEncontradoError("Cliente (ou login de dono) nao encontrado");
+    }
+
+    const [empresa] = await db
+      .select({ nome: empresas.nome })
+      .from(empresas)
+      .where(eq(empresas.id, owner.empresaId))
+      .limit(1);
+
+    const token = signAuthToken({ sub: owner.id, empresaId: owner.empresaId, papel: owner.papel });
+
+    await db.insert(suporteAcessos).values({
+      plataformaAdminId: req.plataformaAuth!.sub,
+      empresaId: owner.empresaId,
+      usuarioAcessadoId: owner.id,
+    });
+
+    res.json({
+      token,
+      usuario: {
+        id: owner.id,
+        nome: owner.nome,
+        email: owner.email,
+        username: owner.username,
+        papel: owner.papel,
+        empresaId: owner.empresaId,
+      },
+      empresaNome: empresa?.nome ?? null,
+    });
   }),
 );
 

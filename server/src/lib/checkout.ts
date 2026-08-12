@@ -39,21 +39,30 @@ export async function provisionarContaAposPagamento(
     throw new RequisicaoInvalidaError("Esta assinatura nao esta mais valida. Refaca o pagamento e tente novamente.");
   }
 
-  const { empresa, unidade } = await criarEmpresaComOwner(db, {
-    nomeEmpresa: dados.nomeEmpresa,
-    ownerNome: dados.nome,
-    ownerEmail: dados.email,
-    ownerUsername: dados.username,
-    ownerSenha: dados.senha,
-    plano: "trial",
-  });
+  // Tudo numa unica transacao: sem isso, uma falha ao gravar a linha de assinatura
+  // (por qualquer motivo - subscription reaproveitada, erro transitorio de banco)
+  // deixava empresa/usuario/unidade ja criados, mas SEM assinatura local - e
+  // requireAssinaturaDaUnidadeAtiva trata "sem linha de assinatura" como "libera"
+  // (ver assinatura.middleware.ts), entao a unidade ficava com acesso gratis
+  // ilimitado silenciosamente, sem ninguem notar. Agora, se a assinatura nao puder
+  // ser gravada, empresa/usuario/unidade tambem sao desfeitos e o cliente recebe um
+  // erro claro pra tentar de novo (a subscription na Stripe continua valida, entao
+  // repetir a Etapa 3 funciona sem cobrar duas vezes).
+  const { empresa } = await db.transaction(async (tx) => {
+    const { empresa, unidade } = await criarEmpresaComOwner(tx, {
+      nomeEmpresa: dados.nomeEmpresa,
+      ownerNome: dados.nome,
+      ownerEmail: dados.email,
+      ownerUsername: dados.username,
+      ownerSenha: dados.senha,
+      plano: "trial",
+    });
 
-  // Guarda o customer da Stripe na empresa pra reaproveitar (sem duplicar cliente no
-  // gateway) quando uma segunda unidade for adicionada depois (doc 17).
-  await db.update(empresas).set({ stripeCustomerId: customerId }).where(eq(empresas.id, empresa.id));
+    // Guarda o customer da Stripe na empresa pra reaproveitar (sem duplicar cliente no
+    // gateway) quando uma segunda unidade for adicionada depois (doc 17).
+    await tx.update(empresas).set({ stripeCustomerId: customerId }).where(eq(empresas.id, empresa.id));
 
-  try {
-    await db.insert(assinaturas).values({
+    await tx.insert(assinaturas).values({
       empresaId: empresa.id,
       unidadeId: unidade.id,
       gateway: "stripe",
@@ -62,11 +71,9 @@ export async function provisionarContaAposPagamento(
       status: subscription.status === "trialing" ? "trialing" : "ativa",
       trialTerminaEm: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
     });
-  } catch (err) {
-    // O login do dono ja funciona mesmo se isso falhar (empresa/usuario ja foram
-    // criados acima) - so registra pra investigar (ex: subscription reaproveitada).
-    console.error(`[checkout] falha ao gravar assinatura da empresa ${empresa.id}:`, err);
-  }
+
+    return { empresa, unidade };
+  });
 
   return { empresaId: empresa.id };
 }

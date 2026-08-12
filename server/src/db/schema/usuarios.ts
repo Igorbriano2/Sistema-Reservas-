@@ -29,6 +29,12 @@ export const usuarios = pgTable(
     username: text("username"),
     senhaHash: text("senha_hash").notNull(),
     papel: papelUsuarioEnum("papel").notNull().default("owner"),
+    // Recuperacao de senha (so se aplica a owner, unico papel com e-mail) - guarda o
+    // HASH do token (nunca o token cru), pra um vazamento do banco nao virar um token
+    // de reset utilizavel direto. Nulos ate o primeiro pedido de "esqueci minha senha";
+    // limpos de novo assim que o token e usado ou expira.
+    resetSenhaTokenHash: text("reset_senha_token_hash"),
+    resetSenhaExpiraEm: timestamp("reset_senha_expira_em", { withTimezone: true }),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
