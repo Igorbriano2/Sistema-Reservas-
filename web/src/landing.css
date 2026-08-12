@@ -1756,3 +1756,130 @@ html[data-theme="light"] .lp-chatdemo-topo-canal {
     width: 3rem;
   }
 }
+
+/* Pagina /apresentacao (doc "apresentacao") - reusa os tokens/primitivas da landing
+   (lp-secao, lp-container, lp-eyebrow, SpotCard, Reveal), so acrescenta o layout de
+   "funcionalidade com print real ao lado" e o checklist final. */
+.apr-stats-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+}
+
+.apr-stat {
+  flex: 1;
+  min-width: 150px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 1.15rem 1.4rem;
+}
+
+.apr-stat-valor {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: var(--accent);
+}
+
+.apr-stat-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 0.35rem;
+  line-height: 1.4;
+}
+
+.apr-feature {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.3fr);
+  gap: 3rem;
+  align-items: center;
+}
+
+.apr-feature.apr-invertido {
+  grid-template-columns: minmax(320px, 1.3fr) minmax(260px, 1fr);
+}
+
+.apr-feature.apr-invertido .apr-feature-texto {
+  order: 2;
+}
+
+.apr-feature.apr-invertido .apr-feature-tela {
+  order: 1;
+}
+
+.apr-feature-tela {
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  box-shadow: 0 30px 80px -35px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.apr-feature-tela img {
+  width: 100%;
+  display: block;
+}
+
+.apr-feature-tela.apr-mobile {
+  max-width: 220px;
+  margin: 0 auto;
+}
+
+.apr-duas-telas {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.apr-duas-telas .apr-feature-tela {
+  flex: 1;
+  min-width: 260px;
+}
+
+.apr-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 2.5rem;
+  margin-top: 2rem;
+  padding: 0;
+}
+
+.apr-checklist li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.92rem;
+  list-style: none;
+  color: var(--text-primary);
+}
+
+.apr-checklist li .apr-marca {
+  color: var(--accent);
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.apr-grupo-eyebrow {
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 880px) {
+  .apr-feature,
+  .apr-feature.apr-invertido {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .apr-feature.apr-invertido .apr-feature-texto,
+  .apr-feature.apr-invertido .apr-feature-tela {
+    order: initial;
+  }
+}
+
+@media (max-width: 720px) {
+  .apr-checklist {
+    grid-template-columns: 1fr;
+  }
+}

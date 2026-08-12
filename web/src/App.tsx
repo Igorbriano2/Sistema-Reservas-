@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext.js";
 import type { Permissao } from "./types.js";
 import { Layout } from "./components/Layout.js";
 import { LandingPage } from "./pages/LandingPage.js";
+import { ApresentacaoPage } from "./pages/ApresentacaoPage.js";
 import { LoginPage } from "./pages/LoginPage.js";
 import { EscolherPainelPage } from "./pages/EscolherPainelPage.js";
 import { EscolherLojaPage } from "./pages/EscolherLojaPage.js";
@@ -108,6 +109,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={window.location.hostname.startsWith("painel.") ? <Navigate to="/painel" replace /> : <LandingPage />} />
+      <Route path="/apresentacao" element={<ApresentacaoPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/admin/escolher-painel"
