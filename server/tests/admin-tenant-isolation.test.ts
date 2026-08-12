@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
-import { criarMesa, criarSalao } from "./helpers/fixtures.js";
+import { criarMesa, criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
 
 const app = createApp();
@@ -102,6 +102,7 @@ describe("Isolamento multi-tenant nos endpoints /admin", () => {
     const { empresaA, empresaB, tokenA, tokenB } = await setupDuasEmpresas();
     const salaoA = await criarSalao(empresaA.unidade.id);
     const mesaA = await criarMesa(salaoA.id);
+    await criarRegraHorarioTodosOsDias(empresaA.unidade.id);
 
     const criar = await request(app)
       .post(`/admin/unidades/${empresaA.unidade.id}/reservations`)

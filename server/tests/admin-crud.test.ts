@@ -94,6 +94,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
       .post(`/admin/unidades/${unidade.id}/mesas`)
       .set("Authorization", `Bearer ${token}`)
       .send({ salaoId: salao.body.id, nome: "Mesa 1", capacidadeMin: 2, capacidadeMax: 4 });
+    await criarRegraHorarioTodosOsDias(unidade.id);
 
     const reserva = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
@@ -126,6 +127,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
       .post(`/admin/unidades/${unidade.id}/mesas`)
       .set("Authorization", `Bearer ${token}`)
       .send({ salaoId: salao.body.id, nome: "Mesa 1", capacidadeMin: 2, capacidadeMax: 4 });
+    await criarRegraHorarioTodosOsDias(unidade.id);
 
     async function novaReserva(horaInicio: string) {
       return request(app)
@@ -161,6 +163,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
       .post(`/admin/unidades/${unidade.id}/mesas`)
       .set("Authorization", `Bearer ${token}`)
       .send({ salaoId: salao.body.id, nome: "Mesa 1", capacidadeMin: 2, capacidadeMax: 4 });
+    await criarRegraHorarioTodosOsDias(unidade.id);
     const reserva = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${token}`)
@@ -192,6 +195,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
       .post(`/admin/unidades/${unidade.id}/mesas`)
       .set("Authorization", `Bearer ${token}`)
       .send({ salaoId: salao.body.id, nome: "Mesa 1", capacidadeMin: 2, capacidadeMax: 4 });
+    await criarRegraHorarioTodosOsDias(unidade.id);
 
     for (const data of ["2026-09-10", "2026-09-15", "2026-09-30"]) {
       await request(app)

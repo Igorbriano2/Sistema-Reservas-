@@ -4,7 +4,7 @@ import { createApp } from "../src/app.js";
 import { db } from "../src/db/client.js";
 import { unidades } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, criarFuncionario, criarUsuarioUnidade, truncateAll } from "./helpers/db.js";
-import { criarSalao } from "./helpers/fixtures.js";
+import { criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
 
 const app = createApp();
@@ -100,6 +100,7 @@ describe("Papeis - funcionario acessa reservas do dia e disponibilidade normalme
       .set("Authorization", `Bearer ${tokenOwner}`)
       .send({ salaoId: salao.id, nome: "Mesa 1", capacidadeMin: 1, capacidadeMax: 4 });
     expect(mesa.status).toBe(201);
+    await criarRegraHorarioTodosOsDias(unidade.id);
 
     const disponibilidade = await request(app)
       .get(`/admin/unidades/${unidade.id}/availability`)

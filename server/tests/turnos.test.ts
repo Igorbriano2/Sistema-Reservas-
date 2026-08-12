@@ -132,6 +132,75 @@ describe("verificarDisponibilidade - antecedencia minima e turno (doc 19)", () =
   });
 });
 
+describe("Painel admin - antecedencia minima tambem no create e na edicao de reserva (doc 37)", () => {
+  it("rejeita criar reserva manual abaixo da antecedencia minima, mas aceita com antecedencia suficiente", async () => {
+    // Mesmo motivo do describe acima: fixa o "agora" longe da virada de dia.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-15T12:00:00-03:00"));
+    try {
+      const { unidade, token } = await setup();
+      const salao = await criarSalao(unidade.id);
+      const mesa = await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+      await criarRegraHorarioTodosOsDias(unidade.id, {
+        horaAbertura: "00:00",
+        horaFechamento: "23:59",
+        duracaoPadraoMin: 15,
+        antecedenciaMinMin: 60,
+      });
+
+      const cedoDemais = dataHoraDaquiA(20);
+      const rejeitada = await request(app)
+        .post(`/admin/unidades/${unidade.id}/reservations`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ mesaId: mesa.id, data: cedoDemais.data, horaInicio: cedoDemais.horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+      expect(rejeitada.status).toBe(409);
+      expect(rejeitada.body.error).toMatch(/antecedencia/i);
+
+      const comAntecedencia = dataHoraDaquiA(180);
+      const aceita = await request(app)
+        .post(`/admin/unidades/${unidade.id}/reservations`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ mesaId: mesa.id, data: comAntecedencia.data, horaInicio: comAntecedencia.horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+      expect(aceita.status).toBe(201);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejeita mudar a data/hora de uma reserva existente pra dentro da antecedencia minima", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-15T12:00:00-03:00"));
+    try {
+      const { unidade, token } = await setup();
+      const salao = await criarSalao(unidade.id);
+      const mesa = await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+      await criarRegraHorarioTodosOsDias(unidade.id, {
+        horaAbertura: "00:00",
+        horaFechamento: "23:59",
+        duracaoPadraoMin: 15,
+        antecedenciaMinMin: 60,
+      });
+
+      const comAntecedencia = dataHoraDaquiA(180);
+      const criada = await request(app)
+        .post(`/admin/unidades/${unidade.id}/reservations`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ mesaId: mesa.id, data: comAntecedencia.data, horaInicio: comAntecedencia.horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+      expect(criada.status).toBe(201);
+
+      const cedoDemais = dataHoraDaquiA(20);
+      const editada = await request(app)
+        .patch(`/admin/unidades/${unidade.id}/reservations/${criada.body.id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ data: cedoDemais.data, horaInicio: cedoDemais.horaInicio });
+      expect(editada.status).toBe(409);
+      expect(editada.body.error).toMatch(/antecedencia/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("Tool check_availability expoe turno_nome/turno_desconto_percentual (doc 19)", () => {
   it("retorna o nome do turno e o desconto configurado quando o horario cai nele", async () => {
     // Ver comentario no describe acima - fixa o "agora" longe da virada de dia pra
