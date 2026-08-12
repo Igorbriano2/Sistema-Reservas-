@@ -9,6 +9,7 @@ import { TrustSection } from "../components/landing/TrustSection.js";
 import { FounderSection } from "../components/landing/FounderSection.js";
 import { ComparisonSection } from "../components/landing/ComparisonSection.js";
 import { WaitlistForm } from "../components/landing/WaitlistForm.js";
+import thumbVideoVendas from "../assets/thumb-video-vendas.jpg";
 
 function prefereMovimentoReduzido(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -131,6 +132,8 @@ function ChairMarkGrande() {
   );
 }
 
+// Thumbnail real do video de vendas (ainda nao gravado/publicado) - so a
+// capa por enquanto, sem player embutido nem link de video real.
 function VideoDeVendas() {
   return (
     <div>
@@ -138,13 +141,7 @@ function VideoDeVendas() {
         Assista em 2 minutos como funciona
       </p>
       <div className="lp-video-novo lp-moldura">
-        <span className="lp-video-novo-play">
-          <span className="lp-video-novo-play-glow" aria-hidden="true" />
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ position: "relative" }}>
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </span>
-        <p className="texto-secundario">Vídeo em breve</p>
+        <img src={thumbVideoVendas} alt="Pare de perder reservas e pedidos por falta de atendimento" />
       </div>
     </div>
   );
