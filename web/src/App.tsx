@@ -34,6 +34,7 @@ import { PlataformaLoginPage } from "./plataforma/PlataformaLoginPage.js";
 import { PlataformaLayout } from "./plataforma/PlataformaLayout.js";
 import { ClientesPage } from "./plataforma/ClientesPage.js";
 import { LeadsPage } from "./plataforma/LeadsPage.js";
+import { AdminsPage } from "./plataforma/AdminsPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { usuario, carregando, assinaturaBloqueada } = useAuth();
@@ -251,6 +252,7 @@ function AppRoutes() {
         <Route index element={<Navigate to="/painel/clientes" replace />} />
         <Route path="clientes" element={<ClientesPage />} />
         <Route path="leads" element={<LeadsPage />} />
+        <Route path="admins" element={<AdminsPage />} />
       </Route>
       <Route path="*" element={<Navigate to={destinoDaRaiz()} replace />} />
     </Routes>

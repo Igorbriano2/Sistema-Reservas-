@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client.js";
-import { atualizarCliente, editarLoginOwner, excluirCliente, listarClientes } from "./resources.js";
+import { acessarComoRestaurante, atualizarCliente, editarLoginOwner, excluirCliente, listarClientes } from "./resources.js";
 import type { AssinaturaStatus, Cliente } from "./types.js";
 
 const STATUS_LABEL: Record<AssinaturaStatus, string> = {
@@ -23,6 +23,7 @@ export function ClientesPage() {
   const [novaSenha, setNovaSenha] = useState("");
   const [mensagemEdicao, setMensagemEdicao] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [acessandoId, setAcessandoId] = useState<string | null>(null);
 
   async function carregar() {
     setCarregando(true);
@@ -93,6 +94,29 @@ export function ClientesPage() {
     }
   }
 
+  // "Acessar como" (suporte) - abre o painel do restaurante numa aba NOVA, logado como
+  // o dono dele, sem senha. As chaves de localStorage do painel do restaurante
+  // ("token"/"usuario") sao diferentes das da plataforma ("plataforma_token"/
+  // "plataforma_admin"), entao a aba atual (este painel) continua autenticada
+  // normalmente - so a aba nova nasce logada no /admin. "modo_suporte_ativo" liga o
+  // aviso no topo do painel do restaurante (Layout.tsx) com um jeito de sair.
+  async function acessarPainel(cliente: Cliente) {
+    setAcessandoId(cliente.id);
+    setErro(null);
+    try {
+      const { token, usuario, empresaNome } = await acessarComoRestaurante(cliente.id);
+      localStorage.setItem("token", token);
+      localStorage.setItem("usuario", JSON.stringify(usuario));
+      localStorage.setItem("modo_suporte_ativo", "true");
+      localStorage.setItem("modo_suporte_empresa", empresaNome ?? cliente.nome);
+      window.open("/admin/reservas", "_blank");
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Nao foi possivel acessar o painel deste cliente.");
+    } finally {
+      setAcessandoId(null);
+    }
+  }
+
   async function excluirConta(cliente: Cliente) {
     const digitado = window.prompt(
       `Isso apaga PRA SEMPRE o restaurante "${cliente.nome}" e tudo dele (reservas, usuarios, cardapio, conversas). Nao tem como desfazer.\n\nPra confirmar, digite o nome exato do restaurante: ${cliente.nome}`,
@@ -137,6 +161,7 @@ export function ClientesPage() {
                 <th>Assinatura / Acesso</th>
                 <th>Desde</th>
                 <th>Login do dono</th>
+                <th></th>
                 <th></th>
               </tr>
             </thead>
@@ -212,6 +237,17 @@ export function ClientesPage() {
                         Editar login
                       </button>
                     )}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-secundario"
+                      disabled={acessandoId === cliente.id || !cliente.contato}
+                      title={!cliente.contato ? "Este cliente ainda nao tem login de dono" : undefined}
+                      onClick={() => acessarPainel(cliente)}
+                    >
+                      {acessandoId === cliente.id ? "Acessando..." : "Acessar painel"}
+                    </button>
                   </td>
                   <td>
                     <button

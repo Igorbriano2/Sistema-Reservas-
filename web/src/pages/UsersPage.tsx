@@ -1,6 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "../api/client.js";
-import { criarUsuario, listarUnidades, listarUsuarios, type DadosNovoUsuario } from "../api/resources.js";
+import {
+  criarUsuario,
+  editarUsuario,
+  excluirUsuario,
+  listarUnidades,
+  listarUsuarios,
+  type DadosNovoUsuario,
+} from "../api/resources.js";
+import { useAuth } from "../context/AuthContext.js";
 import { PERMISSOES_DISPONIVEIS, type PapelUsuario, type Permissao, type Unidade, type UsuarioComAcesso } from "../types.js";
 
 const PAPEL_LABEL: Record<PapelUsuario, string> = {
@@ -25,6 +33,16 @@ export function UsersPage() {
   const [permissoes, setPermissoes] = useState<Permissao[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erroForm, setErroForm] = useState<string | null>(null);
+
+  const { usuario: usuarioLogado } = useAuth();
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [edNome, setEdNome] = useState("");
+  const [edSenha, setEdSenha] = useState("");
+  const [edUnidadeIds, setEdUnidadeIds] = useState<string[]>([]);
+  const [edPermissoes, setEdPermissoes] = useState<Permissao[]>([]);
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [erroEdicao, setErroEdicao] = useState<string | null>(null);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   async function carregar() {
     setCarregando(true);
@@ -73,6 +91,60 @@ export function UsersPage() {
       setErroForm(err instanceof ApiError ? err.message : "Nao foi possivel criar o usuario.");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  function abrirEdicao(u: UsuarioComAcesso) {
+    setEditandoId(u.id);
+    setEdNome(u.nome);
+    setEdSenha("");
+    setEdUnidadeIds(u.unidades.map((un) => un.id));
+    setEdPermissoes(u.permissoes);
+    setErroEdicao(null);
+  }
+
+  function alternarUnidadeEdicao(id: string) {
+    setEdUnidadeIds((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]));
+  }
+
+  function alternarPermissaoEdicao(valor: Permissao) {
+    setEdPermissoes((atual) => (atual.includes(valor) ? atual.filter((x) => x !== valor) : [...atual, valor]));
+  }
+
+  async function salvarEdicao(u: UsuarioComAcesso) {
+    setErroEdicao(null);
+    if (edUnidadeIds.length === 0) {
+      setErroEdicao("Selecione pelo menos uma unidade.");
+      return;
+    }
+    setSalvandoEdicao(true);
+    try {
+      await editarUsuario(u.id, {
+        ...(edNome.trim() && edNome.trim() !== u.nome && { nome: edNome.trim() }),
+        ...(edSenha && { senha: edSenha }),
+        unidadeIds: edUnidadeIds,
+        permissoes: edPermissoes,
+      });
+      setEditandoId(null);
+      await carregar();
+    } catch (err) {
+      setErroEdicao(err instanceof ApiError ? err.message : "Nao foi possivel salvar as alteracoes.");
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  }
+
+  async function excluir(u: UsuarioComAcesso) {
+    if (!window.confirm(`Excluir o login "${u.nome}"? Essa acao nao pode ser desfeita.`)) return;
+    setExcluindoId(u.id);
+    setErro(null);
+    try {
+      await excluirUsuario(u.id);
+      setUsuarios((lista) => lista.filter((x) => x.id !== u.id));
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Nao foi possivel excluir o usuario.");
+    } finally {
+      setExcluindoId(null);
     }
   }
 
@@ -166,15 +238,84 @@ export function UsersPage() {
                 <th>Login</th>
                 <th>Papel</th>
                 <th>Lojas</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {usuarios.map((u) => (
                 <tr key={u.id}>
-                  <td>{u.nome}</td>
-                  <td>{u.email ?? u.username}</td>
-                  <td>{PAPEL_LABEL[u.papel]}</td>
-                  <td>{u.papel === "owner" ? "Todas" : u.unidades.map((un) => un.nome).join(", ") || "-"}</td>
+                  {editandoId === u.id ? (
+                    <td colSpan={5}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", padding: "0.5rem 0" }}>
+                        <div className="linha-form">
+                          <label>
+                            Nome
+                            <input value={edNome} onChange={(e) => setEdNome(e.target.value)} />
+                          </label>
+                          <label>
+                            Nova senha (opcional, min. 8 caracteres)
+                            <input type="password" value={edSenha} onChange={(e) => setEdSenha(e.target.value)} />
+                          </label>
+                        </div>
+                        <div>
+                          <span style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.85rem" }}>Lojas com acesso</span>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                            {unidades.map((un) => (
+                              <label key={un.id} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontWeight: 400 }}>
+                                <input type="checkbox" checked={edUnidadeIds.includes(un.id)} onChange={() => alternarUnidadeEdicao(un.id)} />
+                                {un.nome}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <span style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.85rem" }}>Funcionalidades liberadas</span>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                            {PERMISSOES_DISPONIVEIS.map((p) => (
+                              <label key={p.valor} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontWeight: 400 }}>
+                                <input type="checkbox" checked={edPermissoes.includes(p.valor)} onChange={() => alternarPermissaoEdicao(p.valor)} />
+                                {p.rotulo}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        {erroEdicao && <p className="erro">{erroEdicao}</p>}
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          <button type="button" className="btn" disabled={salvandoEdicao} onClick={() => salvarEdicao(u)}>
+                            {salvandoEdicao ? "Salvando..." : "Salvar"}
+                          </button>
+                          <button type="button" className="btn btn-secundario" onClick={() => setEditandoId(null)}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  ) : (
+                    <>
+                      <td>{u.nome}</td>
+                      <td>{u.email ?? u.username}</td>
+                      <td>{PAPEL_LABEL[u.papel]}</td>
+                      <td>{u.papel === "owner" ? "Todas" : u.unidades.map((un) => un.nome).join(", ") || "-"}</td>
+                      <td>
+                        {u.papel !== "owner" && (
+                          <div style={{ display: "flex", gap: "0.4rem" }}>
+                            <button type="button" className="btn btn-secundario" onClick={() => abrirEdicao(u)}>
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-perigo"
+                              disabled={excluindoId === u.id || u.id === usuarioLogado?.id}
+                              title={u.id === usuarioLogado?.id ? "Voce nao pode excluir o proprio usuario" : undefined}
+                              onClick={() => excluir(u)}
+                            >
+                              {excluindoId === u.id ? "Excluindo..." : "Excluir"}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

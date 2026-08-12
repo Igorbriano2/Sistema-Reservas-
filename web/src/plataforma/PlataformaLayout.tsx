@@ -33,6 +33,15 @@ function IconeLeads() {
   );
 }
 
+function IconeAdmins() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4.5 20c0-4.1 3.4-7.5 7.5-7.5s7.5 3.4 7.5 7.5" />
+    </svg>
+  );
+}
+
 // Entra em "modo teste": pega um token de sessao normal de uma empresa demo (a
 // mesma sempre) e grava nas MESMAS chaves de localStorage que o AuthContext do
 // painel do restaurante le ("token"/"usuario") - alem de uma flag propria pra esse
@@ -75,6 +84,10 @@ export function PlataformaLayout() {
           <NavLink to="/painel/leads" className={({ isActive }) => (isActive ? "ativo" : "")} title={recolhida ? "Lista de espera" : undefined}>
             <IconeLeads />
             <span className="rotulo-nav">Lista de espera</span>
+          </NavLink>
+          <NavLink to="/painel/admins" className={({ isActive }) => (isActive ? "ativo" : "")} title={recolhida ? "Admins" : undefined}>
+            <IconeAdmins />
+            <span className="rotulo-nav">Admins</span>
           </NavLink>
         </nav>
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>

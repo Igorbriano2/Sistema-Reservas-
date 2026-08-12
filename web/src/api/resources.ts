@@ -421,6 +421,24 @@ export function criarUsuario(dados: DadosNovoUsuario) {
   return api.post<UsuarioComAcesso>("/admin/usuarios", dados);
 }
 
+export interface DadosEditarUsuario {
+  nome?: string;
+  senha?: string;
+  unidadeIds?: string[];
+  permissoes?: Permissao[];
+}
+
+export function editarUsuario(usuarioId: string, dados: DadosEditarUsuario) {
+  return api.patch<{ id: string; nome: string; username: string | null; papel: PapelUsuario }>(
+    `/admin/usuarios/${usuarioId}`,
+    dados,
+  );
+}
+
+export function excluirUsuario(usuarioId: string) {
+  return api.delete<void>(`/admin/usuarios/${usuarioId}`);
+}
+
 export function obterAgenteConfig() {
   return api.get<AgenteConfig>("/admin/agente-config");
 }

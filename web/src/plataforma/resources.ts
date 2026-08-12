@@ -1,5 +1,5 @@
 import { plataformaApi } from "./api.js";
-import type { AssinaturaStatus, Cliente, Lead, LeadStatus, PlataformaAdmin } from "./types.js";
+import type { AssinaturaStatus, Cliente, Lead, LeadStatus, PlataformaAdmin, PlataformaAdminConta } from "./types.js";
 
 export function plataformaLogin(email: string, senha: string) {
   return plataformaApi.post<{ token: string; admin: PlataformaAdmin }>("/plataforma/auth/login", { email, senha });
@@ -59,4 +59,37 @@ export function entrarEmModoTeste() {
   return plataformaApi.post<{ token: string; usuario: { id: string; nome: string; email: string; papel: string; empresaId: string } }>(
     "/plataforma/modo-teste",
   );
+}
+
+// "Acessar como" (suporte) - loga o dono da plataforma direto no painel de um
+// restaurante, sem senha (ver comentario da rota no backend). Usuario aqui bate com
+// o tipo Usuario do painel do restaurante (email/username podem ser null).
+export interface AcessoDeSuporte {
+  token: string;
+  usuario: { id: string; nome: string; email: string | null; username: string | null; papel: string; empresaId: string };
+  empresaNome: string | null;
+}
+
+export function acessarComoRestaurante(empresaId: string) {
+  return plataformaApi.post<AcessoDeSuporte>(`/plataforma/clientes/${empresaId}/acessar`);
+}
+
+// Gerenciamento dos logins de dono da plataforma (voce e outros admins) - sem
+// hierarquia entre eles, ver comentario em admins.routes.ts no backend.
+export function listarAdmins() {
+  return plataformaApi.get<PlataformaAdminConta[]>("/plataforma/admins");
+}
+
+export interface DadosNovoAdmin {
+  nome: string;
+  email: string;
+  senha: string;
+}
+
+export function criarAdmin(dados: DadosNovoAdmin) {
+  return plataformaApi.post<PlataformaAdminConta>("/plataforma/admins", dados);
+}
+
+export function excluirAdmin(adminId: string) {
+  return plataformaApi.delete<void>(`/plataforma/admins/${adminId}`);
 }

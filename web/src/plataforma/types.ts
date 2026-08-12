@@ -4,6 +4,12 @@ export interface PlataformaAdmin {
   email: string;
 }
 
+// Item da listagem em AdminsPage.tsx (gerenciamento dos logins de dono da
+// plataforma) - mesma forma de PlataformaAdmin, so acrescenta criadoEm.
+export interface PlataformaAdminConta extends PlataformaAdmin {
+  criadoEm: string;
+}
+
 export type AssinaturaStatus = "em_teste" | "ativo" | "cancelado" | "suspenso";
 
 export interface Cliente {

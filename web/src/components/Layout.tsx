@@ -258,10 +258,27 @@ function sairDoModoTeste() {
   window.location.href = "/painel/clientes";
 }
 
+const MODO_SUPORTE_ATIVO_KEY = "modo_suporte_ativo";
+const MODO_SUPORTE_EMPRESA_KEY = "modo_suporte_empresa";
+
+// Mesma ideia do modo teste, mas pra quando o dono da plataforma abriu o painel de UM
+// cliente de verdade pra ajudar com algo (ClientesPage.tsx, botao "Acessar painel") -
+// essa aba nasceu ja logada como o dono do restaurante, numa aba separada da do
+// painel da plataforma. Sair aqui so limpa a sessao de restaurante desta aba.
+function sairDoModoSuporte() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("usuario");
+  localStorage.removeItem(MODO_SUPORTE_ATIVO_KEY);
+  localStorage.removeItem(MODO_SUPORTE_EMPRESA_KEY);
+  window.location.href = "/painel/clientes";
+}
+
 export function Layout() {
   const { usuario, unidade, unidades, isOwner, selecionarUnidade, logout, assinaturaComAviso, temPermissaoNaUnidade, temPermissaoNaEmpresa } =
     useAuth();
   const emModoTeste = localStorage.getItem(MODO_TESTE_ATIVO_KEY) === "true";
+  const emModoSuporte = localStorage.getItem(MODO_SUPORTE_ATIVO_KEY) === "true";
+  const empresaEmSuporte = localStorage.getItem(MODO_SUPORTE_EMPRESA_KEY);
   const [recolhida, setRecolhida] = useBarraLateralRecolhida();
   const [painelModo] = useState(() => obterPainelModo());
   const ehMobile = useEhMobile();
@@ -400,6 +417,14 @@ export function Layout() {
             Modo teste — você está vendo o painel como um restaurante veria, com dados de demonstração.
             <button className="btn btn-secundario" onClick={sairDoModoTeste}>
               Voltar ao meu painel
+            </button>
+          </div>
+        )}
+        {emModoSuporte && (
+          <div className="faixa-modo-teste">
+            Modo suporte — você está acessando o painel de {empresaEmSuporte ?? "um cliente"} como o dono da plataforma.
+            <button className="btn btn-secundario" onClick={sairDoModoSuporte}>
+              Sair do modo suporte
             </button>
           </div>
         )}
