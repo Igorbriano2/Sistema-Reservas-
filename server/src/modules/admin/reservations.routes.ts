@@ -4,7 +4,8 @@ import { z } from "zod";
 import { db } from "../../db/client.js";
 import { reservaStatusEnum, reservas } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
-import { RequisicaoInvalidaError } from "../../lib/errors.js";
+import { validarJanelaDeFuncionamento } from "../../lib/availability.js";
+import { ConflitoDeHorarioError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { atualizarReservaDaUnidade, cancelarReservaDaUnidade, criarReserva } from "../../lib/reservations.js";
 
 export const reservationsRouter = Router({ mergeParams: true });
@@ -80,6 +81,23 @@ reservationsRouter.post(
   "/",
   asyncHandler(async (req, res) => {
     const dados = criarReservaSchema.parse(req.body);
+    // Doc 37 - a mesma antecedencia minima que ja vale pra edicao (e pro cliente via
+    // agente/link publico) agora tambem vale pra reserva manual criada pelo
+    // dono/funcionario no painel: sem essa checagem, dava pra criar direto pra
+    // qualquer horario (inclusive fechado) e so a EDICAO respeitava a regra -
+    // inconsistente. Horarios fixos (doc 28) continuam so pro fluxo publico
+    // (respeitarHorariosFixos: false) - o dono/funcionario sempre pode escolher
+    // qualquer horario dentro do turno.
+    const validacaoDaJanela = await validarJanelaDeFuncionamento(db, {
+      unidadeId: req.unidadeId!,
+      data: dados.data,
+      horaInicio: dados.horaInicio,
+      respeitarHorariosFixos: false,
+    });
+    if (!validacaoDaJanela.ok) {
+      throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
+    }
+
     const reserva = await criarReserva(db, {
       unidadeId: req.unidadeId!,
       canalOrigem: "manual",
