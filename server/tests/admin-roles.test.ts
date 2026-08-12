@@ -82,11 +82,6 @@ describe("Papeis - funcionario nao acessa recursos de configuracao (403), nem sa
     expect(post.status).toBe(403);
   });
 
-  it("bloqueia conversas", async () => {
-    const { unidade, tokenFuncionario } = await setup();
-    const res = await request(app).get(`/admin/unidades/${unidade.id}/conversas`).set("Authorization", `Bearer ${tokenFuncionario}`);
-    expect(res.status).toBe(403);
-  });
 });
 
 describe("Papeis - funcionario acessa reservas do dia e disponibilidade normalmente", () => {
@@ -131,6 +126,18 @@ describe("Papeis - funcionario acessa reservas do dia e disponibilidade normalme
       .delete(`/admin/unidades/${unidade.id}/reservations/${criar.body.id}`)
       .set("Authorization", `Bearer ${tokenFuncionario}`);
     expect(cancelar.status).toBe(200);
+  });
+
+  // Item 02 - conversas que precisam de atendimento humano tambem viram baseline
+  // (igual reservas/fila-espera): qualquer funcionario com acesso a unidade ve e
+  // responde, sem depender de nenhuma funcionalidade extra marcada pelo dono.
+  it("permite listar e responder conversas mesmo sem nenhuma permissao extra", async () => {
+    const { unidade, tokenFuncionario } = await setup();
+
+    const listar = await request(app)
+      .get(`/admin/unidades/${unidade.id}/conversas`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`);
+    expect(listar.status).toBe(200);
   });
 });
 

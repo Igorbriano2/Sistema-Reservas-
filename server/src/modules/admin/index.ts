@@ -75,7 +75,11 @@ unidadeRouter.use("/reservations", requireAcessoUnidade, reservationsRouter);
 // Fila de espera de walk-in (doc 20) - mesma tarefa do dia a dia de reservas, sem
 // depender de nenhuma funcionalidade extra marcada pelo dono.
 unidadeRouter.use("/fila-espera", requireAcessoUnidade, filaEsperaRouter);
-unidadeRouter.use("/conversas", requireRole("owner"), conversasRouter);
+// Item 02 - conversas que precisam de atendimento humano viram uma aba do painel
+// operacional (nao so do dono): mesmo baseline de reservas/fila-espera (so precisa de
+// acesso a unidade). A conexao do Instagram em si (conectar/reconectar) continua
+// owner-only, ver admin/instagram acima.
+unidadeRouter.use("/conversas", requireAcessoUnidade, conversasRouter);
 // So exige acesso a unidade (nao e uma funcionalidade extra "configuravel" - qualquer
 // gerente/funcionario com acesso pode inscrever o proprio dispositivo).
 unidadeRouter.use("/push", requireAcessoUnidade, pushRouter);

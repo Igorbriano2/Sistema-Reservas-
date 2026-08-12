@@ -133,7 +133,7 @@ function ConexaoInstagram() {
 }
 
 export function ConversasPage() {
-  const { unidade } = useAuth();
+  const { unidade, isOwner } = useAuth();
   const ehMobile = useEhMobile();
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -230,7 +230,10 @@ export function ConversasPage() {
 
   return (
     <div className="chat-instagram">
-      <ConexaoInstagram />
+      {/* Item 02 - conexao do Instagram continua so pro dono (admin/instagram e
+          owner-only no backend); gerente/funcionario no painel operacional so vem
+          aqui responder o que precisa de humano, sem ver/mexer na conexao. */}
+      {isOwner && <ConexaoInstagram />}
       {erro && <p className="erro">{erro}</p>}
 
       <div className="chat-instagram-corpo">

@@ -227,13 +227,16 @@ const NAV: EntradaDeNav[] = [
       { to: "/admin/feedback", label: "Feedback", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeFeedback /> },
     ],
   },
+  // Item 02 - conversas que precisam de atendimento humano viram uma aba de "Chat" a
+  // parte, visivel tambem no Painel Operacao (operacao: true), pra quem esta no dia a
+  // dia da loja (nao so o dono) ver e responder sem precisar abrir o Painel Gestao.
+  { to: "/admin/conversas", label: "Chat", icone: <IconeConversas />, operacao: true },
   {
     chave: "marketing",
     label: "Marketing",
     icone: <IconeMarketing />,
     itens: [
       { to: "/admin/whatsapp", label: "WhatsApp", icone: <IconeWhatsapp /> },
-      { to: "/admin/conversas", label: "Instagram", ownerOnly: true, icone: <IconeConversas /> },
       { to: "/admin/campanhas", label: "Campanhas", ownerOnly: true, icone: <IconeCampanhas /> },
     ],
   },

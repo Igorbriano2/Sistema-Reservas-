@@ -208,14 +208,10 @@ function AppRoutes() {
             </RequirePermissaoNaEmpresa>
           }
         />
-        <Route
-          path="conversas"
-          element={
-            <RequireOwner>
-              <ConversasPage />
-            </RequireOwner>
-          }
-        />
+        {/* Item 02 - qualquer papel com acesso a unidade ve/responde (o backend so exige
+            requireAcessoUnidade); a conexao do Instagram em si continua owner-only
+            dentro da propria ConversasPage. */}
+        <Route path="conversas" element={<ConversasPage />} />
         <Route
           path="campanhas"
           element={
