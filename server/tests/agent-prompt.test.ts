@@ -32,6 +32,12 @@ describe("lib/agent-prompt montarSystemPrompt (doc 24 - agente master)", () => {
     expect(prompt).toContain("nao sabe responder isso porque e um atendimento automatico (uma IA)");
   });
 
+  it("exige tentar as tools relevantes ANTES de admitir que nao sabe ou escalar pra humano", () => {
+    const prompt = montarSystemPrompt(CONFIG_BASE, UNIDADE_BASE);
+    expect(prompt).toContain("OBRIGADO a primeiro tentar todas as tools relevantes");
+    expect(prompt).toContain("nunca escale ou admita que nao sabe SEM antes ter consultado a tool");
+  });
+
   it("injeta endereco, telefone e redes sociais da unidade", () => {
     const prompt = montarSystemPrompt(CONFIG_BASE, UNIDADE_BASE);
     expect(prompt).toContain("Endereco: Rua das Flores, 123");
