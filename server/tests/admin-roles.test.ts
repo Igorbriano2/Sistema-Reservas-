@@ -30,10 +30,10 @@ async function setup(permissoesExtraFuncionario: string[] = []) {
 }
 
 describe("Papeis - funcionario nao acessa recursos de configuracao (403), nem sabendo a URL exata", () => {
-  it("bloqueia saloes", async () => {
+  it("permite LER saloes (baseline, usado pela pagina de Reservas) mas bloqueia escrever sem 'editar_salao'", async () => {
     const { unidade, tokenFuncionario } = await setup();
     const get = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${tokenFuncionario}`);
-    expect(get.status).toBe(403);
+    expect(get.status).toBe(200);
     const post = await request(app)
       .post(`/admin/unidades/${unidade.id}/saloes`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
@@ -41,10 +41,10 @@ describe("Papeis - funcionario nao acessa recursos de configuracao (403), nem sa
     expect(post.status).toBe(403);
   });
 
-  it("bloqueia mesas", async () => {
+  it("permite LER mesas (baseline, usado pela pagina de Reservas) mas bloqueia escrever sem 'editar_salao'", async () => {
     const { unidade, tokenFuncionario } = await setup();
     const get = await request(app).get(`/admin/unidades/${unidade.id}/mesas`).set("Authorization", `Bearer ${tokenFuncionario}`);
-    expect(get.status).toBe(403);
+    expect(get.status).toBe(200);
     const post = await request(app)
       .post(`/admin/unidades/${unidade.id}/mesas`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
@@ -158,7 +158,7 @@ describe("Doc 17 - permissoes extra desbloqueiam funcionalidades especificas por
     expect(agenteConfig.status).toBe(403);
   });
 
-  it("ver_relatorios libera so relatorios", async () => {
+  it("ver_relatorios libera relatorios, mas nao a ESCRITA em saloes (leitura continua no baseline)", async () => {
     const { unidade, tokenFuncionario } = await setup(["ver_relatorios"]);
 
     const relatorios = await request(app)
@@ -167,8 +167,17 @@ describe("Doc 17 - permissoes extra desbloqueiam funcionalidades especificas por
       .query({ dataInicio: "2026-09-14", dataFim: "2026-09-15" });
     expect(relatorios.status).toBe(200);
 
+    // GET /saloes e baseline (qualquer papel com acesso a unidade) - usado pela pagina
+    // de Reservas pra mostrar o "Local" e o seletor, nao depende de nenhuma
+    // funcionalidade extra marcada pelo dono.
     const saloes = await request(app).get(`/admin/unidades/${unidade.id}/saloes`).set("Authorization", `Bearer ${tokenFuncionario}`);
-    expect(saloes.status).toBe(403);
+    expect(saloes.status).toBe(200);
+
+    const criarSalao = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ nome: "Tentativa" });
+    expect(criarSalao.status).toBe(403);
   });
 
   it("editar_agente e criar_usuarios sao por empresa, nao por unidade (valem tendo a permissao em qualquer loja)", async () => {

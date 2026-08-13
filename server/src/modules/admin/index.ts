@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../../middleware/auth.middleware.js";
 import { requireAssinaturaDaUnidadeAtiva, requireContaAtiva } from "../../middleware/assinatura.middleware.js";
-import { requireAcessoUnidade, requirePermissaoEmpresa, requirePermissaoUnidade } from "../../middleware/permissao.middleware.js";
+import {
+  requireAcessoUnidade,
+  requireLeituraOuPermissaoUnidade,
+  requirePermissaoEmpresa,
+  requirePermissaoUnidade,
+} from "../../middleware/permissao.middleware.js";
 import { resolveUnidade } from "./unidade.middleware.js";
 import { saloesRouter } from "./saloes.routes.js";
 import { mesasRouter } from "./mesas.routes.js";
@@ -62,8 +67,12 @@ unidadeRouter.use(resolveUnidade);
 // nao derruba as demais da mesma empresa) - depois de resolveUnidade (usa
 // req.unidadeId), antes de qualquer rota operacional da unidade.
 unidadeRouter.use(requireAssinaturaDaUnidadeAtiva);
-unidadeRouter.use("/saloes", requirePermissaoUnidade("editar_salao"), saloesRouter);
-unidadeRouter.use("/mesas", requirePermissaoUnidade("editar_salao"), mesasRouter);
+// GET liberado no baseline (ver requireLeituraOuPermissaoUnidade) - a pagina de
+// Reservas (qualquer papel com acesso a unidade) precisa listar saloes/mesas pra
+// mostrar o "Local" de cada reserva e pro seletor da reserva manual, mesmo sem
+// "editar_salao". Escrita continua exigindo "editar_salao" normalmente.
+unidadeRouter.use("/saloes", requireLeituraOuPermissaoUnidade("editar_salao"), saloesRouter);
+unidadeRouter.use("/mesas", requireLeituraOuPermissaoUnidade("editar_salao"), mesasRouter);
 unidadeRouter.use("/salao-elementos", requirePermissaoUnidade("editar_salao"), salaoElementosRouter);
 unidadeRouter.use("/regras-horario", requirePermissaoUnidade("editar_salao"), regrasHorarioRouter);
 unidadeRouter.use("/excecoes-horario", requirePermissaoUnidade("editar_salao"), excecoesHorarioRouter);

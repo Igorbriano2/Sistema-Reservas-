@@ -42,6 +42,22 @@ export function requireAcessoUnidade(req: Request, res: Response, next: NextFunc
     .catch(next);
 }
 
+// Mesma checagem de "editar_salao", mas so pras rotas de escrita (POST/PATCH/DELETE)
+// de saloes/mesas - a LEITURA (GET) fica no baseline (requireAcessoUnidade), porque a
+// pagina de Reservas precisa dela pra mostrar em qual mesa/salao cada reserva esta
+// (coluna "Local") e pro seletor ao criar uma reserva manual, mesmo pra um
+// funcionario que o dono NAO marcou com "editar_salao" (essa permissao e so sobre
+// poder abrir o editor visual do salao e alterar o layout, nao sobre ver reservas).
+export function requireLeituraOuPermissaoUnidade(permissao: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (req.method === "GET") {
+      requireAcessoUnidade(req, res, next);
+      return;
+    }
+    requirePermissaoUnidade(permissao)(req, res, next);
+  };
+}
+
 // Confere acesso a unidade E a funcionalidade especifica marcada pelo dono na hora de
 // criar o login (ex: "editar_salao") - usado nas rotas de configuracao estrutural da
 // unidade (saloes/mesas/regras-horario/bloqueios) e de relatorios.
