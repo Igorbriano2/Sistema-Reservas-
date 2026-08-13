@@ -36,6 +36,32 @@ async function gerarUsernameDisponivel(db: Queryable, base: string): Promise<str
   }
 }
 
+// "Cervegela Londrina" -> "cervegela-londrina" - minusculo, sem acento, so
+// letras/numeros/hifen, sem hifens duplicados nem nas pontas. Usado no link publico
+// do cardapio (/cardapio/:slug, ver public/cardapio.routes.ts) no lugar do uuid cru.
+export function derivarSlugDoNome(nome: string): string {
+  const semAcento = nome.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const slug = semAcento
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "unidade";
+}
+
+// Mesmo padrao de gerarUsernameDisponivel acima, mas verificando contra
+// unidades.slug - precisa ser unico GLOBALMENTE (a URL publica do cardapio nao carrega
+// nenhum outro identificador da empresa, so o slug).
+export async function gerarSlugDisponivel(db: Queryable, base: string): Promise<string> {
+  let candidato = base;
+  let sufixo = 1;
+  while (true) {
+    const [existente] = await db.select({ id: unidades.id }).from(unidades).where(eq(unidades.slug, candidato)).limit(1);
+    if (!existente) return candidato;
+    sufixo += 1;
+    candidato = `${base}-${sufixo}`;
+  }
+}
+
 // Cria empresa + primeira unidade + agente_config padrao + usuario owner - o "pacote
 // minimo" pra uma empresa nova conseguir logar e usar o sistema. Usado pelo seed
 // (npm run db:seed) e pelo painel da plataforma (conversao de lead em cliente, e
@@ -67,11 +93,14 @@ export async function criarEmpresaComOwner(
     })
     .returning();
 
+  const nomeDaUnidade = params.unidadeNome ?? "Unidade Principal";
+  const slug = await gerarSlugDisponivel(db, derivarSlugDoNome(nomeDaUnidade));
   const [unidade] = await db
     .insert(unidades)
     .values({
       empresaId: empresa.id,
-      nome: params.unidadeNome ?? "Unidade Principal",
+      nome: nomeDaUnidade,
+      slug,
       timezone: params.timezone ?? "America/Sao_Paulo",
     })
     .returning();

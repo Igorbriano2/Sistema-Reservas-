@@ -4,6 +4,7 @@ import { createApp } from "../src/app.js";
 import { db } from "../src/db/client.js";
 import { unidades } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, criarFuncionario, criarUsuarioUnidade, truncateAll } from "./helpers/db.js";
+import { derivarSlugDoNome, gerarSlugDisponivel } from "../src/lib/empresas.js";
 import { login } from "./helpers/auth.js";
 
 const app = createApp();
@@ -36,7 +37,11 @@ describe("GET /admin/unidades", () => {
 
   it("gerente/funcionario so ve as unidades as quais o dono deu acesso (doc 17)", async () => {
     const { empresa, unidade } = await criarEmpresaComAdmin();
-    const [segundaUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+    const slugSegundaUnidade = await gerarSlugDisponivel(db, derivarSlugDoNome("Segunda Unidade"));
+    const [segundaUnidade] = await db
+      .insert(unidades)
+      .values({ empresaId: empresa.id, nome: "Segunda Unidade", slug: slugSegundaUnidade })
+      .returning();
 
     const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);
     await criarUsuarioUnidade(funcionario.id, unidade.id);

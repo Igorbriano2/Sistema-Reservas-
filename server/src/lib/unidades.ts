@@ -4,6 +4,7 @@ import type { Database } from "../db/client.js";
 import { assinaturas, empresas, unidades, type Unidade } from "../db/schema/index.js";
 import { RequisicaoInvalidaError } from "./errors.js";
 import { criarAssinaturaTrialParaUnidadeAdicional } from "./stripe.js";
+import { derivarSlugDoNome, gerarSlugDisponivel } from "./empresas.js";
 
 export interface DadosNovaUnidade {
   nome: string;
@@ -40,11 +41,13 @@ export async function adicionarUnidadeComAssinatura(
     paymentMethodId: dados.paymentMethodId,
   });
 
+  const slug = await gerarSlugDisponivel(db, derivarSlugDoNome(dados.nome));
   const [unidade] = await db
     .insert(unidades)
     .values({
       empresaId,
       nome: dados.nome,
+      slug,
       endereco: dados.endereco ?? null,
       timezone: dados.timezone ?? "America/Sao_Paulo",
     })

@@ -4,6 +4,7 @@ import { createApp } from "../src/app.js";
 import { db } from "../src/db/client.js";
 import { unidades } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, criarFuncionario, criarUsuarioUnidade, truncateAll } from "./helpers/db.js";
+import { derivarSlugDoNome, gerarSlugDisponivel } from "../src/lib/empresas.js";
 import { criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
 
@@ -192,7 +193,11 @@ describe("Doc 17 - permissoes extra desbloqueiam funcionalidades especificas por
 
   it("criar_usuarios nao deixa um gerente/funcionario se auto-promover alem do proprio alcance", async () => {
     const { empresa, unidade, tokenFuncionario } = await setup(["criar_usuarios"]);
-    const [outraUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+    const slugOutraUnidade = await gerarSlugDisponivel(db, derivarSlugDoNome("Segunda Unidade"));
+    const [outraUnidade] = await db
+      .insert(unidades)
+      .values({ empresaId: empresa.id, nome: "Segunda Unidade", slug: slugOutraUnidade })
+      .returning();
 
     // Nao pode conceder uma permissao que ele proprio nao tem (so tem criar_usuarios).
     const comPermissaoAlemDoAlcance = await request(app)
@@ -218,7 +223,11 @@ describe("Doc 17 - permissoes extra desbloqueiam funcionalidades especificas por
 
   it("acesso a uma unidade nao da acesso a outra unidade da mesma empresa", async () => {
     const { empresa, unidade, tokenFuncionario } = await setup(["editar_salao"]);
-    const [outraUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+    const slugOutraUnidade = await gerarSlugDisponivel(db, derivarSlugDoNome("Segunda Unidade"));
+    const [outraUnidade] = await db
+      .insert(unidades)
+      .values({ empresaId: empresa.id, nome: "Segunda Unidade", slug: slugOutraUnidade })
+      .returning();
 
     const naPropriaUnidade = await request(app)
       .get(`/admin/unidades/${unidade.id}/saloes`)

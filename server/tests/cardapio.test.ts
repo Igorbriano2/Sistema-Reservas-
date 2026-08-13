@@ -222,6 +222,23 @@ describe("GET /public/cardapio/:unidadeId (pagina publica, QR code na mesa)", ()
     expect(resposta.status).toBe(404);
   });
 
+  it("aceita o slug legivel da unidade (link publico novo), alem do uuid legado", async () => {
+    const { unidade } = await setup();
+
+    const porSlug = await request(app).get(`/public/cardapio/${unidade.slug}`);
+    expect(porSlug.status).toBe(200);
+    expect(porSlug.body.unidadeNome).toBeTruthy();
+
+    const porUuid = await request(app).get(`/public/cardapio/${unidade.id}`);
+    expect(porUuid.status).toBe(200);
+    expect(porUuid.body.unidadeNome).toBe(porSlug.body.unidadeNome);
+  });
+
+  it("404 para um slug inexistente", async () => {
+    const resposta = await request(app).get(`/public/cardapio/loja-que-nao-existe`);
+    expect(resposta.status).toBe(404);
+  });
+
   it("nao mistura itens de outra unidade", async () => {
     const { unidade, token } = await setup();
     const outraEmpresa = await criarEmpresaComAdmin({ nomeEmpresa: "Outra Empresa Cardapio", emailAdmin: "outro-cardapio-publico@teste.com" });

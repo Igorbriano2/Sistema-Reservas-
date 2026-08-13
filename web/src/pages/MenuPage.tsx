@@ -243,7 +243,7 @@ export function MenuPage() {
 
   if (!unidade) return <p>Carregando unidade...</p>;
 
-  const linkPublico = `${window.location.origin}/cardapio/${unidade.id}`;
+  const linkPublico = `${window.location.origin}/cardapio/${unidade.slug}`;
 
   async function copiarLinkPublico() {
     await navigator.clipboard.writeText(linkPublico);

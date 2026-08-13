@@ -20,7 +20,7 @@ import {
   usuarioUnidades,
 } from "../db/schema/index.js";
 import { hashPassword } from "../lib/password.js";
-import { criarEmpresaComOwner } from "../lib/empresas.js";
+import { criarEmpresaComOwner, derivarSlugDoNome, gerarSlugDisponivel } from "../lib/empresas.js";
 
 const EMAIL_OWNER = "acesso@espetariacervegela.com";
 const SENHA_OWNER = "Cervegela@123";
@@ -141,11 +141,13 @@ async function main() {
     })
     .where(eq(unidades.id, londrina.id));
 
+  const slugMaringa = await gerarSlugDisponivel(db, derivarSlugDoNome("Cervegela Maringá"));
   const [maringa] = await db
     .insert(unidades)
     .values({
       empresaId: empresa.id,
       nome: "Cervegela Maringá",
+      slug: slugMaringa,
       endereco: "Av. Mandacaru, 2175 — Jardim Real, Maringá-PR",
       redesSociais: [
         { rede: "Instagram", link: "https://instagram.com/espetariacervegela" },

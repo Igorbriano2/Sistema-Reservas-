@@ -20,7 +20,7 @@ import {
   usuarioUnidades,
 } from "../db/schema/index.js";
 import { hashPassword } from "../lib/password.js";
-import { criarEmpresaComOwner } from "../lib/empresas.js";
+import { criarEmpresaComOwner, derivarSlugDoNome, gerarSlugDisponivel } from "../lib/empresas.js";
 
 const EMAIL_OWNER = "acesso@restauranteexemplo.com";
 const SENHA_OWNER = "Demo@123";
@@ -113,11 +113,13 @@ async function main() {
     })
     .where(eq(unidades.id, lojaCentro.id));
 
+  const slugLojaNorte = await gerarSlugDisponivel(db, derivarSlugDoNome("Loja Zona Norte"));
   const [lojaNorte] = await db
     .insert(unidades)
     .values({
       empresaId: empresa.id,
       nome: "Loja Zona Norte",
+      slug: slugLojaNorte,
       endereco: "Av. das Acácias, 980 — Zona Norte",
       redesSociais: [{ rede: "Instagram", link: "https://instagram.com/seurestaurante" }],
     })

@@ -4,6 +4,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { db } from "../src/db/client.js";
 import { conversas, mensagens, unidades } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
+import { derivarSlugDoNome, gerarSlugDisponivel } from "../src/lib/empresas.js";
 import {
   criarAgenteConfig,
   criarConexaoInstagram,
@@ -166,7 +167,11 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
 
   it("pergunta qual unidade quando a conexao e compartilhada e a empresa tem mais de uma (doc 17, parte 4)", async () => {
     const { empresa, unidade: unidade1 } = await criarEmpresaComAdmin();
-    const [unidade2] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda unidade" }).returning();
+    const slugUnidade2 = await gerarSlugDisponivel(db, derivarSlugDoNome("Segunda unidade"));
+    const [unidade2] = await db
+      .insert(unidades)
+      .values({ empresaId: empresa.id, nome: "Segunda unidade", slug: slugUnidade2 })
+      .returning();
     await criarAgenteConfig(empresa.id);
     await criarConexaoInstagram(empresa.id, null, "ig-conta-multiunidade");
 

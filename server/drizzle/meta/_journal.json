@@ -253,6 +253,13 @@
       "when": 1786550183104,
       "tag": "0035_curious_cobalt_man",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1786640690587,
+      "tag": "0036_vengeful_kree",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,7 @@ unidadesRouter.get(
         id: unidades.id,
         empresaId: unidades.empresaId,
         nome: unidades.nome,
+        slug: unidades.slug,
         endereco: unidades.endereco,
         telefone: unidades.telefone,
         contatoUrgenciaNome: unidades.contatoUrgenciaNome,

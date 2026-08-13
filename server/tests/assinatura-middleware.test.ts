@@ -6,6 +6,7 @@ import { db } from "../src/db/client.js";
 import { empresas, unidades } from "../src/db/schema/index.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
 import { criarAssinatura } from "./helpers/fixtures.js";
+import { derivarSlugDoNome, gerarSlugDisponivel } from "../src/lib/empresas.js";
 import { login } from "./helpers/auth.js";
 
 const app = createApp();
@@ -93,7 +94,11 @@ describe("Middleware de bloqueio por assinatura", () => {
 
   it("doc 17 parte 5: uma unidade cancelada NAO bloqueia outra unidade da mesma empresa", async () => {
     const { empresa, unidade, token } = await setup();
-    const [outraUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+    const slugOutraUnidade = await gerarSlugDisponivel(db, derivarSlugDoNome("Segunda Unidade"));
+    const [outraUnidade] = await db
+      .insert(unidades)
+      .values({ empresaId: empresa.id, nome: "Segunda Unidade", slug: slugOutraUnidade })
+      .returning();
     await criarAssinatura(empresa.id, unidade.id, { status: "cancelada" });
     await criarAssinatura(empresa.id, outraUnidade.id, { status: "ativa", subscriptionIdGateway: `sub_teste_${outraUnidade.id}` });
 
@@ -117,7 +122,11 @@ describe("Middleware de bloqueio por assinatura", () => {
 
   it("doc 17 parte 5: status manual 'suspenso' continua bloqueando TODAS as unidades (kill switch de conta)", async () => {
     const { empresa, unidade, token } = await setup();
-    const [outraUnidade] = await db.insert(unidades).values({ empresaId: empresa.id, nome: "Segunda Unidade" }).returning();
+    const slugOutraUnidade = await gerarSlugDisponivel(db, derivarSlugDoNome("Segunda Unidade"));
+    const [outraUnidade] = await db
+      .insert(unidades)
+      .values({ empresaId: empresa.id, nome: "Segunda Unidade", slug: slugOutraUnidade })
+      .returning();
     await criarAssinatura(empresa.id, unidade.id, { status: "ativa" });
     await criarAssinatura(empresa.id, outraUnidade.id, { status: "ativa", subscriptionIdGateway: `sub_teste_${outraUnidade.id}` });
     await db.update(empresas).set({ assinaturaStatus: "suspenso" }).where(eq(empresas.id, empresa.id));

@@ -113,6 +113,9 @@ export interface Unidade {
   id: string;
   empresaId: string;
   nome: string;
+  // Usado no link publico do cardapio (/cardapio/:slug) no lugar do uuid cru - gerado
+  // automaticamente a partir do nome, nunca editavel.
+  slug: string;
   endereco: string | null;
   // Dados obrigatorios pro agente de IA responder com precisao quando o cliente
   // perguntar (doc 24) - nunca inventados, sempre vindos daqui.

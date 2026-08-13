@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { empresas } from "./empresas.js";
 
 export const unidades = pgTable(
@@ -9,6 +9,12 @@ export const unidades = pgTable(
       .notNull()
       .references(() => empresas.id, { onDelete: "cascade" }),
     nome: text("nome").notNull(),
+    // Identificador legivel derivado do nome (ex: "Cervegela Londrina" -> "cervegela-
+    // londrina"), usado no link publico do cardapio (/cardapio/:slug) no lugar do uuid
+    // cru - unico GLOBALMENTE (nao so por empresa), porque a URL publica nao carrega
+    // nenhum outro identificador da empresa. Gerado automaticamente na criacao da
+    // unidade (ver gerarSlugDisponivel em lib/empresas.ts), nunca escolhido a mao.
+    slug: text("slug").notNull(),
     endereco: text("endereco"),
     telefone: text("telefone"),
     // Contato de urgencia (doc 27) - ex: telefone do gerente. Diferente do "telefone"
@@ -24,7 +30,7 @@ export const unidades = pgTable(
     // Timezone IANA, ex: "America/Sao_Paulo". Cada unidade pode estar em fuso diferente.
     timezone: text("timezone").notNull().default("America/Sao_Paulo"),
   },
-  (table) => [index("unidades_empresa_id_idx").on(table.empresaId)],
+  (table) => [index("unidades_empresa_id_idx").on(table.empresaId), uniqueIndex("unidades_slug_idx").on(table.slug)],
 );
 
 export type Unidade = typeof unidades.$inferSelect;

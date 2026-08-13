@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { db, pool } from "../../src/db/client.js";
 import { empresas, unidades, usuarios, usuarioUnidades } from "../../src/db/schema/index.js";
 import { hashPassword } from "../../src/lib/password.js";
+import { derivarSlugDoNome, gerarSlugDisponivel } from "../../src/lib/empresas.js";
 
 export async function truncateAll(): Promise<void> {
   // CASCADE arrasta todas as tabelas dependentes (unidades, usuarios, mesas,
@@ -32,9 +33,13 @@ export async function criarEmpresaComAdmin(options: FixtureEmpresaOptions = {}) 
   const senhaAdmin = options.senhaAdmin ?? "senha-super-secreta";
 
   const [empresa] = await db.insert(empresas).values({ nome: nomeEmpresa }).returning();
+  // Slug unico por chamada (mesmo gerador usado em producao) - alguns testes chamam
+  // esta fixture mais de uma vez no mesmo teste (ex: setupDuasEmpresas), entao um slug
+  // fixo colidiria com a constraint unique na segunda chamada.
+  const slug = await gerarSlugDisponivel(db, derivarSlugDoNome("Unidade Teste"));
   const [unidade] = await db
     .insert(unidades)
-    .values({ empresaId: empresa.id, nome: "Unidade Teste" })
+    .values({ empresaId: empresa.id, nome: "Unidade Teste", slug })
     .returning();
   const senhaHash = await hashPassword(senhaAdmin);
   const [usuarioLinha] = await db
