@@ -64,4 +64,16 @@ describe("lib/agent-prompt montarSystemPrompt (doc 24 - agente master)", () => {
     expect(prompt).toContain("confirmacao explicita da propria alteracao/cancelamento");
     expect(prompt).toContain("Nunca altere ou cancele");
   });
+
+  it("exige checar disponibilidade de verdade antes de reserva nova ou alteracao, explicando o motivo e a alternativa de ir direto ao restaurante", () => {
+    const prompt = montarSystemPrompt(CONFIG_BASE, UNIDADE_BASE);
+    expect(prompt).toContain("SEMPRE use check_availability");
+    expect(prompt).toContain("nunca garanta um horario sem checar antes");
+    expect(prompt).toContain("inclusive quando o");
+    expect(prompt).toContain("pedido e pra menos de 3h de antecedencia");
+    expect(prompt).toContain("ele pode ir direto ao restaurante sem reserva como alternativa");
+    expect(prompt).toContain("use check_availability para o valor NOVO antes de");
+    expect(prompt).toContain("NAO chame modify_my_reservation");
+    expect(prompt).toContain("inclusive quando faltam menos de 3h para o novo horario pedido");
+  });
 });

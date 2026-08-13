@@ -10,8 +10,12 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     description:
       "Consulta SOMENTE INFORMATIVA de disponibilidade para uma data, horario e numero de pessoas. " +
       "Use para responder perguntas do tipo 'tem mesa disponivel as 20h?' ou 'voces tem horario livre " +
-      "amanha?'. Isso NUNCA cria, reserva ou bloqueia nada - e so pra informar o cliente. Para o cliente " +
-      "efetivamente reservar, use a tool get_reservation_link. A resposta pode incluir turno_nome e " +
+      "amanha?'. Isso NUNCA cria, reserva ou bloqueia nada - e so pra informar o cliente. Tambem OBRIGATORIO " +
+      "chamar antes de indicar get_reservation_link para uma reserva nova, e antes de chamar " +
+      "modify_my_reservation quando o pedido muda data/hora/num_pessoas - nunca garanta um horario sem " +
+      "checar. Se disponivel = false, o campo motivo explica o porque (sem vaga pro grupo, salao/mesa " +
+      "bloqueada, ou falta antecedencia minima) - repasse esse motivo ao cliente. Para o cliente efetivamente " +
+      "reservar, use a tool get_reservation_link. A resposta pode incluir turno_nome e " +
       "turno_desconto_percentual quando o horario cai num turno com nome ou desconto configurado - mencione " +
       "isso ao cliente quando fizer sentido (ex: happy hour).",
     input_schema: {
@@ -60,8 +64,10 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
       "Altera uma reserva do cliente que esta conversando. So funciona se a reserva pertencer a " +
       "este mesmo cliente nesta unidade (por conta desta conversa OU pelo mesmo nome+telefone de quem " +
       "reservou). Informe apenas os campos que devem mudar. So chame esta tool DEPOIS de (1) ja ter " +
-      "confirmado o nome/telefone de quem fez a reserva via find_my_reservations e (2) a pessoa ter " +
-      "confirmado explicitamente que quer mesmo fazer essa alteracao especifica.",
+      "confirmado o nome/telefone de quem fez a reserva via find_my_reservations, (2) se a alteracao muda " +
+      "data/hora/num_pessoas, ja ter chamado check_availability pro novo valor e recebido disponivel = true " +
+      "(se vier false, nao chame esta tool - explique o motivo ao cliente) e (3) a pessoa ter confirmado " +
+      "explicitamente que quer mesmo fazer essa alteracao especifica.",
     input_schema: {
       type: "object",
       properties: {
