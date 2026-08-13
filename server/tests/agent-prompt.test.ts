@@ -56,4 +56,12 @@ describe("lib/agent-prompt montarSystemPrompt (doc 24 - agente master)", () => {
     const prompt = montarSystemPrompt(CONFIG_BASE, UNIDADE_BASE);
     expect(prompt).toContain("Instagram Direct e WhatsApp");
   });
+
+  it("exige confirmar nome/telefone de quem reservou e pedir confirmacao explicita antes de alterar/cancelar", () => {
+    const prompt = montarSystemPrompt(CONFIG_BASE, UNIDADE_BASE);
+    expect(prompt).toContain("peca o nome e o telefone de");
+    expect(prompt).toContain("confira se o cliente_nome devolvido bate com o que a pessoa te disse");
+    expect(prompt).toContain("confirmacao explicita da propria alteracao/cancelamento");
+    expect(prompt).toContain("Nunca altere ou cancele");
+  });
 });

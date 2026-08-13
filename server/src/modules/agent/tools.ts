@@ -37,46 +37,78 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
   {
     name: "find_my_reservations",
     description:
-      "Lista as reservas do cliente que esta conversando nesta unidade (passadas e futuras). " +
-      "Use quando o cliente perguntar sobre suas reservas ou antes de modificar/cancelar uma.",
-    input_schema: { type: "object", properties: {} },
+      "Lista as reservas do cliente que esta conversando nesta unidade (passadas e futuras), incluindo " +
+      "cliente_nome e cliente_telefone de cada uma. Use quando o cliente perguntar sobre suas reservas ou " +
+      "antes de modificar/cancelar uma. OBRIGATORIO pedir o nome e telefone de quem fez a reserva ANTES " +
+      "de chamar esta tool (nome_cliente/telefone_cliente) - alem de confirmar quem esta falando, servem " +
+      "de fallback pra achar uma reserva feita por OUTRO canal (link publico, widget do site, ou reserva " +
+      "manual feita pelo restaurante), que pode nao aparecer so pelo Instagram/WhatsApp desta conversa. " +
+      "Depois de receber o resultado, confira se o cliente_nome bate com o que a pessoa te disse antes de " +
+      "prosseguir.",
+    input_schema: {
+      type: "object",
+      properties: {
+        nome_cliente: { type: "string", description: "Nome de quem fez a reserva, informado pela propria pessoa nesta conversa" },
+        telefone_cliente: { type: "string", description: "Telefone de quem fez a reserva, informado pela propria pessoa nesta conversa" },
+      },
+      required: ["nome_cliente", "telefone_cliente"],
+    },
   },
   {
     name: "modify_my_reservation",
     description:
       "Altera uma reserva do cliente que esta conversando. So funciona se a reserva pertencer a " +
-      "este mesmo cliente nesta unidade. Informe apenas os campos que devem mudar.",
+      "este mesmo cliente nesta unidade (por conta desta conversa OU pelo mesmo nome+telefone de quem " +
+      "reservou). Informe apenas os campos que devem mudar. So chame esta tool DEPOIS de (1) ja ter " +
+      "confirmado o nome/telefone de quem fez a reserva via find_my_reservations e (2) a pessoa ter " +
+      "confirmado explicitamente que quer mesmo fazer essa alteracao especifica.",
     input_schema: {
       type: "object",
       properties: {
         reservation_id: { type: "string", description: "ID da reserva a alterar" },
+        nome_cliente: { type: "string", description: "Nome de quem fez a reserva, o mesmo ja usado em find_my_reservations" },
+        telefone_cliente: { type: "string", description: "Telefone de quem fez a reserva, o mesmo ja usado em find_my_reservations" },
         data: { type: "string", description: "Nova data no formato YYYY-MM-DD (opcional)" },
         hora: { type: "string", description: "Novo horario no formato HH:MM (opcional)" },
         num_pessoas: { type: "integer", minimum: 1, description: "Novo numero de pessoas (opcional)" },
         mesa_id: { type: "string", description: "Novo mesa_id, se precisar trocar de mesa (opcional)" },
       },
-      required: ["reservation_id"],
+      required: ["reservation_id", "nome_cliente", "telefone_cliente"],
     },
   },
   {
     name: "cancel_my_reservation",
     description:
       "Cancela uma reserva do cliente que esta conversando. So funciona se a reserva pertencer a " +
-      "este mesmo cliente nesta unidade.",
+      "este mesmo cliente nesta unidade (por conta desta conversa OU pelo mesmo nome+telefone de quem " +
+      "reservou). So chame esta tool DEPOIS de (1) ja ter confirmado o nome/telefone de quem fez a " +
+      "reserva via find_my_reservations e (2) a pessoa ter confirmado explicitamente que quer mesmo " +
+      "cancelar - cancelamento e irreversivel, nunca chame so por suspeita.",
     input_schema: {
       type: "object",
       properties: {
         reservation_id: { type: "string", description: "ID da reserva a cancelar" },
+        nome_cliente: { type: "string", description: "Nome de quem fez a reserva, o mesmo ja usado em find_my_reservations" },
+        telefone_cliente: { type: "string", description: "Telefone de quem fez a reserva, o mesmo ja usado em find_my_reservations" },
       },
-      required: ["reservation_id"],
+      required: ["reservation_id", "nome_cliente", "telefone_cliente"],
     },
   },
   {
     name: "check_reservation_status",
     description:
       "Verifica rapidamente se o cliente que esta conversando tem alguma reserva ativa (proxima) " +
-      "nesta unidade e qual o status dela.",
-    input_schema: { type: "object", properties: {} },
+      "nesta unidade e qual o status dela, incluindo cliente_nome e cliente_telefone. OBRIGATORIO pedir " +
+      "o nome e telefone de quem fez a reserva ANTES de chamar esta tool, pelo mesmo motivo de " +
+      "find_my_reservations (confirmar identidade e servir de fallback pra reserva feita por outro canal).",
+    input_schema: {
+      type: "object",
+      properties: {
+        nome_cliente: { type: "string", description: "Nome de quem fez a reserva, informado pela propria pessoa nesta conversa" },
+        telefone_cliente: { type: "string", description: "Telefone de quem fez a reserva, informado pela propria pessoa nesta conversa" },
+      },
+      required: ["nome_cliente", "telefone_cliente"],
+    },
   },
   {
     name: "get_menu",

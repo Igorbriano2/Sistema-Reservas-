@@ -88,9 +88,16 @@ async function getReservationLink(ctx: AgentContext): Promise<ToolResultado> {
   };
 }
 
+// cliente_nome/cliente_telefone entram aqui de proposito: o agente precisa deles pra
+// conferir, na propria conversa, que o nome que a pessoa disse bate com o da reserva
+// antes de alterar/cancelar - mesmo a busca ja sendo restrita ao ig_sender_id da
+// conversa (nunca vaza reserva de OUTRA conta), essa confirmacao verbal cobre o caso
+// de alguem diferente estar usando o mesmo numero/perfil de quem reservou.
 function formatarReserva(r: Awaited<ReturnType<typeof buscarReservasDoCliente>>[number]) {
   return {
     reservation_id: r.id,
+    cliente_nome: r.clienteNome,
+    cliente_telefone: r.clienteTelefone,
     data: r.data,
     hora_inicio: r.horaInicio,
     hora_fim: r.horaFim,
@@ -99,21 +106,43 @@ function formatarReserva(r: Awaited<ReturnType<typeof buscarReservasDoCliente>>[
   };
 }
 
-async function findMyReservations(db: Database, ctx: AgentContext): Promise<ToolResultado> {
-  const lista = await buscarReservasDoCliente(db, { unidadeId: unidadeResolvida(ctx), igSenderId: ctx.igSenderId });
+// nome_cliente/telefone_cliente sao pedidos ANTES de qualquer coisa (ver
+// REGRAS_FIXAS_DO_MASTER) - alem de confirmar identidade na conversa, servem de
+// fallback de busca (ver condicaoDePosseDaReserva em lib/reservations.ts) pra achar
+// reserva feita por OUTRO canal (link publico/widget/manual), que nunca tem
+// ig_sender_id pra bater com o desta conversa.
+const identificacaoClienteSchema = z.object({
+  nome_cliente: z.string().min(1, "informe o nome de quem fez a reserva"),
+  telefone_cliente: z.string().min(1, "informe o telefone de quem fez a reserva"),
+});
+
+async function findMyReservations(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
+  const { nome_cliente, telefone_cliente } = identificacaoClienteSchema.parse(input);
+  const lista = await buscarReservasDoCliente(db, {
+    unidadeId: unidadeResolvida(ctx),
+    igSenderId: ctx.igSenderId,
+    nomeCliente: nome_cliente,
+    telefoneCliente: telefone_cliente,
+  });
   return { output: { reservas: lista.map(formatarReserva) } };
 }
 
 const STATUS_ATIVOS = new Set(["pendente", "confirmada"]);
 
-async function checkReservationStatus(db: Database, ctx: AgentContext): Promise<ToolResultado> {
+async function checkReservationStatus(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
+  const { nome_cliente, telefone_cliente } = identificacaoClienteSchema.parse(input);
   const unidadeId = unidadeResolvida(ctx);
   // "Hoje" no fuso da UNIDADE, nao do servidor - senao uma reserva pra hoje a noite
   // some da lista horas antes de acontecer de verdade (unidades America/Sao_Paulo,
   // UTC-3: as 21h locais o relogio UTC do servidor ja mostra o dia seguinte).
   const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
   const hoje = agoraNoFuso(unidadeRow?.timezone ?? "America/Sao_Paulo").data;
-  const lista = await buscarReservasDoCliente(db, { unidadeId, igSenderId: ctx.igSenderId });
+  const lista = await buscarReservasDoCliente(db, {
+    unidadeId,
+    igSenderId: ctx.igSenderId,
+    nomeCliente: nome_cliente,
+    telefoneCliente: telefone_cliente,
+  });
 
   const futuras = lista
     .filter((r) => STATUS_ATIVOS.has(r.status) && r.data >= hoje)
@@ -129,6 +158,11 @@ async function modifyMyReservation(db: Database, ctx: AgentContext, input: unkno
   const dados = z
     .object({
       reservation_id: z.string().uuid("reservation_id invalido"),
+      // Mesmo par de find_my_reservations/check_reservation_status: precisa vir de
+      // novo aqui pra reserva encontrada via fallback (nome+telefone, sem
+      // ig_sender_id batendo) continuar identificavel na hora de alterar de verdade.
+      nome_cliente: z.string().min(1, "informe o nome de quem fez a reserva"),
+      telefone_cliente: z.string().min(1, "informe o telefone de quem fez a reserva"),
       data: dataSchema.optional(),
       hora: horaSchema.optional(),
       num_pessoas: z.number().int().positive().optional(),
@@ -142,7 +176,13 @@ async function modifyMyReservation(db: Database, ctx: AgentContext, input: unkno
 
   const reserva = await atualizarReservaDoCliente(
     db,
-    { unidadeId: unidadeResolvida(ctx), igSenderId: ctx.igSenderId, reservaId: dados.reservation_id },
+    {
+      unidadeId: unidadeResolvida(ctx),
+      igSenderId: ctx.igSenderId,
+      nomeCliente: dados.nome_cliente,
+      telefoneCliente: dados.telefone_cliente,
+      reservaId: dados.reservation_id,
+    },
     {
       data: dados.data,
       horaInicio: dados.hora,
@@ -155,12 +195,22 @@ async function modifyMyReservation(db: Database, ctx: AgentContext, input: unkno
 }
 
 async function cancelMyReservation(db: Database, ctx: AgentContext, input: unknown): Promise<ToolResultado> {
-  const { reservation_id } = z.object({ reservation_id: z.string().uuid("reservation_id invalido") }).parse(input);
+  const { reservation_id, nome_cliente, telefone_cliente } = z
+    .object({
+      reservation_id: z.string().uuid("reservation_id invalido"),
+      // Mesmo motivo de modify_my_reservation: precisa vir de novo pra reserva
+      // encontrada via fallback (nome+telefone) continuar identificavel aqui.
+      nome_cliente: z.string().min(1, "informe o nome de quem fez a reserva"),
+      telefone_cliente: z.string().min(1, "informe o telefone de quem fez a reserva"),
+    })
+    .parse(input);
   const unidadeId = unidadeResolvida(ctx);
 
   const reserva = await cancelarReservaDoCliente(db, {
     unidadeId,
     igSenderId: ctx.igSenderId,
+    nomeCliente: nome_cliente,
+    telefoneCliente: telefone_cliente,
     reservaId: reservation_id,
   });
 
@@ -377,13 +427,13 @@ export async function executarTool(
       case "get_reservation_link":
         return await getReservationLink(ctx);
       case "find_my_reservations":
-        return await findMyReservations(db, ctx);
+        return await findMyReservations(db, ctx, input);
       case "modify_my_reservation":
         return await modifyMyReservation(db, ctx, input);
       case "cancel_my_reservation":
         return await cancelMyReservation(db, ctx, input);
       case "check_reservation_status":
-        return await checkReservationStatus(db, ctx);
+        return await checkReservationStatus(db, ctx, input);
       case "get_menu":
         return await getMenu(db, ctx);
       case "check_rodizio_price":

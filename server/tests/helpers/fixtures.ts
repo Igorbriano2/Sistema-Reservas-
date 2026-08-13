@@ -135,18 +135,21 @@ export async function criarAgenteConfig(empresaId: string, overrides: Partial<{ 
 export async function criarReservaDireta(
   unidadeId: string,
   mesaId: string,
-  igSenderId: string,
-  overrides: Partial<{ data: string; horaInicio: string; numPessoas: number; clienteNome: string }> = {},
+  // null simula reserva feita por OUTRO canal (link publico/widget/manual pelo
+  // painel) - nunca tem ig_sender_id, usado nos testes do fallback por nome+telefone.
+  igSenderId: string | null,
+  overrides: Partial<{ data: string; horaInicio: string; numPessoas: number; clienteNome: string; clienteTelefone: string }> = {},
 ) {
   return criarReserva(db, {
     unidadeId,
     mesaId,
-    igSenderId,
+    igSenderId: igSenderId ?? undefined,
     data: overrides.data ?? "2026-10-10",
     horaInicio: overrides.horaInicio ?? "19:00",
     numPessoas: overrides.numPessoas ?? 2,
     clienteNome: overrides.clienteNome ?? "Cliente Teste",
-    canalOrigem: "instagram",
+    clienteTelefone: overrides.clienteTelefone,
+    canalOrigem: igSenderId ? "instagram" : "manual",
   });
 }
 

@@ -16,6 +16,13 @@ import {
   criarSalao,
 } from "./helpers/fixtures.js";
 
+// find_my_reservations/check_reservation_status/modify_my_reservation/cancel_my_reservation
+// agora exigem nome_cliente/telefone_cliente (fallback de busca por outro canal, ver
+// lib/reservations.ts) - filler generico pros testes que nao estao testando esse
+// fallback especificamente; um telefone que nao bate com nenhuma reserva criada nos
+// testes nunca entra em jogo no fallback OR, entao nao interfere no resultado.
+const IDENTIFICACAO_FILLER = { nome_cliente: "Qualquer Um", telefone_cliente: "11900000000" };
+
 beforeEach(async () => {
   await truncateAll();
 });
@@ -54,7 +61,7 @@ describe("O agente NUNCA cria reserva diretamente", () => {
     expect(resultado.isError).toBe(true);
     expect((resultado.output as { erro: string }).erro).toMatch(/desconhecida/i);
 
-    const reservas = await executarTool(db, ctx, "find_my_reservations", {});
+    const reservas = await executarTool(db, ctx, "find_my_reservations", IDENTIFICACAO_FILLER);
     expect((reservas.output as { reservas: unknown[] }).reservas).toHaveLength(0);
   });
 });
@@ -78,7 +85,7 @@ describe("Tools do agente - check_availability (somente informativa)", () => {
     expect(output).not.toHaveProperty("mesas");
 
     // nao deve ter criado nenhuma reserva so por ter consultado disponibilidade
-    const reservas = await executarTool(db, ctx, "find_my_reservations", {});
+    const reservas = await executarTool(db, ctx, "find_my_reservations", IDENTIFICACAO_FILLER);
     expect((reservas.output as { reservas: unknown[] }).reservas).toHaveLength(0);
   });
 
@@ -146,11 +153,71 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
 
     await criarReservaDireta(unidade.id, mesa.id, "ig-cliente-a", { data: "2026-10-12" });
 
-    const deB = await executarTool(db, ctxB, "find_my_reservations", {});
+    const deB = await executarTool(db, ctxB, "find_my_reservations", IDENTIFICACAO_FILLER);
     expect((deB.output as { reservas: unknown[] }).reservas).toHaveLength(0);
 
-    const deA = await executarTool(db, ctxA, "find_my_reservations", {});
+    const deA = await executarTool(db, ctxA, "find_my_reservations", IDENTIFICACAO_FILLER);
     expect((deA.output as { reservas: unknown[] }).reservas).toHaveLength(1);
+  });
+
+  it("find_my_reservations devolve cliente_nome e cliente_telefone, pro agente confirmar a identidade antes de agir", async () => {
+    const { empresa, unidade, mesa } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-nome");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-nome", conversaId: conversa.id };
+
+    await criarReservaDireta(unidade.id, mesa.id, "ig-cliente-nome", { clienteNome: "Joao da Silva" });
+
+    const resultado = await executarTool(db, ctx, "find_my_reservations", IDENTIFICACAO_FILLER);
+    const reservas = (resultado.output as { reservas: Array<{ cliente_nome: string; cliente_telefone: string | null }> }).reservas;
+    expect(reservas[0].cliente_nome).toBe("Joao da Silva");
+    expect(reservas[0]).toHaveProperty("cliente_telefone");
+  });
+
+  it("find_my_reservations acha, por nome+telefone, uma reserva feita por OUTRO canal (sem ig_sender_id)", async () => {
+    const { empresa, unidade, mesa } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-outro-canal");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-outro-canal", conversaId: conversa.id };
+
+    // Reserva feita pelo link publico/widget/painel (igSenderId nulo) - nao teria como
+    // bater com o ig_sender_id desta conversa, so o fallback por nome+telefone acha.
+    await criarReservaDireta(unidade.id, mesa.id, null, {
+      clienteNome: "Maria Eduarda",
+      clienteTelefone: "(11) 91234-5678",
+    });
+
+    // Telefone com formatacao diferente da salva - precisa normalizar pra bater.
+    const resultado = await executarTool(db, ctx, "find_my_reservations", {
+      nome_cliente: "Maria Eduarda",
+      telefone_cliente: "11912345678",
+    });
+    const reservas = (resultado.output as { reservas: unknown[] }).reservas;
+    expect(reservas).toHaveLength(1);
+
+    // Nome batendo mas telefone diferente nao encontra nada.
+    const semTelefoneCerto = await executarTool(db, ctx, "find_my_reservations", {
+      nome_cliente: "Maria Eduarda",
+      telefone_cliente: "11900000000",
+    });
+    expect((semTelefoneCerto.output as { reservas: unknown[] }).reservas).toHaveLength(0);
+  });
+
+  it("cancel_my_reservation consegue cancelar uma reserva encontrada via fallback nome+telefone (outro canal)", async () => {
+    const { empresa, unidade, mesa } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-outro-canal-2");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-outro-canal-2", conversaId: conversa.id };
+
+    const criada = await criarReservaDireta(unidade.id, mesa.id, null, {
+      clienteNome: "Pedro Alves",
+      clienteTelefone: "11988887777",
+    });
+
+    const resultado = await executarTool(db, ctx, "cancel_my_reservation", {
+      reservation_id: criada.id,
+      nome_cliente: "Pedro Alves",
+      telefone_cliente: "11988887777",
+    });
+    expect(resultado.isError).toBeFalsy();
+    expect((resultado.output as { status: string }).status).toBe("cancelada");
   });
 
   it("modify_my_reservation rejeita com erro generico quando a reserva e de outro cliente (sem revelar que ela existe)", async () => {
@@ -163,6 +230,7 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
     const tentativaDeB = await executarTool(db, ctxB, "modify_my_reservation", {
       reservation_id: criada.id,
       num_pessoas: 3,
+      ...IDENTIFICACAO_FILLER,
     });
     expect(tentativaDeB.isError).toBe(true);
     expect((tentativaDeB.output as { erro: string }).erro).toMatch(/nao encontrada/i);
@@ -170,6 +238,7 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
     const tentativaComIdInexistente = await executarTool(db, ctxB, "modify_my_reservation", {
       reservation_id: "00000000-0000-0000-0000-000000000000",
       num_pessoas: 3,
+      ...IDENTIFICACAO_FILLER,
     });
     // mesma mensagem generica tanto para "nao existe" quanto para "existe mas nao e sua"
     expect(tentativaComIdInexistente.output).toEqual(tentativaDeB.output);
@@ -185,6 +254,7 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
     const resultado = await executarTool(db, ctx, "modify_my_reservation", {
       reservation_id: criada.id,
       hora: "03:00",
+      ...IDENTIFICACAO_FILLER,
     });
 
     expect(resultado.isError).toBe(true);
@@ -200,10 +270,10 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
 
     const criada = await criarReservaDireta(unidade.id, mesa.id, "ig-cliente-a", { data: "2026-10-14" });
 
-    const tentativaDeB = await executarTool(db, ctxB, "cancel_my_reservation", { reservation_id: criada.id });
+    const tentativaDeB = await executarTool(db, ctxB, "cancel_my_reservation", { reservation_id: criada.id, ...IDENTIFICACAO_FILLER });
     expect(tentativaDeB.isError).toBe(true);
 
-    const cancelamentoLegitimo = await executarTool(db, ctxA, "cancel_my_reservation", { reservation_id: criada.id });
+    const cancelamentoLegitimo = await executarTool(db, ctxA, "cancel_my_reservation", { reservation_id: criada.id, ...IDENTIFICACAO_FILLER });
     expect(cancelamentoLegitimo.isError).toBeUndefined();
     expect((cancelamentoLegitimo.output as { status: string }).status).toBe("cancelada");
   });
@@ -213,12 +283,12 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
     const conversaA = await criarConversa(empresa.id, unidade.id, "ig-cliente-a");
     const ctxA: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-a", conversaId: conversaA.id };
 
-    const semReserva = await executarTool(db, ctxA, "check_reservation_status", {});
+    const semReserva = await executarTool(db, ctxA, "check_reservation_status", IDENTIFICACAO_FILLER);
     expect((semReserva.output as { tem_reserva_ativa: boolean }).tem_reserva_ativa).toBe(false);
 
     await criarReservaDireta(unidade.id, mesa.id, "ig-cliente-a", { data: "2026-10-15" });
 
-    const comReserva = await executarTool(db, ctxA, "check_reservation_status", {});
+    const comReserva = await executarTool(db, ctxA, "check_reservation_status", IDENTIFICACAO_FILLER);
     expect((comReserva.output as { tem_reserva_ativa: boolean }).tem_reserva_ativa).toBe(true);
   });
 
@@ -235,7 +305,7 @@ describe("Tools do agente - posse de reserva (find/modify/cancel/status)", () =>
 
       const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-fuso");
       const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-fuso", conversaId: conversa.id };
-      const resultado = await executarTool(db, ctx, "check_reservation_status", {});
+      const resultado = await executarTool(db, ctx, "check_reservation_status", IDENTIFICACAO_FILLER);
       expect((resultado.output as { tem_reserva_ativa: boolean }).tem_reserva_ativa).toBe(true);
     } finally {
       vi.useRealTimers();
@@ -468,7 +538,7 @@ describe("Tools do agente - isolamento entre unidades diferentes com o MESMO ig_
 
     await criarReservaDireta(unidadeA.id, mesaA.id, mesmoSenderId, { data: "2026-10-16" });
 
-    const deB = await executarTool(db, ctxB, "find_my_reservations", {});
+    const deB = await executarTool(db, ctxB, "find_my_reservations", IDENTIFICACAO_FILLER);
     expect((deB.output as { reservas: unknown[] }).reservas).toHaveLength(0);
   });
 });

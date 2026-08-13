@@ -110,7 +110,10 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
     const terceiraChamada = (criarMensagem as ReturnType<typeof vi.fn>).mock.calls[2][0] as Anthropic.MessageCreateParamsNonStreaming;
     expect(JSON.stringify(terceiraChamada.messages.at(-1))).toContain("/reservar/");
 
-    const reservas = await executarTool(db, ctx, "find_my_reservations", {});
+    const reservas = await executarTool(db, ctx, "find_my_reservations", {
+      nome_cliente: "Qualquer Um",
+      telefone_cliente: "11900000000",
+    });
     expect((reservas.output as { reservas: unknown[] }).reservas).toHaveLength(0);
   });
 

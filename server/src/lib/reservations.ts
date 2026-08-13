@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or, sql, type SQL } from "drizzle-orm";
 import type { Database, Queryable } from "../db/client.js";
 import { mesas, regrasHorario, reservas, saloes, type Reserva } from "../db/schema/index.js";
 import { diaDaSemana, intervalosSeSobrepoem, paraMinutos, somarMinutos } from "./time.js";
@@ -577,22 +577,58 @@ export async function atualizarReservaDaUnidade(
   );
 }
 
-// Usada pelas tools do agente: a posse (ig_sender_id) e resolvida sempre a partir de
-// conversas.ig_sender_id no backend, nunca aceita como parametro vindo do modelo, e
-// entra na propria condicao de busca da reserva (nao um cheque "depois de buscar").
+// So digitos, pra comparar telefone "(11) 91234-5678" com "11912345678" etc sem se
+// importar com formatacao (usado no fallback de condicaoDePosseDaReserva abaixo).
+function apenasDigitos(valor: string): string {
+  return valor.replace(/\D/g, "");
+}
+
+export interface IdentificacaoDoCliente {
+  igSenderId: string;
+  // Opcionais: o agente sempre pergunta nome+telefone antes de mexer numa reserva
+  // (ver REGRAS_FIXAS_DO_MASTER), entao normalmente os dois vem preenchidos - mas so
+  // entram na condicao de busca quando ambos estao presentes (ver comentario abaixo).
+  nomeCliente?: string;
+  telefoneCliente?: string;
+}
+
+// Usada pelas tools do agente: a posse de uma reserva e resolvida SEMPRE aqui, nunca
+// um cheque feito "depois de buscar" - entra na propria condicao SQL de
+// busca/update/cancelamento. Duas formas de bater, em OR:
+//   1) ig_sender_id da PROPRIA conversa (nunca vem do modelo, ver AgentContext) - cobre
+//      o caso comum, reserva feita pelo mesmo canal/conta de quem esta conversando agora.
+//   2) nome + telefone informados pelo cliente na conversa batendo com os da reserva -
+//      cobre reserva feita por OUTRO canal (link publico/widget, ou reserva manual
+//      pelo painel), que nunca tem ig_sender_id pra bater com nada. So entra em jogo
+//      quando os DOIS (nome e telefone) sao informados - telefone sozinho falta um
+//      pouco de contexto, nome sozinho e facil demais de coincidir/adivinhar.
+function condicaoDePosseDaReserva(identificacao: IdentificacaoDoCliente): SQL {
+  const porCanal = eq(reservas.igSenderId, identificacao.igSenderId);
+  const nome = identificacao.nomeCliente?.trim();
+  const telefone = identificacao.telefoneCliente?.trim();
+  if (!nome || !telefone) {
+    return porCanal;
+  }
+  const porNomeETelefone = and(
+    // '\\D' (nao '\D'): dentro de um literal de string comum do JS (nao regex/raw),
+    // "\D" nao e uma sequencia de escape reconhecida, entao o \ e descartado e so
+    // sobra "D" - o Postgres recebia o padrao errado (removia a letra "D" literal em
+    // vez de nao-digitos) e nunca normalizava o telefone de verdade.
+    sql`regexp_replace(${reservas.clienteTelefone}, '\\D', '', 'g') = ${apenasDigitos(telefone)}`,
+    sql`lower(${reservas.clienteNome}) = lower(${nome})`,
+  )!;
+  return or(porCanal, porNomeETelefone)!;
+}
+
 export async function atualizarReservaDoCliente(
   db: Database,
-  params: { unidadeId: string; igSenderId: string; reservaId: string },
+  params: { unidadeId: string; reservaId: string } & IdentificacaoDoCliente,
   patch: AtualizarReservaParams,
 ): Promise<Reserva> {
   return atualizarReservaComCondicoes(
     db,
     params.unidadeId,
-    [
-      eq(reservas.id, params.reservaId),
-      eq(reservas.unidadeId, params.unidadeId),
-      eq(reservas.igSenderId, params.igSenderId),
-    ],
+    [eq(reservas.id, params.reservaId), eq(reservas.unidadeId, params.unidadeId), condicaoDePosseDaReserva(params)],
     patch,
     // Doc 28 - o proprio cliente remarcando via chat respeita horarios fixos, igual a
     // reserva nova; o dono/funcionario editando pelo painel (atualizarReservaDaUnidade)
@@ -620,23 +656,23 @@ export async function cancelarReservaDaUnidade(db: Database, unidadeId: string, 
 
 export async function cancelarReservaDoCliente(
   db: Database,
-  params: { unidadeId: string; igSenderId: string; reservaId: string },
+  params: { unidadeId: string; reservaId: string } & IdentificacaoDoCliente,
 ): Promise<Reserva> {
   return cancelarReservaComCondicoes(db, [
     eq(reservas.id, params.reservaId),
     eq(reservas.unidadeId, params.unidadeId),
-    eq(reservas.igSenderId, params.igSenderId),
+    condicaoDePosseDaReserva(params),
   ]);
 }
 
 export async function buscarReservasDoCliente(
   db: Database,
-  params: { unidadeId: string; igSenderId: string; limite?: number },
+  params: { unidadeId: string; limite?: number } & IdentificacaoDoCliente,
 ): Promise<Reserva[]> {
   return db
     .select()
     .from(reservas)
-    .where(and(eq(reservas.unidadeId, params.unidadeId), eq(reservas.igSenderId, params.igSenderId)))
+    .where(and(eq(reservas.unidadeId, params.unidadeId), condicaoDePosseDaReserva(params)))
     .orderBy(desc(reservas.data), desc(reservas.horaInicio))
     .limit(params.limite ?? 20);
 }

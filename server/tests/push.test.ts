@@ -211,7 +211,11 @@ describe("Push disparado em cancelamento pelo cliente (chat)", () => {
     const reserva = await criarReservaDireta(unidade.id, mesa.id, "ig-cancelar-push", { clienteNome: "Cliente Cancelou" });
     const ctx = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cancelar-push", conversaId: "conversa-teste" };
 
-    const resultado = await executarTool(db, ctx, "cancel_my_reservation", { reservation_id: reserva.id });
+    const resultado = await executarTool(db, ctx, "cancel_my_reservation", {
+      reservation_id: reserva.id,
+      nome_cliente: "Qualquer Um",
+      telefone_cliente: "11900000000",
+    });
     expect(resultado.isError).toBeFalsy();
 
     await new Promise((resolve) => setTimeout(resolve, 50));
