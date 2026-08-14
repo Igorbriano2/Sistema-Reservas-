@@ -147,3 +147,71 @@ describe("executarTurnoDoAgente - fallback pra OpenAI quando a Claude API falha 
     expect(conversaAtual.agentPaused).toBe(false); // quem trata/pausa e o catch em process-event.ts, nao aqui
   });
 });
+
+// Doc 39: AGENT_PROVIDER_PRINCIPAL inverte qual das duas e tentada primeiro - usado
+// pra situacoes temporarias (ex: credito de uma das duas acabou), reversivel so
+// trocando a env var, sem precisar mudar codigo.
+describe("executarTurnoDoAgente - AGENT_PROVIDER_PRINCIPAL=openai (troca temporaria de provedor)", () => {
+  it("com AGENT_PROVIDER_PRINCIPAL=openai, chama a OpenAI PRIMEIRO (nao a Claude)", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    vi.stubEnv("AGENT_PROVIDER_PRINCIPAL", "openai");
+    vi.resetModules();
+    const { executarTurnoDoAgente } = await import("../src/modules/agent/orchestrator.js");
+
+    const criarMensagemAnthropic = vi.fn();
+    const criarMensagemOpenAi = vi.fn().mockResolvedValue({
+      choices: [{ finish_reason: "stop", message: { role: "assistant", content: "Oi! Posso ajudar (via OpenAI)." } }],
+    });
+
+    const texto = await executarTurnoDoAgente({
+      db,
+      ctx,
+      systemPrompt: SYSTEM_PROMPT_TESTE,
+      historico: [],
+      mensagemDoCliente: "oi",
+      criarMensagem: criarMensagemAnthropic,
+      criarMensagemOpenAi,
+    });
+
+    expect(texto).toBe("Oi! Posso ajudar (via OpenAI).");
+    expect(criarMensagemOpenAi).toHaveBeenCalledTimes(1);
+    expect(criarMensagemAnthropic).not.toHaveBeenCalled();
+  });
+
+  it("com AGENT_PROVIDER_PRINCIPAL=openai, cai pra Claude se a OpenAI falhar e ANTHROPIC_API_KEY estiver configurada", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    vi.stubEnv("AGENT_PROVIDER_PRINCIPAL", "openai");
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-teste-fake");
+    vi.resetModules();
+    const { executarTurnoDoAgente } = await import("../src/modules/agent/orchestrator.js");
+
+    const criarMensagemOpenAi = vi.fn().mockRejectedValue(new Error("insufficient_quota"));
+    const criarMensagemAnthropic = vi.fn().mockResolvedValue({
+      id: "msg_fake",
+      type: "message",
+      role: "assistant",
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: "Oi! Posso ajudar (via Claude)." }],
+    });
+
+    const texto = await executarTurnoDoAgente({
+      db,
+      ctx,
+      systemPrompt: SYSTEM_PROMPT_TESTE,
+      historico: [],
+      mensagemDoCliente: "oi",
+      criarMensagem: criarMensagemAnthropic,
+      criarMensagemOpenAi,
+    });
+
+    expect(texto).toBe("Oi! Posso ajudar (via Claude).");
+    expect(criarMensagemOpenAi).toHaveBeenCalledTimes(1);
+    expect(criarMensagemAnthropic).toHaveBeenCalledTimes(1);
+  });
+});

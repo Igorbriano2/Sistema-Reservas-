@@ -43,25 +43,35 @@ function defaultCriarMensagemOpenAi(
   return getOpenAiClient().chat.completions.create(params) as Promise<OpenAI.Chat.ChatCompletion>;
 }
 
-// Doc 39: a Claude API e sempre a primaria - so recorre a OpenAI quando a chamada a
-// ela falha DE VERDADE (credito/billing insuficiente, rate limit, indisponibilidade,
-// etc.) e uma OPENAI_API_KEY estiver configurada. Sem a chave configurada, mantem o
-// comportamento de sempre: propaga o erro original pro catch-all de process-event.ts
-// (que ja avisa o cliente e escala pra humano). Isso e o UNICO lugar onde a escolha
-// de provedor e decidida - o resto do agente (tools, prompt, historico) e identico
-// pros dois, o restaurante nunca percebe qual das duas IAs respondeu.
+// Doc 39: qual provedor e a PRIMARIA e decidido por AGENT_PROVIDER_PRINCIPAL (default
+// "anthropic") - a OUTRA vira o fallback automatico, usado so quando a chamada
+// primaria falha DE VERDADE (credito/billing insuficiente, rate limit,
+// indisponibilidade, etc.) e a chave do fallback estiver configurada. Sem essa chave,
+// mantem o comportamento padrao: propaga o erro original pro catch-all de
+// process-event.ts (que ja avisa o cliente e escala pra humano). Isso e o UNICO lugar
+// onde a escolha de provedor e decidida - o resto do agente (tools, prompt,
+// historico) e identico pros dois, o restaurante nunca percebe qual IA respondeu.
+// A flag e reversivel sem deploy (so trocar a env var no painel da DigitalOcean) -
+// pensada pra situacoes temporarias, tipo credito de um dos dois acabar.
 export async function executarTurnoDoAgente(params: ExecutarTurnoParams): Promise<string> {
+  const openAiEhPrincipal = env.AGENT_PROVIDER_PRINCIPAL === "openai";
+  const executarPrincipal = openAiEhPrincipal ? executarTurnoComOpenAi : executarTurnoComAnthropic;
+  const executarFallback = openAiEhPrincipal ? executarTurnoComAnthropic : executarTurnoComOpenAi;
+  const chaveDoFallbackConfigurada = openAiEhPrincipal ? !!env.ANTHROPIC_API_KEY : !!env.OPENAI_API_KEY;
+  const nomePrincipal = openAiEhPrincipal ? "OpenAI" : "Claude";
+  const nomeFallback = openAiEhPrincipal ? "Claude" : "OpenAI";
+
   try {
-    return await executarTurnoComAnthropic(params);
+    return await executarPrincipal(params);
   } catch (err) {
-    if (!env.OPENAI_API_KEY) {
+    if (!chaveDoFallbackConfigurada) {
       throw err;
     }
     console.error(
-      `[agente] Claude API falhou, usando fallback via OpenAI (conversa ${params.ctx.conversaId}):`,
+      `[agente] ${nomePrincipal} API falhou, usando fallback via ${nomeFallback} (conversa ${params.ctx.conversaId}):`,
       err,
     );
-    return await executarTurnoComOpenAi(params);
+    return await executarFallback(params);
   }
 }
 

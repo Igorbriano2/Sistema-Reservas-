@@ -13,12 +13,17 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("8h"),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-5"),
-  // Fallback do agente (doc 39) - usado SO quando a chamada primaria a Claude API
-  // falha (credito/billing, rate limit, indisponibilidade), pra conversa nao ficar
-  // sem resposta so por causa de uma unica API estar fora. Opcional: sem essa chave,
-  // o agente continua so com Claude (comportamento anterior, ver orchestrator.ts).
+  // Fallback do agente (doc 39) - usado SO quando a chamada primaria falha
+  // (credito/billing, rate limit, indisponibilidade), pra conversa nao ficar sem
+  // resposta so por causa de uma unica API estar fora. Opcional: sem essa chave, o
+  // agente continua so com Claude (comportamento padrao, ver orchestrator.ts).
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-4o"),
+  // Qual das duas e a PRIMARIA (a outra vira o fallback automatico) - flag reversivel
+  // pra trocar sem precisar mexer em codigo/deploy, ex: credito da Claude acabou,
+  // troca pra "openai" temporariamente no painel da DigitalOcean e volta depois so
+  // mudando essa variavel de novo. Default "anthropic" mantem o comportamento de sempre.
+  AGENT_PROVIDER_PRINCIPAL: z.enum(["anthropic", "openai"]).default("anthropic"),
   INSTAGRAM_APP_SECRET: z.string().optional(),
   INSTAGRAM_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
   // Conexao self-service (doc 14, "Meta Login for Business") - alternativa ao

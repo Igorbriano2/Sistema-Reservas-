@@ -96,6 +96,11 @@ services:
         type: SECRET
       - key: OPENAI_MODEL
         value: gpt-4o
+      # Qual das duas e a PRIMARIA agora ("anthropic" ou "openai") - a outra vira o
+      # fallback automatico. Troca reversivel sem precisar de deploy novo: so editar
+      # este valor no painel da DigitalOcean (ou aqui, se reaplicar o app spec).
+      - key: AGENT_PROVIDER_PRINCIPAL
+        value: anthropic
       - key: INSTAGRAM_APP_SECRET
         type: SECRET
       - key: INSTAGRAM_WEBHOOK_VERIFY_TOKEN
