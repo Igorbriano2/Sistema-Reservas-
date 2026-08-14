@@ -359,6 +359,62 @@ describe("Tools do agente - get_menu (doc 18)", () => {
   });
 });
 
+describe("Tools do agente - get_horario_funcionamento", () => {
+  it("devolve os turnos configurados (todos os 7 dias) e nenhuma excecao proxima", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "get_horario_funcionamento", {});
+    expect(resultado.isError).toBeUndefined();
+    const output = resultado.output as {
+      horario_configurado: boolean;
+      turnos: Array<{ dia_semana_nome: string; hora_abertura: string; hora_fechamento: string }>;
+      excecoes_proximas: unknown[];
+    };
+    expect(output.horario_configurado).toBe(true);
+    expect(output.turnos).toHaveLength(7);
+    expect(output.turnos[0].dia_semana_nome).toBe("Domingo");
+    expect(output.turnos[0].hora_abertura).toBe("11:00:00");
+    expect(output.turnos[0].hora_fechamento).toBe("23:00:00");
+    expect(output.excecoes_proximas).toEqual([]);
+  });
+
+  it("inclui excecoes futuras (feriados/fechamentos ja cadastrados) mas nao as passadas", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    await db.insert(excecoesHorario).values({ unidadeId: unidade.id, data: "2020-01-01", nome: "Passado", fechado: true });
+    await db.insert(excecoesHorario).values({ unidadeId: unidade.id, data: "2099-12-25", nome: "Natal", fechado: true });
+
+    const resultado = await executarTool(db, ctx, "get_horario_funcionamento", {});
+    const output = resultado.output as { excecoes_proximas: Array<{ data: string; nome: string | null; fechado: boolean }> };
+    expect(output.excecoes_proximas).toHaveLength(1);
+    expect(output.excecoes_proximas[0].nome).toBe("Natal");
+    expect(output.excecoes_proximas[0].fechado).toBe(true);
+  });
+
+  it("horario_configurado=false quando a unidade nao tem nenhum turno cadastrado", async () => {
+    const { empresa, unidade } = await criarEmpresaComAdmin();
+    const conversa = await criarConversa(empresa.id, unidade.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: unidade.id, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "get_horario_funcionamento", {});
+    expect(resultado.isError).toBe(true);
+    expect((resultado.output as { horario_configurado: boolean }).horario_configurado).toBe(false);
+  });
+
+  it("nao funciona antes da unidade da conversa ser resolvida", async () => {
+    const { empresa } = await setupUnidadeCompleta();
+    const conversa = await criarConversaPendente(empresa.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: null, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const resultado = await executarTool(db, ctx, "get_horario_funcionamento", {});
+    expect(resultado.isError).toBe(true);
+  });
+});
+
 describe("Tools do agente - check_rodizio_price (doc 26)", () => {
   async function criarCardapioDeRodizio(unidadeId: string) {
     const [categoria] = await db.insert(cardapioCategorias).values({ unidadeId, nome: "Rodizio" }).returning();

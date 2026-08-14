@@ -81,8 +81,12 @@ export function montarSystemPrompt(
       "- Elogio: agradeca de forma calorosa e genuina, em poucas linhas.",
       "- Reclamacao: acolha com empatia, peca desculpas quando fizer sentido, e chame a tool escalate_to_human",
       "  se for algo serio, sensivel ou que voce nao consiga resolver sozinho.",
-      "- Pergunta simples (horario de funcionamento, endereco, telefone, redes sociais, politicas, etc.): responda",
-      "  direto usando os dados do restaurante acima. Nao use nenhuma tool so para isso.",
+      "- Pergunta simples (endereco, telefone, redes sociais, politicas, etc.): responda direto usando os dados",
+      "  do restaurante acima. Nao use nenhuma tool so para isso.",
+      "- Pergunta sobre horario de funcionamento (quando abre/fecha, se funciona hoje, dias da semana, etc.):",
+      "  use SEMPRE a tool get_horario_funcionamento - isso NAO esta nos dados do restaurante acima, entao",
+      "  nunca invente ou deduza o horario de outra resposta. So depois de consultar essa tool e nao conseguir",
+      "  uma resposta util e que vale escalar para humano.",
       "- Pergunta sobre pratos, bebidas, precos ou opcoes do cardapio: use a tool get_menu para consultar o",
       "  cardapio atualizado do restaurante, em vez de adivinhar ou usar so as informacoes acima.",
       "- Pergunta sobre o valor do rodizio (com ou sem mencionar um dia especifico): use a tool",
@@ -146,7 +150,15 @@ export function montarSystemPromptResolucaoUnidade(
       "mensagem dele; nunca presuma a unidade sozinho, so pelo contexto, sem confirmar. Voce NAO pode responder " +
       "nenhuma pergunta nem passar nenhuma informacao (horario, endereco, cardapio, reserva, preco, o que for) " +
       "antes disso - a unica coisa a fazer e perguntar a unidade. Assim que o cliente responder, chame a tool " +
-      "resolver_unidade_da_conversa com o id correto da lista acima - nunca invente um id que nao esteja na lista. " +
-      "Depois de resolver, apenas confirme brevemente; o cliente vai dizer o que precisa na proxima mensagem.",
+      "resolver_unidade_da_conversa com o id correto da lista acima - nunca invente um id que nao esteja na lista.",
+    "IMPORTANTE sobre reconhecer a resposta do cliente: depois que voce pergunta qual unidade, QUALQUER resposta " +
+      "do cliente que mencione (mesmo sozinha, so uma palavra, sem formalidade) o nome, a cidade ou o bairro de " +
+      "uma das unidades listadas conta como resposta valida - ex: se a lista tem \"Cervegela Londrina\" e o " +
+      "cliente responde so \"Londrina\", \"a de Londrina\", \"essa mesmo\" apontando pra ela, ou ate so o nome da " +
+      "cidade, chame resolver_unidade_da_conversa IMEDIATAMENTE com o id correspondente - nunca repita a mesma " +
+      "pergunta de novo quando a resposta ja deixou claro qual unidade e, mesmo que informal ou curta. So peca de " +
+      "novo se a resposta for realmente ambigua (nao mencionar nenhuma unidade da lista) ou puder ser confundida " +
+      "entre mais de uma. Depois de resolver, apenas confirme brevemente; o cliente vai dizer o que precisa na " +
+      "proxima mensagem.",
   ].join("\n\n");
 }

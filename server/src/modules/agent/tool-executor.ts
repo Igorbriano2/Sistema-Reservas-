@@ -1,7 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 import { z, ZodError } from "zod";
 import type { Database } from "../../db/client.js";
-import { cardapioCategorias, cardapioItens, conversas, unidades } from "../../db/schema/index.js";
+import { cardapioCategorias, cardapioItens, conversas, excecoesHorario, regrasHorario, unidades } from "../../db/schema/index.js";
 import { verificarDisponibilidade } from "../../lib/availability.js";
 import { agoraNoFuso } from "../../lib/time.js";
 import { resolverTierDoRodizio } from "../../lib/feriados.js";
@@ -272,6 +272,78 @@ async function getMenu(db: Database, ctx: AgentContext): Promise<ToolResultado> 
   return { output: { cardapio_disponivel: true, categorias } };
 }
 
+const NOMES_DIA_SEMANA = [
+  "Domingo",
+  "Segunda-feira",
+  "Terca-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sabado",
+];
+
+// Doc 24: "horario de funcionamento" NAO e um texto livre no prompt (diferente de
+// endereco/telefone) - vem sempre dos turnos configurados de verdade (regras_horario,
+// doc 19), pra nunca ficar desatualizado ou divergente do que check_availability/
+// get_reservation_link realmente aceitam. Sem esta tool o modelo nao tinha NENHUM jeito
+// de responder "qual o horario de funcionamento?" de forma generica (so perguntas com
+// data/hora especificos, via check_availability) e acabava escalando pra humano a toa.
+async function getHorarioFuncionamento(db: Database, ctx: AgentContext): Promise<ToolResultado> {
+  const unidadeId = unidadeResolvida(ctx);
+
+  const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
+  const hoje = agoraNoFuso(unidadeRow?.timezone ?? "America/Sao_Paulo").data;
+
+  const turnos = await db
+    .select({
+      diaSemana: regrasHorario.diaSemana,
+      nome: regrasHorario.nome,
+      horaAbertura: regrasHorario.horaAbertura,
+      horaFechamento: regrasHorario.horaFechamento,
+    })
+    .from(regrasHorario)
+    .where(eq(regrasHorario.unidadeId, unidadeId))
+    .orderBy(asc(regrasHorario.diaSemana), asc(regrasHorario.horaAbertura));
+
+  // So as proximas excecoes (feriados/fechamentos pontuais ja cadastrados pelo dono,
+  // doc 26) - passadas nao interessam pro cliente perguntando "voces abrem hoje/quando".
+  const excecoesProximas = await db
+    .select({
+      data: excecoesHorario.data,
+      nome: excecoesHorario.nome,
+      fechado: excecoesHorario.fechado,
+      horaAbertura: excecoesHorario.horaAbertura,
+      horaFechamento: excecoesHorario.horaFechamento,
+    })
+    .from(excecoesHorario)
+    .where(and(eq(excecoesHorario.unidadeId, unidadeId), gte(excecoesHorario.data, hoje)))
+    .orderBy(asc(excecoesHorario.data))
+    .limit(10);
+
+  if (turnos.length === 0) {
+    return { output: { horario_configurado: false, erro: "Nenhum horario de funcionamento cadastrado para esta unidade" }, isError: true };
+  }
+
+  return {
+    output: {
+      horario_configurado: true,
+      turnos: turnos.map((t) => ({
+        dia_semana_nome: NOMES_DIA_SEMANA[t.diaSemana],
+        turno_nome: t.nome,
+        hora_abertura: t.horaAbertura,
+        hora_fechamento: t.horaFechamento,
+      })),
+      excecoes_proximas: excecoesProximas.map((e) => ({
+        data: e.data,
+        nome: e.nome,
+        fechado: e.fechado,
+        hora_abertura: e.horaAbertura,
+        hora_fechamento: e.horaFechamento,
+      })),
+    },
+  };
+}
+
 const TAG_ADULTO_DIA_UTIL = "rodizio_adulto_dia_util";
 const TAG_ADULTO_FIM_DE_SEMANA = "rodizio_adulto_fim_de_semana_feriado";
 const TAG_CRIANCA_DIA_UTIL = "rodizio_crianca_dia_util";
@@ -436,6 +508,8 @@ export async function executarTool(
         return await checkReservationStatus(db, ctx, input);
       case "get_menu":
         return await getMenu(db, ctx);
+      case "get_horario_funcionamento":
+        return await getHorarioFuncionamento(db, ctx);
       case "check_rodizio_price":
         return await checkRodizioPrice(db, ctx, input);
       case "escalate_to_human":

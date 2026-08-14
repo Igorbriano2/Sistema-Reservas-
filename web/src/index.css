@@ -876,6 +876,13 @@ tbody tr:hover {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  /* Ancora do popover do calendario (.calendario-mes-flutuante) - de proposito na
+     linha INTEIRA (que ocupa quase a largura toda do cartao), nao so no botao da
+     data: um popover de largura fixa ancorado num botao estreito perto da borda
+     esquerda do celular estourava pra fora da tela (ficava com metade cortada,
+     ver bug reportado com print). Ancorando numa caixa larga, left:0/right:0 do
+     popover sempre cabem dentro da viewport. */
+  position: relative;
 }
 
 .pilulas-data {
@@ -904,10 +911,6 @@ tbody tr:hover {
   background: rgba(var(--accent-rgb), 0.14);
   border-color: var(--accent);
   color: var(--accent);
-}
-
-.seletor-data-calendario {
-  position: relative;
 }
 
 .calendario-mes-flutuante {
@@ -1721,11 +1724,6 @@ tbody tr:hover {
 
   .tabela-reservas {
     display: none;
-  }
-
-  .calendario-mes-flutuante {
-    left: auto;
-    right: 0;
   }
 
   /* Doc 34 - chat do Instagram no mobile: um painel por vez ocupando a largura

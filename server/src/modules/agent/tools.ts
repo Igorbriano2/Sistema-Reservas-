@@ -126,6 +126,16 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "get_horario_funcionamento",
+    description:
+      "Consulta o horario de funcionamento REAL desta unidade (turnos configurados, dia a dia da semana) " +
+      "e proximos fechamentos/feriados especiais ja cadastrados. Use SEMPRE que o cliente perguntar de forma " +
+      "generica quando o restaurante abre/fecha, funciona hoje, ou qual o horario de funcionamento - NUNCA " +
+      "invente ou deduza isso de outra informacao. Para saber se ha vaga/mesa disponivel numa data e hora " +
+      "especificas, use check_availability em vez desta.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "check_rodizio_price",
     description:
       "Consulta o valor do rodizio (adulto e crianca) para uma data especifica, ja considerando se e dia " +

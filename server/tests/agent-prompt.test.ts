@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { montarSystemPrompt } from "../src/lib/agent-prompt.js";
+import { montarSystemPrompt, montarSystemPromptResolucaoUnidade } from "../src/lib/agent-prompt.js";
 import type { AgenteConfig, Unidade } from "../src/db/schema/index.js";
 
 const CONFIG_BASE: AgenteConfig = {
@@ -75,5 +75,33 @@ describe("lib/agent-prompt montarSystemPrompt (doc 24 - agente master)", () => {
     expect(prompt).toContain("use check_availability para o valor NOVO antes de");
     expect(prompt).toContain("NAO chame modify_my_reservation");
     expect(prompt).toContain("inclusive quando faltam menos de 3h para o novo horario pedido");
+  });
+
+  it("exige usar a tool get_horario_funcionamento para perguntas sobre horario de funcionamento, em vez de responder direto ou inventar", () => {
+    const prompt = montarSystemPrompt(CONFIG_BASE, UNIDADE_BASE);
+    expect(prompt).toContain("use SEMPRE a tool get_horario_funcionamento");
+    expect(prompt).toContain("isso NAO esta nos dados do restaurante acima");
+    expect(prompt).not.toMatch(/horario de funcionamento, endereco/);
+  });
+});
+
+describe("lib/agent-prompt montarSystemPromptResolucaoUnidade (doc 17, parte 4)", () => {
+  const UNIDADES = [
+    { id: "id-londrina", nome: "Cervegela Londrina" },
+    { id: "id-maringa", nome: "Cervegela Maringa" },
+  ];
+
+  it("instrui a nunca repetir a pergunta quando a resposta ja aponta claramente pra uma unidade da lista", () => {
+    const prompt = montarSystemPromptResolucaoUnidade({ nomeDoAgente: "Bia" }, UNIDADES);
+    expect(prompt).toContain("QUALQUER resposta");
+    expect(prompt).toContain("mesmo sozinha, so uma palavra");
+    expect(prompt).toContain("chame resolver_unidade_da_conversa IMEDIATAMENTE");
+    expect(prompt).toContain("nunca repita a mesma");
+  });
+
+  it("lista as unidades disponiveis com seus ids", () => {
+    const prompt = montarSystemPromptResolucaoUnidade({ nomeDoAgente: "Bia" }, UNIDADES);
+    expect(prompt).toContain("Cervegela Londrina (id: id-londrina)");
+    expect(prompt).toContain("Cervegela Maringa (id: id-maringa)");
   });
 });
