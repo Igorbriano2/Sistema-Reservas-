@@ -89,6 +89,13 @@ services:
         type: SECRET
       - key: ANTHROPIC_MODEL
         value: claude-sonnet-5
+      # Fallback do agente (doc 39) - opcional. So preencher OPENAI_API_KEY quando
+      # quiser ativar o fallback pra OpenAI (usado so quando a chamada primaria a
+      # Claude API falha de verdade - credito/billing, rate limit, indisponibilidade).
+      - key: OPENAI_API_KEY
+        type: SECRET
+      - key: OPENAI_MODEL
+        value: gpt-4o
       - key: INSTAGRAM_APP_SECRET
         type: SECRET
       - key: INSTAGRAM_WEBHOOK_VERIFY_TOKEN

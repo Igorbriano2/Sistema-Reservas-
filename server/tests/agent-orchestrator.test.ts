@@ -9,6 +9,11 @@ import type { AgentContext } from "../src/modules/agent/context.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
 import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
 
+// systemPrompt agora e {cacheavel, volatil} (doc 39 - separa o bloco cacheado do
+// bloco com data/hora, que nunca pode entrar no cache) - filler simples pros testes
+// que nao exercitam esse detalhe especificamente.
+const SYSTEM_PROMPT_TESTE = { cacheavel: "system prompt de teste", volatil: "" };
+
 beforeEach(async () => {
   await truncateAll();
 });
@@ -65,7 +70,7 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
     const texto = await executarTurnoDoAgente({
       db,
       ctx,
-      systemPrompt: "system prompt de teste",
+      systemPrompt: SYSTEM_PROMPT_TESTE,
       historico: [],
       mensagemDoCliente: "oi",
       criarMensagem,
@@ -91,7 +96,7 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
     const texto = await executarTurnoDoAgente({
       db,
       ctx,
-      systemPrompt: "system prompt de teste",
+      systemPrompt: SYSTEM_PROMPT_TESTE,
       historico: [],
       mensagemDoCliente: "quero reservar para 2 pessoas hoje as 19h",
       criarMensagem,
@@ -129,7 +134,7 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
     const texto = await executarTurnoDoAgente({
       db,
       ctx,
-      systemPrompt: "system prompt de teste",
+      systemPrompt: SYSTEM_PROMPT_TESTE,
       historico: [],
       mensagemDoCliente: "insiste insiste insiste",
       criarMensagem,

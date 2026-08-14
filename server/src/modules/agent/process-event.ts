@@ -10,7 +10,7 @@ import {
   type InstagramConnection,
   type PapelMensagem,
 } from "../../db/schema/index.js";
-import { montarSystemPrompt, montarSystemPromptResolucaoUnidade } from "../../lib/agent-prompt.js";
+import { montarSystemPrompt, montarSystemPromptResolucaoUnidade, type SystemPromptPartes } from "../../lib/agent-prompt.js";
 import { enviarRespostaDoAgente, foiEnviadoPeloAgente } from "../../lib/instagram-notify.js";
 import { preencherPerfilClienteEmSegundoPlano } from "../../lib/instagram-profile.js";
 import { executarTurnoDoAgente } from "./orchestrator.js";
@@ -129,7 +129,7 @@ async function processarTurnoAgrupado(db: Database, ctx: AgentContext): Promise<
   // Doc 17, parte 4: sem unidade resolvida ainda, o agente so pergunta qual unidade o
   // cliente quer (system prompt + tools bem mais restritos - ver montarSystemPrompt
   // ResolucaoUnidade e obterToolsDoAgente).
-  let systemPrompt: string;
+  let systemPrompt: SystemPromptPartes;
   if (ctx.unidadeId) {
     const [unidade] = await db.select().from(unidades).where(eq(unidades.id, ctx.unidadeId)).limit(1);
     if (!unidade) {

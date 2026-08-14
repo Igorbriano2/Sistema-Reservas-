@@ -35,6 +35,22 @@ const REGRAS_FIXAS_DO_MASTER = [
     " IA) e, se fizer sentido, ofereca chamar um humano com a tool escalate_to_human. Nunca chute uma resposta.",
 ].join(" ");
 
+// Doc 39: o system prompt vai pra Claude API em DOIS blocos - "cacheavel" (regras,
+// dados do restaurante, tudo que so muda quando o dono edita a configuracao) marcado
+// com cache_control, e "volatil" (so a data/hora atual) SEM cache_control, enviado
+// solto ao lado. Achado de auditoria de custo: antes a data/hora (que muda a cada
+// MINUTO, ver agora abaixo) ficava DENTRO do bloco cacheado - qualquer chamada a mais
+// de 1 minuto da anterior tinha um prompt byte-a-byte diferente da ultima vez, o que
+// invalidava o cache TODA vez (o normal entre turnos de uma conversa real, que quase
+// sempre ficam minutos ou mais afastados). Na pratica, quase nenhuma chamada em
+// producao aproveitava o cache - cada turno pagava o preco cheio (na verdade um
+// pouco mais caro, preco de escrita de cache) do system prompt + tools inteiros
+// de novo. Ver orchestrator.ts pra como os dois blocos sao montados na chamada real.
+export interface SystemPromptPartes {
+  cacheavel: string;
+  volatil: string;
+}
+
 // Constroi o system prompt da Claude API a partir da configuracao da empresa
 // (agente_config) e dos dados da unidade (endereco/telefone/redes sociais/fuso). A
 // data/hora atual no fuso da unidade e injetada aqui para o modelo interpretar "hoje",
@@ -42,7 +58,7 @@ const REGRAS_FIXAS_DO_MASTER = [
 export function montarSystemPrompt(
   config: AgenteConfig,
   unidade: Pick<Unidade, "nome" | "timezone" | "endereco" | "telefone" | "redesSociais">,
-): string {
+): SystemPromptPartes {
   const agora = new Intl.DateTimeFormat("pt-BR", {
     timeZone: unidade.timezone,
     dateStyle: "full",
@@ -68,8 +84,6 @@ export function montarSystemPrompt(
     config.descricaoRestaurante && `Sobre o restaurante: ${config.descricaoRestaurante}`,
     dadosDoRestaurante.length > 0 && `Dados do restaurante (use sempre que o cliente perguntar):\n${dadosDoRestaurante.join("\n")}`,
     config.tomDeVoz && `Tom de voz: ${config.tomDeVoz}.`,
-    `Data e hora atual (fuso horario do restaurante, ${unidade.timezone}): ${agora}. Use isso para interpretar ` +
-      `datas relativas como "hoje", "amanha" ou "sabado que vem".`,
     config.saudacao && `Ao iniciar uma conversa nova, cumprimente aproximadamente assim: "${config.saudacao}"`,
     config.despedida && `Ao encerrar o atendimento, se despeca aproximadamente assim: "${config.despedida}"`,
     config.politicasReserva && `Politicas de reserva: ${config.politicasReserva}`,
@@ -130,7 +144,11 @@ export function montarSystemPrompt(
     ].join("\n"),
   ];
 
-  return partes.filter(Boolean).join("\n\n");
+  const volatil =
+    `Data e hora atual (fuso horario do restaurante, ${unidade.timezone}): ${agora}. Use isso para interpretar ` +
+    `datas relativas como "hoje", "amanha" ou "sabado que vem".`;
+
+  return { cacheavel: partes.filter(Boolean).join("\n\n"), volatil };
 }
 
 // Doc 17, parte 4: quando a conexao do Instagram e compartilhada por varias unidades
@@ -140,9 +158,9 @@ export function montarSystemPrompt(
 export function montarSystemPromptResolucaoUnidade(
   config: Pick<AgenteConfig, "nomeDoAgente">,
   unidadesDisponiveis: Array<{ id: string; nome: string }>,
-): string {
+): SystemPromptPartes {
   const lista = unidadesDisponiveis.map((u) => `- ${u.nome} (id: ${u.id})`).join("\n");
-  return [
+  const cacheavel = [
     `Voce e ${config.nomeDoAgente}, o atendente virtual via Instagram Direct de uma empresa com mais de uma unidade.`,
     `Antes de qualquer outra coisa, voce precisa saber com qual unidade o cliente quer falar. Unidades disponiveis:\n${lista}`,
     "Pergunte ao cliente qual unidade ele quer (ex: \"Voce prefere a unidade de Londrina ou de Maringa?\") e espere " +
@@ -161,4 +179,7 @@ export function montarSystemPromptResolucaoUnidade(
       "entre mais de uma. Depois de resolver, apenas confirme brevemente; o cliente vai dizer o que precisa na " +
       "proxima mensagem.",
   ].join("\n\n");
+  // Sem componente volatil aqui (nao injeta data/hora nesta fase) - cacheavel sozinho
+  // ja e estavel entre chamadas da mesma empresa, sem risco de invalidar o cache.
+  return { cacheavel, volatil: "" };
 }
