@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Database } from "../db/client.js";
-import { instagramConnections, mensagens, type Mensagem } from "../db/schema/index.js";
+import { conversas, instagramConnections, mensagens, type Mensagem } from "../db/schema/index.js";
 import { env } from "../config/env.js";
 import { decrypt } from "./crypto.js";
 import { enviarMensagemInstagram, InstagramAuthError } from "./instagram-api.js";
@@ -93,6 +93,40 @@ export async function enviarRespostaDoAgente(db: Database, params: EnviarRespost
       igMessageId: igMessageId || null,
       enviadoPorHumano: params.enviadoPorHumano ?? false,
     })
+    // Corrida real (visto em producao, derrubava o turno com "duplicate key value
+    // violates unique constraint mensagens_ig_message_id_unq"): o guard acima so e
+    // armado DEPOIS do await de enviarMensagemInstagram resolver - nesse intervalo,
+    // o webhook de echo deste MESMO envio as vezes ja chega e e processado primeiro
+    // (Meta pode entregar o echo antes do nosso proprio cliente HTTP terminar de
+    // processar a resposta do envio). Sem achar o guard ainda armado, o echo trata
+    // o mid como se fosse um humano: grava a linha com enviadoPorHumano=true E PAUSA
+    // a conversa (ver echo em process-event.ts). O insert abaixo colidia com a
+    // unique constraint e travava o turno inteiro sem tratamento.
+    .onConflictDoNothing({ target: mensagens.igMessageId, where: sql`${mensagens.igMessageId} is not null` })
     .returning();
-  return mensagem;
+
+  if (mensagem) {
+    return mensagem;
+  }
+
+  // Cai aqui so no cenario de corrida acima (nunca por igMessageId nulo - nulos nao
+  // colidem na unique index parcial). Acha a linha que o echo gravou por engano e
+  // desfaz o efeito colateral: NAO foi um humano, entao corrige enviadoPorHumano e
+  // reabre a conversa pro agente continuar respondendo normalmente. So faz isso
+  // quando esta chamada e do proprio agente (nao quando enviadoPorHumano=true foi
+  // pedido de proposito, ex: dono/funcionario respondendo pelo painel - doc 31).
+  const [existente] = await db.select().from(mensagens).where(eq(mensagens.igMessageId, igMessageId)).limit(1);
+  if (!existente) {
+    throw new Error(`[instagram] falha ao gravar a resposta do agente (mid ${igMessageId} sem linha correspondente)`);
+  }
+  if (params.enviadoPorHumano) {
+    return existente;
+  }
+  const [corrigida] = await db
+    .update(mensagens)
+    .set({ enviadoPorHumano: false })
+    .where(eq(mensagens.id, existente.id))
+    .returning();
+  await db.update(conversas).set({ agentPaused: false }).where(eq(conversas.id, params.conversaId));
+  return corrigida;
 }
