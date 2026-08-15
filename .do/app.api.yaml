@@ -95,7 +95,7 @@ services:
       - key: OPENAI_API_KEY
         type: SECRET
       - key: OPENAI_MODEL
-        value: gpt-4o
+        value: gpt-5.6-terra
       # Qual das duas e a PRIMARIA agora ("anthropic" ou "openai") - a outra vira o
       # fallback automatico. Troca reversivel sem precisar de deploy novo: so editar
       # este valor no painel da DigitalOcean (ou aqui, se reaplicar o app spec).

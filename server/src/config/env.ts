@@ -18,7 +18,11 @@ const envSchema = z.object({
   // resposta so por causa de uma unica API estar fora. Opcional: sem essa chave, o
   // agente continua so com Claude (comportamento padrao, ver orchestrator.ts).
   OPENAI_API_KEY: z.string().optional(),
-  OPENAI_MODEL: z.string().default("gpt-4o"),
+  // "Terra" (tier intermediario da familia GPT-5.6, equivalente em papel ao Sonnet -
+  // ver doc 39) - gpt-4o (usado antes) e um modelo bem mais antigo/fraco, e explicou
+  // erros de raciocinio (ex: confundir data pedida pelo cliente com "hoje") quando
+  // OpenAI virou temporariamente a IA principal.
+  OPENAI_MODEL: z.string().default("gpt-5.6-terra"),
   // Qual das duas e a PRIMARIA (a outra vira o fallback automatico) - flag reversivel
   // pra trocar sem precisar mexer em codigo/deploy, ex: credito da Claude acabou,
   // troca pra "openai" temporariamente no painel da DigitalOcean e volta depois so

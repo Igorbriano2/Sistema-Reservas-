@@ -93,6 +93,17 @@ describe("lib/agent-prompt montarSystemPrompt (doc 24 - agente master)", () => {
     expect(volatil).toContain("Data e hora atual");
     expect(volatil).toContain("America/Sao_Paulo");
   });
+
+  // Achado real de producao (doc 40): o agente chamou uma data explicita pedida pelo
+  // cliente ("14/08") de "hoje" na resposta, porque essa data com o ano atual ja
+  // tinha passado. Regressao especifica pra essa falha.
+  it("inclui a data atual em ISO e instrui a nunca confundir uma data explicita pedida pelo cliente com 'hoje'", () => {
+    const { volatil } = montarSystemPrompt(CONFIG_BASE, UNIDADE_BASE);
+    expect(volatil).toMatch(/formato ISO: \d{4}-\d{2}-\d{2}/);
+    expect(volatil).toContain("dia/mes (nunca mes/dia");
+    expect(volatil).toContain("PROXIMO ano em que ela cai");
+    expect(volatil).toContain("NUNCA chame (nem chame de) a data que o cliente pediu de \"hoje\"");
+  });
 });
 
 describe("lib/agent-prompt montarSystemPromptResolucaoUnidade (doc 17, parte 4)", () => {

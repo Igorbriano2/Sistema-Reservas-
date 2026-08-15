@@ -1,4 +1,5 @@
 import type { AgenteConfig, Unidade } from "../db/schema/index.js";
+import { agoraNoFuso } from "./time.js";
 
 interface FaqItem {
   pergunta?: string;
@@ -144,9 +145,20 @@ export function montarSystemPrompt(
     ].join("\n"),
   ];
 
+  // Achado real de producao (doc 40): o agente confundiu uma data explicita pedida
+  // pelo cliente ("14/08") com "hoje" - o ano atual nao foi levado em conta (14/08
+  // com o ano corrente ja tinha passado) e a resposta final chamou o dia errado de
+  // "hoje" em vez da data pedida. O ISO abaixo + a regra explicita reduzem esse erro
+  // independente de qual provedor (Claude/OpenAI) estiver respondendo.
+  const hojeISO = agoraNoFuso(unidade.timezone).data;
   const volatil =
-    `Data e hora atual (fuso horario do restaurante, ${unidade.timezone}): ${agora}. Use isso para interpretar ` +
-    `datas relativas como "hoje", "amanha" ou "sabado que vem".`;
+    `Data e hora atual (fuso horario do restaurante, ${unidade.timezone}): ${agora} (formato ISO: ${hojeISO}). ` +
+    `Use isso para interpretar datas relativas como "hoje", "amanha" ou "sabado que vem". Quando o cliente disser ` +
+    `uma data explicita no formato dia/mes (ex: "14/08"), interprete SEMPRE como dia/mes (nunca mes/dia, formato ` +
+    `americano) - e use o ANO CORRETO: se essa data com o ano atual ja passou, o cliente quase sempre quer o ` +
+    `PROXIMO ano em que ela cai (nunca hoje); se houver qualquer duvida, pergunte o ano antes de checar ` +
+    `disponibilidade. NUNCA chame (nem chame de) a data que o cliente pediu de "hoje" na sua resposta, nem troque ` +
+    `por "hoje" ao consultar check_availability - use sempre a MESMA data pedida, no formato YYYY-MM-DD.`;
 
   return { cacheavel: partes.filter(Boolean).join("\n\n"), volatil };
 }
