@@ -18,10 +18,12 @@ import { executarTool } from "./tool-executor.js";
 import { agendarTurnoDoAgente } from "./debounce.js";
 import type { AgentContext } from "./context.js";
 
-// Mesmo texto de fallback usado quando o limite de iteracoes de tool_use estoura
-// (orchestrator.ts) - reaproveitado aqui pra qualquer erro inesperado durante o
-// turno (ver comentario em processarTurnoAgrupado abaixo).
-const MENSAGEM_ERRO_INESPERADO = "Desculpe, tive um problema para concluir sua solicitacao agora. Vou chamar um atendente para te ajudar.";
+// Usado quando a chamada a IA (Anthropic/OpenAI) falha de forma inesperada (ver
+// catch em processarTurnoAgrupado abaixo) - deliberadamente NAO promete escalonamento
+// (esse caminho nao pausa a conversa nem chama um humano, ver comentario la), pra nao
+// mentir pro cliente. Diferente do texto usado no limite de iteracoes de tool_use
+// (orchestrator.ts), que ai sim escala de verdade.
+const MENSAGEM_ERRO_INESPERADO = "Desculpe, tive um problema para concluir sua solicitacao agora. Pode repetir sua mensagem?";
 
 export interface InstagramMessagingEvent {
   sender?: { id?: string };
@@ -150,13 +152,22 @@ async function processarTurnoAgrupado(db: Database, ctx: AgentContext): Promise<
     return; // nada pendente (nao deveria acontecer, mas evita chamar o agente a toa)
   }
 
-  // Qualquer erro NAO tratado aqui dentro (uma excecao real do Postgres, da Claude
-  // API, etc. - diferente dos erros de negocio que cada tool ja converte em
-  // tool_result via erroAmigavel em tool-executor.ts) antes derrubava o turno
+  // Qualquer erro NAO tratado aqui dentro (uma excecao real do Postgres, ou - o caso
+  // mais comum na pratica - uma instabilidade transitoria da propria API da Anthropic/
+  // OpenAI: rate limit, timeout, incidente do provedor) antes derrubava o turno
   // inteiro em silencio: sem resposta ao cliente, sem pausar a conversa, so um
-  // console.error no .catch do debounce - a mensagem do cliente sumia sem
-  // nenhum sinal pra ninguem. Agora cai no mesmo caminho do limite de iteracoes
-  // excedido (orchestrator.ts): avisa o cliente e escala pra um humano.
+  // console.error no .catch do debounce - a mensagem do cliente sumia sem nenhum
+  // sinal pra ninguem. Corrigido pra pelo menos responder (ver MENSAGEM_ERRO_
+  // INESPERADO acima) - mas DELIBERADAMENTE sem chamar escalate_to_human aqui: isso
+  // pausaria a conversa ate um humano clicar "Reativar agente" no painel, e um erro
+  // de API costuma ser passageiro (o provedor volta sozinho em minutos/horas) - sem
+  // esse cuidado, um incidente de alguns minutos na Anthropic/OpenAI travava a
+  // conversa de todo cliente que mandou mensagem nessa janela ATE ALGUEM REPARAR e
+  // reativar manualmente, mesmo horas depois do provedor ja ter voltado ao normal.
+  // Deixando a conversa ativa, a proxima mensagem do cliente aciona uma tentativa
+  // nova e normal. Escalonamento de verdade continua acontecendo nos casos que
+  // realmente precisam de um humano: limite de iteracoes de tool_use (orchestrator.ts)
+  // e decisao do proprio modelo de chamar a tool escalate_to_human.
   let respostaTexto: string;
   try {
     respostaTexto = await executarTurnoDoAgente({
@@ -168,17 +179,29 @@ async function processarTurnoAgrupado(db: Database, ctx: AgentContext): Promise<
     });
   } catch (err) {
     console.error(`[agente] erro inesperado processando turno da conversa ${ctx.conversaId}:`, err);
-    await executarTool(db, ctx, "escalate_to_human", { motivo: "Erro inesperado ao processar o turno" });
     respostaTexto = MENSAGEM_ERRO_INESPERADO;
   }
 
-  await enviarRespostaDoAgente(db, {
-    unidadeId: ctx.unidadeId,
-    empresaId: ctx.empresaId,
-    igSenderId: ctx.igSenderId,
-    conversaId: ctx.conversaId,
-    texto: respostaTexto,
-  });
+  try {
+    await enviarRespostaDoAgente(db, {
+      unidadeId: ctx.unidadeId,
+      empresaId: ctx.empresaId,
+      igSenderId: ctx.igSenderId,
+      conversaId: ctx.conversaId,
+      texto: respostaTexto,
+    });
+  } catch (err) {
+    // Antes, uma falha aqui (ex.: token do Instagram expirado, conexao removida)
+    // derrubava a promise sem tratamento nenhum - o cliente ficava sem resposta E
+    // ninguem da equipe era avisado (so um console.error perdido nos logs da
+    // DigitalOcean). Agora escala como qualquer outra falha real do turno: pausa a
+    // conversa e dispara push pro dono/funcionario, que consegue notar e reconectar
+    // o Instagram pelo painel.
+    console.error(`[agente] erro ao enviar a resposta pro Instagram (conversa ${ctx.conversaId}):`, err);
+    await executarTool(db, ctx, "escalate_to_human", {
+      motivo: "Falha ao enviar a resposta pelo Instagram - a conexao pode ter expirado",
+    });
+  }
 }
 
 // Processa UM evento de mensagem do webhook do Instagram: identifica a empresa/unidade

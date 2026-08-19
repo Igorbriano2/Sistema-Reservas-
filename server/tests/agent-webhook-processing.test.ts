@@ -126,11 +126,14 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
     expect(vi.mocked(getAnthropicClient)).toHaveBeenCalledTimes(1);
   });
 
-  it("erro inesperado (nao um erro de negocio) durante o turno nao derruba a conversa em silencio (doc 25)", async () => {
+  it("erro inesperado (nao um erro de negocio) durante o turno nao derruba a conversa em silencio, mas tambem nao pausa pra sempre (doc 25/41)", async () => {
     const { unidade } = await setupCompleto();
-    // Simula uma falha real (ex: conexao com o banco caindo no meio de uma tool) - nao
-    // e um AppError/ZodError, entao antes da correcao propagava sem tratamento ate o
-    // .catch generico do debounce, sem avisar o cliente nem pausar a conversa.
+    // Simula uma falha real (ex: instabilidade transitoria da propria API da Anthropic)
+    // - nao e um AppError/ZodError, entao antes da correcao propagava sem tratamento ate
+    // o .catch generico do debounce, sem avisar o cliente nem pausar a conversa. Doc 41:
+    // esse tipo de falha (transitoria, do provedor) deliberadamente NAO escala mais pra
+    // humano nem pausa a conversa - so um incidente breve do provedor nao pode travar a
+    // conversa de todo cliente ate alguem notar e reativar manualmente na mao.
     vi.mocked(getAnthropicClient).mockReset().mockReturnValue({
       messages: { create: vi.fn().mockRejectedValue(new Error("ECONNRESET simulado")) },
     } as unknown as ReturnType<typeof getAnthropicClient>);
@@ -143,11 +146,12 @@ describe("processarEventoDoInstagram - mensagem real do cliente", () => {
     await aguardarTurnoAgendado();
 
     const [conversa] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
-    expect(conversa.agentPaused).toBe(true);
+    expect(conversa.agentPaused).toBe(false);
 
     expect(enviarMensagemInstagram).toHaveBeenCalledTimes(1);
     const [, , textoEnviado] = vi.mocked(enviarMensagemInstagram).mock.calls[0];
-    expect(textoEnviado).toMatch(/atendente/i);
+    expect(textoEnviado).toMatch(/problema/i);
+    expect(textoEnviado).not.toMatch(/atendente/i);
   });
 
   it("ignora conta do Instagram sem conexao cadastrada, sem lancar excecao", async () => {
