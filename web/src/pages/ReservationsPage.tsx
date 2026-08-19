@@ -13,6 +13,7 @@ import {
 } from "../api/resources.js";
 import { CalendarioMes } from "../components/CalendarioMes.js";
 import { IconeWhatsApp } from "../components/IconeWhatsApp.js";
+import { Button, EmptyState, Modal, Skeleton, StatusBadge } from "../components/ui/index.js";
 import { linkWhatsApp } from "../lib/whatsapp.js";
 import type { Mesa, Reserva, Salao } from "../types.js";
 
@@ -32,14 +33,6 @@ function hojeLocal(): string {
 function dataFormatada(data: string): string {
   return data.split("-").reverse().join("/");
 }
-
-const STATUS_LABEL: Record<Reserva["status"], string> = {
-  pendente: "Pendente",
-  confirmada: "Confirmada",
-  cancelada: "Cancelada",
-  concluida: "Concluida",
-  no_show: "Nao compareceu",
-};
 
 // So reservas ainda ativas podem virar "sentada" ou "nao compareceu" (o backend
 // tambem valida isso - aqui e so pra nao nem mostrar o botao quando nao se aplica).
@@ -119,6 +112,10 @@ export function ReservationsPage() {
   const [data, setData] = useState(hojeLocal());
   const [grupo, setGrupo] = useState<GrupoStatus>("recebidas");
   const [busca, setBusca] = useState("");
+  // Filtro por salao (doc redesign, "melhore filtros por... salao e status") -
+  // "" = todos. Reseta ao trocar de data, senao um salao que nao existe mais nessa
+  // data ficaria filtrando escondido sem o atendente entender por que sumiu tudo.
+  const [filtroSalaoId, setFiltroSalaoId] = useState("");
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [saloes, setSaloes] = useState<Salao[]>([]);
@@ -134,17 +131,23 @@ export function ReservationsPage() {
 
   const mesasPorId = useMemo(() => new Map(mesas.map((m) => [m.id, m])), [mesas]);
   const saloesPorId = useMemo(() => new Map(saloes.map((s) => [s.id, s])), [saloes]);
+  // Salao "efetivo" de uma reserva: direto (modo simples) ou via a mesa (modo mapa).
+  function salaoIdDaReserva(reserva: Reserva): string | null {
+    return reserva.salaoId ?? mesasPorId.get(reserva.mesaId ?? "")?.salaoId ?? null;
+  }
   const reservasFiltradas = useMemo(() => {
     const buscaNormalizada = busca.trim().toLowerCase();
     return reservas
       .filter((r) => grupo === "todas" || GRUPO_STATUSES[grupo].includes(r.status))
+      .filter((r) => !filtroSalaoId || salaoIdDaReserva(r) === filtroSalaoId)
       .filter(
         (r) =>
           !buscaNormalizada ||
           r.clienteNome.toLowerCase().includes(buscaNormalizada) ||
           (r.clienteTelefone ?? "").toLowerCase().includes(buscaNormalizada),
       );
-  }, [reservas, grupo, busca]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservas, grupo, busca, filtroSalaoId, mesasPorId]);
   // Reservas que ja passaram do horario e ninguem marcou como sentada/nao compareceu -
   // so faz sentido alertar quando o atendente esta olhando o dia de hoje.
   const reservasAtrasadas = useMemo(() => {
@@ -208,6 +211,7 @@ export function ReservationsPage() {
 
   useEffect(() => {
     carregar();
+    setFiltroSalaoId("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unidade?.id, data]);
 
@@ -374,9 +378,22 @@ export function ReservationsPage() {
         </p>
       )}
 
-      {formAberto && (
-        <form className="cartao" onSubmit={salvar}>
-          <h3 style={{ marginTop: 0 }}>{editando ? "Editar reserva" : "Nova reserva"}</h3>
+      <Modal
+        titulo={editando ? "Editar reserva" : "Nova reserva"}
+        aberto={formAberto}
+        aoFechar={() => setFormAberto(false)}
+        rodape={
+          <>
+            <Button variante="secundario" onClick={() => setFormAberto(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="form-reserva" disabled={salvando}>
+              {salvando ? "Salvando..." : "Salvar"}
+            </Button>
+          </>
+        }
+      >
+        <form id="form-reserva" onSubmit={salvar}>
           <div className="linha-form">
             <label>
               Local
@@ -421,21 +438,17 @@ export function ReservationsPage() {
               <input value={form.clienteTelefone} onChange={(e) => setForm({ ...form, clienteTelefone: e.target.value })} />
             </label>
           </div>
-          <label style={{ marginBottom: "0.75rem" }}>
+          <label style={{ marginBottom: 0 }}>
             Observacoes
             <textarea rows={2} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} />
           </label>
-          {erroForm && <p className="erro">{erroForm}</p>}
-          <div className="acoes">
-            <button className="btn" type="submit" disabled={salvando}>
-              {salvando ? "Salvando..." : "Salvar"}
-            </button>
-            <button className="btn btn-secundario" type="button" onClick={() => setFormAberto(false)}>
-              Cancelar
-            </button>
-          </div>
+          {erroForm && (
+            <p className="erro" style={{ marginBottom: 0, marginTop: "0.75rem" }}>
+              {erroForm}
+            </p>
+          )}
         </form>
-      )}
+      </Modal>
 
       <div className="cartao">
         <div className="abas-status">
@@ -445,6 +458,21 @@ export function ReservationsPage() {
               <span className="texto-secundario"> ({contarNoGrupo(reservas, g)})</span>
             </button>
           ))}
+          {saloes.length > 1 && (
+            <select
+              aria-label="Filtrar por salão"
+              value={filtroSalaoId}
+              onChange={(e) => setFiltroSalaoId(e.target.value)}
+              style={{ width: "auto" }}
+            >
+              <option value="">Todos os salões</option>
+              {saloes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                </option>
+              ))}
+            </select>
+          )}
           <span style={{ flex: 1 }} />
           <span className="texto-secundario">
             {reservasFiltradas.length} reserva(s) ({totalPessoas} pessoas)
@@ -464,11 +492,38 @@ export function ReservationsPage() {
         )}
 
         {carregando ? (
-          <p>Carregando...</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <Skeleton altura="3rem" />
+            <Skeleton altura="3rem" />
+            <Skeleton altura="3rem" />
+          </div>
         ) : reservas.length === 0 ? (
-          <p className="texto-secundario">Nenhuma reserva para esta data.</p>
+          <EmptyState
+            titulo="Nenhuma reserva para esta data"
+            descricao="Adicione a primeira reserva do dia."
+            acao={
+              <Button variante="secundario" onClick={abrirNovaReserva}>
+                + Nova reserva
+              </Button>
+            }
+          />
         ) : reservasFiltradas.length === 0 ? (
-          <p className="texto-secundario">Nenhuma reserva encontrada.</p>
+          <EmptyState
+            titulo="Nenhuma reserva encontrada"
+            descricao="Tente ajustar a busca, o salão ou o filtro selecionado."
+            acao={
+              <Button
+                variante="secundario"
+                onClick={() => {
+                  setBusca("");
+                  setFiltroSalaoId("");
+                  setGrupo("todas");
+                }}
+              >
+                Limpar filtros
+              </Button>
+            }
+          />
         ) : (
           <>
           <div className="reservas-mobile">
@@ -476,7 +531,7 @@ export function ReservationsPage() {
               <div key={reserva.id} className="reserva-card-mobile">
                 <div className="reserva-card-mobile-topo">
                   <span className="reserva-card-mobile-hora">{reserva.horaInicio.slice(0, 5)}</span>
-                  <span className={`badge badge-${reserva.status}`}>{STATUS_LABEL[reserva.status]}</span>
+                  <StatusBadge estado={reserva.status} />
                 </div>
                 <strong className="reserva-card-mobile-nome">{reserva.clienteNome}</strong>
                 <div className="texto-secundario reserva-card-mobile-detalhes">
@@ -549,7 +604,7 @@ export function ReservationsPage() {
                   <td>{reserva.numPessoas}</td>
                   <td>{nomeDoLocal(reserva)}</td>
                   <td>
-                    <span className={`badge badge-${reserva.status}`}>{STATUS_LABEL[reserva.status]}</span>
+                    <StatusBadge estado={reserva.status} />
                   </td>
                   <td>
                     <div className="acoes">

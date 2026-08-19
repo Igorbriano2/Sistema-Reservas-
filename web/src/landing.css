@@ -1444,9 +1444,12 @@ html[data-theme="light"] .lp-chatdemo-topo-canal {
   }
 }
 
-/* Painel "reservas ao vivo" (mock usado na secao "A virada") -------------- */
-
-.lp-painel-mock {
+/* Screenshots reais do produto (doc redesign - substitui o antigo "lp-painel-mock",
+   um dashboard desenhado em CSS com nomes ficticios; a regra da etapa foi usar telas
+   reais, nao um mockup fictício). Usado em 3 pontos: dashboard (secao "A virada"),
+   mapa de mesas (secao "Por dentro da plataforma") e o app no celular (secao PWA,
+   antes do preco) - sempre com a mesma moldura, pra parecer um sistema so. */
+.lp-screenshot {
   overflow: hidden;
   border-radius: 18px;
   border: 1px solid var(--border-subtle);
@@ -1454,102 +1457,27 @@ html[data-theme="light"] .lp-chatdemo-topo-canal {
   box-shadow: 0 24px 70px -30px rgba(0, 0, 0, 0.8);
 }
 
-.lp-painel-mock-topo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-elevated-hover);
-  padding: 1rem 1.25rem;
+.lp-screenshot img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
-.lp-painel-mock-topo p {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
+/* Print de celular (retrato, bem mais estreito que os de desktop) - sem isso ele
+   esticaria pra largura toda da coluna e pareceria um tablet gigante em vez de um
+   celular. Centralizado pra ficar bem em qualquer largura de coluna. */
+.lp-screenshot-mobile {
+  max-width: 300px;
+  margin: 0 auto;
 }
 
-.lp-painel-mock-ao-vivo {
-  border-radius: 9999px;
-  border: 1px solid rgba(var(--accent-rgb), 0.4);
-  padding: 0.25rem 0.65rem;
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--accent);
-}
-
-.lp-painel-mock-lista {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.lp-painel-mock-linha {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 0.9rem 1.25rem;
-  font-size: 0.85rem;
-  opacity: 0;
-  animation: lp-entrada 700ms ease-out forwards;
-}
-
-.lp-painel-mock-linha:last-child {
-  border-bottom: none;
-}
-
-@keyframes lp-entrada {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.lp-painel-mock-hora {
+.lp-legenda-print {
+  margin: 0.85rem 0 0;
+  text-align: center;
   font-family: var(--font-display);
-  font-weight: 800;
-}
-
-.lp-painel-mock-nome {
-  flex: 1;
-  padding: 0 0.75rem;
+  font-style: italic;
+  font-size: 1.05rem;
   color: var(--text-secondary);
-}
-
-.lp-painel-mock-pessoas {
-  display: none;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-}
-
-@media (min-width: 540px) {
-  .lp-painel-mock-pessoas {
-    display: block;
-  }
-}
-
-.lp-painel-mock-status {
-  border-radius: 9999px;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  background: var(--bg-elevated-hover);
-  color: var(--text-secondary);
-}
-
-.lp-painel-mock-status.confirmada {
-  background: rgba(var(--accent-rgb), 0.15);
-  color: var(--accent);
 }
 
 /* Selo com "ponto piscando" (usado no hero, badge de canal atendido) */

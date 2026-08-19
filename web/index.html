@@ -2,7 +2,11 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover (doc redesign, etapa PWA/mobile) - necessario pra env(safe-area-inset-*)
+         funcionar no CSS (index.css); sem isso, "apple-mobile-web-app-status-bar-style:
+         black-translucent" abaixo deixa o conteudo ir por baixo da status bar/home
+         indicator do iPhone sem nenhum jeito de compensar via CSS. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Quero Reservar - agente de IA que atende e organiza reservas do seu restaurante direto no Instagram Direct." />
     <meta name="theme-color" content="#0d0d0d" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />

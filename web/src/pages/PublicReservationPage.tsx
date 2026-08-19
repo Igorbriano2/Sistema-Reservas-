@@ -85,7 +85,7 @@ function FormularioDeposito({ token, dadosReserva, valorCentavos, onSucesso, onV
   }
 
   return (
-    <form className="form-login" onSubmit={pagarEConfirmar} style={{ width: 360 }}>
+    <form className="form-login" onSubmit={pagarEConfirmar} style={{ width: "min(360px, 92vw)" }}>
       <Marca tamanho="grande" />
       <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Depósito para confirmar</h1>
       <p className="texto-secundario" style={{ fontSize: "0.85rem", margin: 0 }}>
@@ -443,7 +443,7 @@ export function PublicReservationPage() {
     return (
       <>
       <div className="tela-login">
-        <form className="form-login" onSubmit={avancarParaMapa} style={{ width: 360 }}>
+        <form className="form-login" onSubmit={avancarParaMapa} style={{ width: "min(360px, 92vw)" }}>
           <Marca tamanho="grande" />
           <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reservar em {unidadeNome}</h1>
           <label>
@@ -584,7 +584,7 @@ export function PublicReservationPage() {
   return (
     <>
     <div className="tela-login">
-      <form className="form-login" onSubmit={handleSubmit} style={{ width: 360 }}>
+      <form className="form-login" onSubmit={handleSubmit} style={{ width: "min(360px, 92vw)" }}>
         <Marca tamanho="grande" />
         <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reservar em {unidadeNome}</h1>
         <p className="texto-secundario" style={{ fontSize: "0.85rem", margin: 0 }}>

@@ -48,6 +48,10 @@ interface SalaoCanvasSvgProps {
   mesaSelecionadaId?: string | null;
   elementoSelecionadoId?: string | null;
   mesasIndisponiveisIds?: Set<string>;
+  // So usado em modo "edicao" (TablesPage) - estado operacional de hoje (reservada/
+  // ocupada/bloqueada), so leitura, nunca interfere no arraste/selecao abaixo. Doc
+  // redesign - "diferencie claramente livre, reservada, ocupada, bloqueada".
+  estadosOperacionais?: Map<string, { estado: "reservada" | "ocupada" | "bloqueada"; rotulo: string }>;
   onSelecionarMesa?: (id: string) => void;
   onSelecionarElemento?: (id: string) => void;
   onMoverMesa?: (id: string, posX: number, posY: number) => void;
@@ -138,6 +142,7 @@ export function SalaoCanvasSvg({
   mesaSelecionadaId,
   elementoSelecionadoId,
   mesasIndisponiveisIds,
+  estadosOperacionais,
   onSelecionarMesa,
   onSelecionarElemento,
   onMoverMesa,
@@ -357,6 +362,7 @@ export function SalaoCanvasSvg({
 
       {mesas.map((mesa) => {
         const indisponivel = mesasIndisponiveisIds?.has(mesa.id) ?? false;
+        const infoEstado = modo === "edicao" ? estadosOperacionais?.get(mesa.id) : undefined;
         const selecionada = mesaSelecionadaId === mesa.id;
         const cx = mesa.posX + mesa.largura / 2;
         const cy = mesa.posY + mesa.altura / 2;
@@ -371,6 +377,7 @@ export function SalaoCanvasSvg({
               selecionada ? "selecionada" : "",
               indisponivel ? "indisponivel" : "",
               modo === "selecao" && !indisponivel ? "selecionavel" : "",
+              infoEstado ? `estado-${infoEstado.estado}` : "",
             ]
               .filter(Boolean)
               .join(" ")}
@@ -381,6 +388,7 @@ export function SalaoCanvasSvg({
             }}
           >
             {modo === "selecao" && indisponivel && mesa.motivoIndisponivel && <title>{mesa.motivoIndisponivel}</title>}
+            {infoEstado && <title>{infoEstado.rotulo}</title>}
             {cadeiras.map((c, i) => (
               <circle key={i} cx={c.x} cy={c.y} r={6} className="mesa-canvas-cadeira" />
             ))}

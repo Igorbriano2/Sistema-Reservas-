@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import { listarReservasPorPeriodo } from "../api/resources.js";
+import { EmptyState, Skeleton, StatusBadge } from "../components/ui/index.js";
 import type { Reserva, ReservaStatus } from "../types.js";
 
-const STATUS_LABEL: Record<ReservaStatus, string> = {
-  pendente: "Pendente",
-  confirmada: "Confirmada",
-  cancelada: "Cancelada",
-  concluida: "Concluida",
-  no_show: "Nao compareceu",
-};
-
-const STATUS_ORDEM: ReservaStatus[] = ["confirmada", "pendente", "concluida", "no_show", "cancelada"];
+// Pendente primeiro (doc redesign, "destaque proximas reservas e pendencias") - e
+// o status que mais precisa de atencao/acao, entao aparece no topo da distribuicao
+// em vez de no meio.
+const STATUS_ORDEM: ReservaStatus[] = ["pendente", "confirmada", "concluida", "no_show", "cancelada"];
 
 function dataLocal(offsetDias = 0): string {
   const agora = new Date();
@@ -85,6 +82,22 @@ export function DashboardPage() {
     return { porStatus, totalReservasAtivas, totalPessoas, taxaNaoComparecimento };
   }, [reservas]);
 
+  // "Proximas reservas" (doc redesign, UX pedido: "destaque proximas reservas e
+  // pendencias") - reaproveita os dados JA carregados pelo periodo selecionado
+  // (mesmo endpoint, sem chamada nova) - so faz sentido mostrar quando "hoje" cai
+  // dentro do periodo escolhido, senao a lista ficaria vazia ou (pior) mostrando
+  // reservas de um dia que nao e mais "hoje" como se fossem proximas.
+  const hoje = dataLocal();
+  const hojeNoPeriodo = dataInicio <= hoje && hoje <= dataFim;
+  const proximasReservas = useMemo(() => {
+    if (!hojeNoPeriodo) return [];
+    return reservas
+      .filter((r) => r.data === hoje && (r.status === "pendente" || r.status === "confirmada"))
+      .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio))
+      .slice(0, 6);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservas, hoje, hojeNoPeriodo]);
+
   const pronto = !carregando;
   const totalReservasAnimado = useContagemAnimada(metricas.totalReservasAtivas, pronto);
   const totalPessoasAnimado = useContagemAnimada(metricas.totalPessoas, pronto);
@@ -121,6 +134,51 @@ export function DashboardPage() {
 
       {erro && <p className="erro">{erro}</p>}
 
+      {hojeNoPeriodo && (
+        <div className="cartao">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+            <h3 style={{ margin: 0 }}>Próximas reservas de hoje</h3>
+            <Link className="link-trocar-painel" to="/admin/reservas">
+              Ver todas →
+            </Link>
+          </div>
+          {carregando ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <Skeleton altura="2.5rem" />
+              <Skeleton altura="2.5rem" />
+              <Skeleton altura="2.5rem" />
+            </div>
+          ) : proximasReservas.length === 0 ? (
+            <EmptyState titulo="Nenhuma reserva pendente para hoje" descricao="Tudo tranquilo por enquanto." />
+          ) : (
+            <div className="tabela-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Hora</th>
+                    <th>Cliente</th>
+                    <th>Pessoas</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proximasReservas.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.horaInicio.slice(0, 5)}</td>
+                      <td>{r.clienteNome}</td>
+                      <td>{r.numPessoas}</td>
+                      <td>
+                        <StatusBadge estado={r.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grade-metricas">
         <div className="cartao cartao-metrica">
           <span className="texto-secundario">Total de reservas</span>
@@ -141,9 +199,13 @@ export function DashboardPage() {
       <div className="cartao cartao-grafico">
         <h3 style={{ marginTop: 0 }}>Reservas por status</h3>
         {carregando ? (
-          <p>Carregando...</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+            <Skeleton altura="1.5rem" />
+            <Skeleton altura="1.5rem" />
+            <Skeleton altura="1.5rem" />
+          </div>
         ) : reservas.length === 0 ? (
-          <p className="texto-secundario">Nenhuma reserva no periodo selecionado.</p>
+          <EmptyState titulo="Nenhuma reserva no período selecionado" descricao="Ajuste o período acima pra ver outros dias." />
         ) : (
           <div className="barra-status">
             {STATUS_ORDEM.map((status) => {
@@ -151,7 +213,7 @@ export function DashboardPage() {
               const percentual = reservas.length > 0 ? (quantidade / reservas.length) * 100 : 0;
               return (
                 <div key={status} className="linha-status">
-                  <span className={`badge badge-${status}`}>{STATUS_LABEL[status]}</span>
+                  <StatusBadge estado={status} />
                   <div className="trilha-status">
                     <div
                       className={`preenchimento-status preenchimento-${status}`}

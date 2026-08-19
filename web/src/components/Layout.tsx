@@ -3,12 +3,14 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { useBarraLateralRecolhida } from "../lib/useBarraLateralRecolhida.js";
 import { useEhMobile } from "../lib/useEhMobile.js";
+import { useOnline } from "../lib/useOnline.js";
 import { obterPainelModo } from "../lib/escolhaPainel.js";
 import type { Permissao } from "../types.js";
 import { Marca } from "./Marca.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 import { NotificacaoToggle } from "./NotificacaoToggle.js";
 import { InstalarAppButton } from "./InstalarAppButton.js";
+import { Button } from "./ui/index.js";
 
 interface ItemDeNav {
   to: string;
@@ -282,6 +284,7 @@ export function Layout() {
   const [recolhida, setRecolhida] = useBarraLateralRecolhida();
   const [painelModo] = useState(() => obterPainelModo());
   const ehMobile = useEhMobile();
+  const online = useOnline();
   const location = useLocation();
   const navigate = useNavigate();
   // Doc 34 - qual grupo tem a folha de atalho aberta no mobile (null = nenhuma). So
@@ -382,9 +385,9 @@ export function Layout() {
             );
           })}
         </nav>
-        <button
-          type="button"
-          className="btn btn-secundario barra-lateral-alternar"
+        <Button
+          variante="secundario"
+          className="barra-lateral-alternar"
           style={{ marginTop: "auto" }}
           onClick={() => setRecolhida((r) => !r)}
           aria-label={recolhida ? "Expandir menu" : "Recolher menu"}
@@ -394,7 +397,7 @@ export function Layout() {
             <IconeChevron />
           </span>
           <span className="rotulo-alternar">Recolher menu</span>
-        </button>
+        </Button>
       </aside>
       {ehMobile &&
         folhaMobileAberta &&
@@ -412,20 +415,21 @@ export function Layout() {
           );
         })()}
       <div className="area-principal">
+        {!online && <div className="faixa-offline">Sem conexão — reservas e alterações não vão salvar até a internet voltar.</div>}
         {emModoTeste && (
           <div className="faixa-modo-teste">
             Modo teste — você está vendo o painel como um restaurante veria, com dados de demonstração.
-            <button className="btn btn-secundario" onClick={sairDoModoTeste}>
+            <Button variante="secundario" onClick={sairDoModoTeste}>
               Voltar ao meu painel
-            </button>
+            </Button>
           </div>
         )}
         {emModoSuporte && (
           <div className="faixa-modo-teste">
             Modo suporte — você está acessando o painel de {empresaEmSuporte ?? "um cliente"} como o dono da plataforma.
-            <button className="btn btn-secundario" onClick={sairDoModoSuporte}>
+            <Button variante="secundario" onClick={sairDoModoSuporte}>
               Sair do modo suporte
-            </button>
+            </Button>
           </div>
         )}
         {assinaturaComAviso && (
@@ -461,9 +465,9 @@ export function Layout() {
           {unidade && <NotificacaoToggle unidadeId={unidade.id} />}
           <ThemeToggle />
           <span>{usuario?.nome}</span>
-          <button className="btn btn-secundario" onClick={logout}>
+          <Button variante="secundario" onClick={logout}>
             Sair
-          </button>
+          </Button>
         </header>
         <main className="conteudo">
           <Outlet />

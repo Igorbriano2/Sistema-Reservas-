@@ -93,7 +93,7 @@ export function PublicSurveyPage() {
 
   return (
     <div className="tela-login">
-      <form className="form-login" onSubmit={enviar} style={{ width: 360 }}>
+      <form className="form-login" onSubmit={enviar} style={{ width: "min(360px, 92vw)" }}>
         <Marca tamanho="grande" />
         <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Como foi sua experiência em {info?.unidadeNome}?</h1>
         {info?.perguntas.map((pergunta) => (

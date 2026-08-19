@@ -86,6 +86,31 @@
   fill: rgba(185, 122, 79, 0.18);
 }
 
+/* Estado operacional de hoje (modo "edicao" - TablesPage, doc redesign): so cor NAO
+   basta (pedido explicito), entao cada estado tambem tem um traco diferente
+   (solido/tracejado) e um title (tooltip nativo) com o motivo - ver SalaoCanvasSvg.
+   Cores dentro da mesma familia "quente" do resto do desenho (madeira/parede), nao
+   os tokens --status-* globais - propositalmente, pelo mesmo motivo do comentario
+   no topo do arquivo (a superficie do canvas e a "tinta" do desenho). */
+.mesa-canvas-grupo.estado-reservada .mesa-canvas-forma {
+  fill: rgba(207, 164, 87, 0.3);
+  stroke: #a9812f;
+  stroke-width: 2.5;
+}
+
+.mesa-canvas-grupo.estado-ocupada .mesa-canvas-forma {
+  fill: rgba(127, 156, 154, 0.35);
+  stroke: #4f6f6d;
+  stroke-width: 2.5;
+}
+
+.mesa-canvas-grupo.estado-bloqueada .mesa-canvas-forma {
+  fill: #d9cca3;
+  stroke: #8a6f3a;
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+}
+
 .mesa-canvas-grupo.indisponivel {
   cursor: not-allowed;
 }
@@ -379,4 +404,53 @@
   .canvas-editor {
     grid-template-columns: 1fr;
   }
+}
+
+/* Legenda dos estados operacionais (TablesPage) + lista alternativa pro mobile
+   (doc redesign, achados de "diferencie os estados" e #3 da auditoria). Cores dos
+   swatches batem com o mesmo trio usado dentro do canvas SVG acima. */
+.legenda-estado-mesa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.legenda-estado-mesa span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legenda-estado-mesa-cor {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.legenda-estado-mesa-cor.estado-reservada {
+  background: rgba(207, 164, 87, 0.6);
+  border: 1.5px solid #a9812f;
+}
+
+.legenda-estado-mesa-cor.estado-ocupada {
+  background: rgba(127, 156, 154, 0.6);
+  border: 1.5px solid #4f6f6d;
+}
+
+.legenda-estado-mesa-cor.estado-bloqueada {
+  background: #d9cca3;
+  border: 1.5px dashed #8a6f3a;
+}
+
+.lista-mesas-mobile-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }

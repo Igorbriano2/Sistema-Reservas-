@@ -129,7 +129,7 @@ export function WidgetReservationPage() {
   if (etapa === "dados") {
     return (
       <div className="tela-login">
-        <form className="form-login" onSubmit={avancar} style={{ width: 320 }}>
+        <form className="form-login" onSubmit={avancar} style={{ width: "min(320px, 92vw)" }}>
           <Marca tamanho="grande" />
           <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Reservar em {unidadeNome}</h1>
           <label>
@@ -167,7 +167,7 @@ export function WidgetReservationPage() {
 
   return (
     <div className="tela-login">
-      <form className="form-login" onSubmit={confirmar} style={{ width: 320 }}>
+      <form className="form-login" onSubmit={confirmar} style={{ width: "min(320px, 92vw)" }}>
         <Marca tamanho="grande" />
         <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Seus dados</h1>
         <label>

@@ -86,15 +86,27 @@ function paraMesaCanvas(mesa: Mesa, indice: number): MesaCanvas {
 
 type Selecionado = { tipo: "mesa"; id: string } | { tipo: "elemento"; id: string } | null;
 
+export type EstadoOperacionalMesa = { estado: "reservada" | "ocupada" | "bloqueada"; rotulo: string };
+
 interface SalaoCanvasEditorProps {
   unidadeId: string;
   salaoId: string;
   mesasDoSalao: Mesa[];
   elementosDoSalao: SalaoElemento[];
   onAlterado: () => void;
+  // Doc redesign - so leitura (ver TablesPage.tsx), nunca interfere no arraste/CRUD
+  // abaixo. Opcional: sem isso, o canvas se comporta exatamente como antes.
+  estadosOperacionais?: Map<string, EstadoOperacionalMesa>;
 }
 
-export function SalaoCanvasEditor({ unidadeId, salaoId, mesasDoSalao, elementosDoSalao, onAlterado }: SalaoCanvasEditorProps) {
+export function SalaoCanvasEditor({
+  unidadeId,
+  salaoId,
+  mesasDoSalao,
+  elementosDoSalao,
+  onAlterado,
+  estadosOperacionais,
+}: SalaoCanvasEditorProps) {
   const [mesasLocais, setMesasLocais] = useState<MesaCanvas[]>([]);
   const [elementosLocais, setElementosLocais] = useState<SalaoElemento[]>([]);
   const [pendentes, setPendentes] = useState<Set<string>>(new Set());
@@ -377,6 +389,7 @@ export function SalaoCanvasEditor({ unidadeId, salaoId, mesasDoSalao, elementosD
           mesas={mesasLocais}
           elementos={elementosLocais}
           modo="edicao"
+          estadosOperacionais={estadosOperacionais}
           mesaSelecionadaId={selecionado?.tipo === "mesa" ? selecionado.id : null}
           elementoSelecionadoId={selecionado?.tipo === "elemento" ? selecionado.id : null}
           onSelecionarMesa={(id) => setSelecionado({ tipo: "mesa", id })}

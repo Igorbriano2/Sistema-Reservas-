@@ -30,6 +30,30 @@
   --status-concluida-bg: rgba(127, 156, 154, 0.16);
   --status-no-show: #7c8574;
   --status-no-show-bg: rgba(124, 133, 116, 0.16);
+  /* Bloqueio de horario (acao do restaurante, doc redesign D1) - distinto de
+     cancelada (cliente) e pendente (aguardando confirmacao). Mesmo padrao dos
+     outros tokens de status: igual nos dois temas, sempre usado com o texto do
+     badge junto (nunca so a cor - ver StatusBadge.tsx), nunca sozinho. */
+  --status-bloqueio: #b7791f;
+  --status-bloqueio-bg: rgba(183, 121, 31, 0.16);
+
+  /* Escala de espacamento (doc redesign, Onda 0) - nomeia valores que ja eram usados
+     soltos pelo CSS (0.25rem, 0.5rem, ...); nao muda nenhum valor visual existente,
+     so da nome pra eles em CSS/componentes novos. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Raio (doc redesign, Onda 0) - idem: nomeia os 4 valores de border-radius ja
+     usados no projeto (btn/input=8px, cartao=12px, cartao grande=14px, pilula=999px). */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
 
   --ease-padrao: cubic-bezier(0.16, 1, 0.3, 1);
   --duracao-micro: 150ms;
@@ -498,6 +522,17 @@ label {
   font-weight: 600;
 }
 
+/* Doc redesign, etapa PWA/mobile - ver lib/useOnline.ts */
+.faixa-offline {
+  background: var(--status-cancelada-bg);
+  border-bottom: 1px solid var(--status-cancelada);
+  color: var(--text-primary);
+  padding: 0.6rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
 .topo select {
   width: auto;
 }
@@ -754,6 +789,13 @@ tbody tr:hover {
   color: var(--status-no-show);
 }
 
+/* Bloqueio de horario (doc redesign D1) - ver StatusBadge.tsx: sempre com o texto
+   "Bloqueado" junto, a cor nunca e o unico indicador do estado. */
+.badge-bloqueio {
+  background: var(--status-bloqueio-bg);
+  color: var(--status-bloqueio);
+}
+
 /* Fila de espera (doc 20) - reaproveita os mesmos tokens de status das reservas. */
 .badge-esperando {
   background: var(--status-pendente-bg);
@@ -865,9 +907,27 @@ tbody tr:hover {
   margin-bottom: 0.75rem;
 }
 
+/* Titulo de sub-secao dentro de um formulario grande (doc redesign, achado #7 da
+   auditoria - "Novo salão" tinha ate 7 campos numa unica grade sem nenhuma pausa
+   visual) - so texto, sem caixa/borda, pra nao competir com o titulo real (h3) da
+   tela nem parecer mais um cartao dentro do cartao. */
+.titulo-secao-form {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0.5rem;
+}
+
 .acoes {
   display: flex;
   gap: 0.5rem;
+  /* Doc redesign, achado #6 da auditoria - sem wrap, uma linha de tabela com
+     varios botoes de acao (Sentar/Nao compareceu/WhatsApp/Editar/Cancelar) so
+     tinha o scroll horizontal da tabela como rede de seguranca em tablet/desktop
+     mais estreito. Quebra pra 2a linha em vez de alargar a tabela inteira. */
+  flex-wrap: wrap;
 }
 
 /* Seletor de data (Reservas do dia) - pilulas hoje/ontem/amanha + calendario do mes. */
@@ -1083,7 +1143,12 @@ tbody tr:hover {
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
   padding: 2rem;
-  width: 320px;
+  /* min() em vez de largura fixa (doc redesign, achado #1 da auditoria) - largura
+     fixa estourava (cortava parte do formulario, escondido pelo overflow-x:hidden
+     do body) em qualquer viewport <=390px. Mesmo padrao ja usado com sucesso em
+     PublicReservationPage.tsx (etapa "escolher mesa"), so generalizado aqui pra
+     TODO uso de .form-login (login, checkout, reserva publica, widget, pesquisa). */
+  width: min(320px, 92vw);
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -1171,6 +1236,114 @@ tbody tr:hover {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   width: 100%;
+}
+
+/* Modal (doc redesign D3, ui/Modal.tsx) --------------------------------------- */
+
+.modal-fundo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  animation: entrada-cartao var(--duracao-micro) var(--ease-padrao) both;
+}
+
+.modal-caixa {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  width: min(480px, 100%);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  animation: entrada-login var(--duracao-painel) var(--ease-padrao) both;
+}
+
+.modal-caixa:focus-visible {
+  outline: none;
+}
+
+.modal-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal-corpo {
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.modal-rodape {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Skeleton de carregamento (doc redesign, ui/Skeleton.tsx) -------------------- */
+
+.skeleton {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--bg-elevated-hover) 25%, var(--border-subtle) 37%, var(--bg-elevated-hover) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-pulso 1.4s ease infinite;
+}
+
+@keyframes skeleton-pulso {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--bg-elevated-hover);
+  }
+}
+
+/* Estado vazio (doc redesign D3, ui/EmptyState.tsx) --------------------------- */
+
+.estado-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  color: var(--text-secondary);
+}
+
+.estado-vazio-icone {
+  color: var(--text-secondary);
+  opacity: 0.6;
+  margin-bottom: var(--space-2);
+}
+
+.estado-vazio-titulo {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.estado-vazio-descricao {
+  font-size: 0.85rem;
+  max-width: 360px;
 }
 
 /* Banner de consentimento de cookies (pagina publica de reserva, doc 13) ----- */
@@ -1302,7 +1475,10 @@ tbody tr:hover {
 /* Assistente de assinatura (/assinar) --------------------------------------- */
 
 .checkout-card {
-  width: 380px;
+  /* Mesmo achado #1 da auditoria - min() no lugar de largura fixa, pra nao
+     estourar em viewports <=390px (pior caso aqui: era 380px fixo, sobrava so
+     ~342px de area util num viewport de 390px). */
+  width: min(380px, 92vw);
 }
 
 .checkout-form {
@@ -1603,13 +1779,30 @@ tbody tr:hover {
   max-height: 6rem;
 }
 
+/* Tablet (768-1023px, doc redesign D4) - faixa nova entre o mobile de baixo e o
+   desktop de cima. A sidebar recolhida (visual identico ao "recolher menu" manual
+   do desktop, .barra-lateral.recolhida) e o padrao INICIAL nessa largura quando o
+   usuario nunca mexeu no toggle (ver useBarraLateralRecolhida.ts) - decisao
+   controlada em JS, nao aqui. Aqui so garante que o conteudo nao fica espremido:
+   reduz o padding lateral do .conteudo nessa faixa em vez de manter o mesmo
+   respiro do desktop grande. Limitacao documentada (D4): nao e um drawer/overlay
+   dedicado de tablet, e o mesmo padrao "sidebar de icones" do desktop recolhido. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .conteudo {
+    padding: 1.25rem 1rem;
+  }
+}
+
 /* Painel mobile (doc 15) - a barra lateral vira uma barra de abas fixa embaixo
    (padrao de app mobile), o topo/conteudo ganham menos respiro, e a tabela de
    reservas cede lugar aos cards grandes de toque (.reservas-mobile). Fica no
    FINAL do arquivo de proposito: precisa vencer as regras incondicionais
    .reservas-mobile{display:none} / .tabela-reservas{display:...} definidas
-   mais acima, que tem a mesma especificidade e ganhariam por ordem de fonte. */
-@media (max-width: 720px) {
+   mais acima, que tem a mesma especificidade e ganhariam por ordem de fonte.
+   Corte em 767px (doc redesign D4, era 720px) - mesmo valor de useEhMobile.ts,
+   os dois PRECISAM ficar em sincronia (nao ha um so lugar fonte-da-verdade hoje,
+   ver ui-inventory.md "problemas visuais encontrados" #5). */
+@media (max-width: 767px) {
   .barra-lateral {
     position: fixed;
     left: 0;
@@ -1621,6 +1814,11 @@ tbody tr:hover {
     flex-direction: row;
     align-items: center;
     padding: 0.4rem 0.5rem;
+    /* Safe area (doc redesign, etapa PWA/mobile) - no iPhone com home indicator, sem
+       isso os botoes da barra ficam colados/embaixo da area de gesto do sistema.
+       env(...) cai pra 0px sozinho em qualquer aparelho sem essa faixa (Android,
+       desktop, iPhone mais antigo) - nao muda nada la. */
+    padding-bottom: calc(0.4rem + env(safe-area-inset-bottom, 0px));
     gap: 0;
     border-right: none;
     border-top: 1px solid var(--border-subtle);
@@ -1651,7 +1849,9 @@ tbody tr:hover {
   }
 
   .area-principal {
-    padding-bottom: 64px;
+    /* +env() pra acompanhar a barra fixa embaixo ficando mais alta com a safe area
+       (ver .barra-lateral acima) - senao o fim da pagina ficaria escondido atras dela. */
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Doc 34 - folha que sobe de baixo quando uma aba-grupo (Reservas, Configuracoes,
@@ -1671,7 +1871,9 @@ tbody tr:hover {
     background: var(--bg-elevated);
     border-top: 1px solid var(--border-subtle);
     border-radius: 16px 16px 0 0;
-    padding: 0.5rem 0.75rem calc(1rem + 64px);
+    /* +env() mesmo motivo do .area-principal acima - a folha nao pode terminar
+       escondida atras da barra fixa (que ficou mais alta pela safe area). */
+    padding: 0.5rem 0.75rem calc(1rem + 64px + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
@@ -1733,7 +1935,14 @@ tbody tr:hover {
      margem (~76) = ~201px acima; padding do .conteudo (16) + barra de abas fixa
      embaixo (~64, ver .area-principal{padding-bottom:64px}) = ~80px abaixo. Sem essa
      conta, a caixa de digitar ficava atras da barra de abas (nao dava pra ver/tocar).
-  */
+
+     LACUNA CONHECIDA (doc redesign, etapa PWA/mobile): esse calculo NAO soma
+     env(safe-area-inset-bottom) - .area-principal/.barra-lateral ja somam (ver
+     acima), mas esse 281px foi medido a mao e nao revalidado num iPhone com home
+     indicator de verdade. Risco: em telas assim, a caixa de digitar pode ficar uns
+     pixels curta (nao coberta, so um respiro a menos). Preferi documentar a lacuna
+     em vez de mexer nesse numero as cegas (pedido explicito da etapa: nao adivinhar
+     em codigo que ja foi calibrado com print real de bug em producao). */
   .chat-instagram-corpo {
     height: calc(100dvh - 281px);
     min-height: 300px;

@@ -10,6 +10,13 @@ import { FounderSection } from "../components/landing/FounderSection.js";
 import { ComparisonSection } from "../components/landing/ComparisonSection.js";
 import { WaitlistForm } from "../components/landing/WaitlistForm.js";
 import thumbVideoVendas from "../assets/thumb-video-vendas.jpg";
+// Doc redesign, etapa Landing Page: prints REAIS do produto (nao mockups
+// desenhados) - vem do ambiente de demonstracao ja usado em /apresentacao (dados
+// ficticios gerados por server/src/scripts/seed-apresentacao-cervegela.ts, nunca
+// dados de cliente de verdade - conferido print a print antes de usar aqui).
+import screenshotDashboard from "../assets/apresentacao/04-dashboard.webp";
+import screenshotMesas from "../assets/apresentacao/07-mesas-salao.webp";
+import screenshotMobile from "../assets/apresentacao/18-mobile-reservas.webp";
 
 function prefereMovimentoReduzido(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -147,30 +154,14 @@ function VideoDeVendas() {
   );
 }
 
-function PainelMock() {
-  const linhas = [
-    { hora: "19:30", nome: "Marina R.", pessoas: "2 pessoas", status: "Confirmada" },
-    { hora: "20:00", nome: "Igor B.", pessoas: "4 pessoas", status: "Confirmada" },
-    { hora: "20:30", nome: "Família Souza", pessoas: "6 pessoas", status: "Aguardando" },
-    { hora: "21:00", nome: "Caio L.", pessoas: "2 pessoas", status: "Confirmada" },
-  ];
-
+// Doc redesign: substitui o antigo "PainelMock" (dashboard desenhado em CSS, com
+// nomes ficticios) por um print real do produto - regra explicita da etapa e "nao
+// criar um dashboard ficticio que nao corresponda ao sistema". Reaproveitado nas 3
+// telas pedidas (dashboard/mesas/mobile), sempre com a mesma moldura visual.
+function Screenshot({ src, alt, className }: { src: string; alt: string; className?: string }) {
   return (
-    <div className="lp-painel-mock lp-moldura">
-      <div className="lp-painel-mock-topo">
-        <p>Reservas de hoje</p>
-        <span className="lp-painel-mock-ao-vivo">ao vivo</span>
-      </div>
-      <ul className="lp-painel-mock-lista">
-        {linhas.map((linha, i) => (
-          <li key={linha.nome} className="lp-painel-mock-linha" style={{ animationDelay: `${i * 120}ms` }}>
-            <span className="lp-painel-mock-hora">{linha.hora}</span>
-            <span className="lp-painel-mock-nome">{linha.nome}</span>
-            <span className="lp-painel-mock-pessoas">{linha.pessoas}</span>
-            <span className={`lp-painel-mock-status ${linha.status === "Confirmada" ? "confirmada" : ""}`}>{linha.status}</span>
-          </li>
-        ))}
-      </ul>
+    <div className={["lp-screenshot lp-moldura", className].filter(Boolean).join(" ")}>
+      <img src={src} alt={alt} loading="lazy" />
     </div>
   );
 }
@@ -265,7 +256,10 @@ export function LandingPage() {
         {/* A virada ------------------------------------------------------------ */}
         <section className="lp-secao lp-virada lp-secao-fundo-relativo">
           <Aurora />
-          <div className="lp-container" style={{ maxWidth: 1040, display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)", gap: "3rem", alignItems: "center" }}>
+          <div
+            className="lp-container"
+            style={{ maxWidth: 1040, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "3rem", alignItems: "center" }}
+          >
             <Reveal>
               <span className="lp-eyebrow">A virada</span>
               <h2>
@@ -284,7 +278,8 @@ export function LandingPage() {
               </p>
             </Reveal>
             <Reveal delay={160}>
-              <PainelMock />
+              <Screenshot src={screenshotDashboard} alt="Dashboard do Quero Reservar mostrando reservas do dia por status" />
+              <p className="lp-legenda-print">Veja a noite inteira em uma tela.</p>
             </Reveal>
           </div>
         </section>
@@ -364,6 +359,32 @@ export function LandingPage() {
             <Reveal delay={60} as="h2">
               Tudo o que já está no ar — <span className="lp-italico-destaque">ativo e funcionando hoje</span>
             </Reveal>
+
+            <div
+              className="lp-container"
+              style={{
+                maxWidth: 1040,
+                padding: 0,
+                marginTop: "2.5rem",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "3rem",
+                alignItems: "center",
+              }}
+            >
+              <Reveal delay={100}>
+                <Screenshot src={screenshotMesas} alt="Editor visual de salões e mesas do Quero Reservar" />
+                <p className="lp-legenda-print">Mesas, ocupação e bloqueios sem planilha.</p>
+              </Reveal>
+              <Reveal delay={160}>
+                <p className="lp-texto-grande">
+                  Cadastre suas mesas num mapa visual, arraste pra organizar do jeito que o salão é de verdade, e
+                  deixe o cliente escolher a própria mesa na hora de reservar — ou use o modo simples, se preferir só
+                  controlar a capacidade total.
+                </p>
+              </Reveal>
+            </div>
+
             <div className="lp-grade-tech" style={{ marginTop: "2.5rem" }}>
               {FUNCIONALIDADES.map((item, i) => (
                 <Reveal key={item.titulo} delay={(i % 3) * 110} style={{ height: "100%" }}>
@@ -385,6 +406,38 @@ export function LandingPage() {
         <TrustSection />
         <FounderSection />
         <ComparisonSection />
+
+        {/* PWA no celular ------------------------------------------------------ */}
+        <section className="lp-secao">
+          <div
+            className="lp-container"
+            style={{
+              maxWidth: 1040,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: "3rem",
+              alignItems: "center",
+            }}
+          >
+            <Reveal>
+              <span className="lp-eyebrow">No seu bolso</span>
+              <h2>
+                <span className="lp-italico-destaque">Acompanhe as reservas de onde estiver.</span>
+              </h2>
+              <p className="lp-texto-grande" style={{ marginTop: "1.25rem" }}>
+                O painel instala como um app no celular — sem loja de aplicativo, direto do navegador. Notificação na
+                hora de uma reserva nova ou um cancelamento, mesmo com a tela bloqueada.
+              </p>
+            </Reveal>
+            <Reveal delay={160}>
+              <Screenshot
+                src={screenshotMobile}
+                alt="Painel do Quero Reservar instalado como app no celular, mostrando as reservas do dia"
+                className="lp-screenshot-mobile"
+              />
+            </Reveal>
+          </div>
+        </section>
 
         {/* Preco -------------------------------------------------------------- */}
         <section className="lp-secao lp-secao-fundo-relativo" id="preco">

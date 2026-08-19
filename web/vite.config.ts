@@ -33,6 +33,27 @@ export default defineConfig({
           { src: "/icons/icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
           { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
+        // Doc redesign, etapa PWA/mobile ("acoes rapidas") - aparecem no long-press do
+        // icone do app (Android) / preview 3D-touch (iOS). Mesmas 3 telas ja marcadas
+        // "operacao: true" no Layout.tsx (Painel Operacao) - e a propria definicao do
+        // app de "o que um funcionario na portaria precisa tocar rapido".
+        shortcuts: [
+          {
+            name: "Reservas do dia",
+            url: "/admin/reservas",
+            icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+          },
+          {
+            name: "Fila de espera",
+            url: "/admin/fila-espera",
+            icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+          },
+          {
+            name: "Conversas",
+            url: "/admin/conversas",
+            icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+          },
+        ],
       },
       injectManifest: {
         // So o shell (JS/CSS/HTML/icones) pra abrir rapido mesmo com conexao ruim -
