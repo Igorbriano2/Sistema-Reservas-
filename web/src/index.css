@@ -1936,15 +1936,17 @@ tbody tr:hover {
      embaixo (~64, ver .area-principal{padding-bottom:64px}) = ~80px abaixo. Sem essa
      conta, a caixa de digitar ficava atras da barra de abas (nao dava pra ver/tocar).
 
-     LACUNA CONHECIDA (doc redesign, etapa PWA/mobile): esse calculo NAO soma
-     env(safe-area-inset-bottom) - .area-principal/.barra-lateral ja somam (ver
-     acima), mas esse 281px foi medido a mao e nao revalidado num iPhone com home
-     indicator de verdade. Risco: em telas assim, a caixa de digitar pode ficar uns
-     pixels curta (nao coberta, so um respiro a menos). Preferi documentar a lacuna
-     em vez de mexer nesse numero as cegas (pedido explicito da etapa: nao adivinhar
-     em codigo que ja foi calibrado com print real de bug em producao). */
+     Doc redesign (fechamento das pendencias da revisao final): soma
+     env(safe-area-inset-bottom) - .area-principal/.barra-lateral ja somam essa
+     faixa na propria altura (ver acima), entao os "~80px abaixo" usados pra chegar
+     em 281px crescem pelo mesmo tanto num iPhone com home indicator. Sem isso, a
+     caixa de digitar ficaria uns pixels curta demais (atras da barra) exatamente
+     nesses aparelhos. Cai pra 0px sozinho em qualquer aparelho sem essa faixa
+     (Android, desktop, iPhone mais antigo) - mesmo padrao ja usado nas 3 regras
+     acima, nao e um numero novo inventado. NAO REVALIDADO num iPhone de verdade -
+     risco residual documentado em docs/final-design-review.md. */
   .chat-instagram-corpo {
-    height: calc(100dvh - 281px);
+    height: calc(100dvh - 281px - env(safe-area-inset-bottom, 0px));
     min-height: 300px;
   }
 

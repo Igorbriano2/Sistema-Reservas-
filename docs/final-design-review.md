@@ -47,12 +47,12 @@ server$ vitest run           → 36/431 passam (395 bloqueados por falta de Post
                                  qualquer mudança do redesign - não é regressão nova)
 ```
 
-## Problemas restantes (conhecidos, não resolvidos nesta rodada)
+## Problemas restantes
 
-1. `TablesPage` ainda tem um `<p>Carregando...</p>` solto (não migrado pro `Skeleton`) perto do editor visual.
-2. O cálculo de altura do chat mobile (`.chat-instagram-corpo`, `ConversasPage`) não recebeu o ajuste de safe-area — documentado no próprio CSS, não testado num iPhone.
+1. ~~`TablesPage` tinha um `<p>Carregando...</p>` solto~~ **RESOLVIDO** — trocado por `Skeleton`, mesmo padrão de Dashboard/Reservas.
+2. ~~`.chat-instagram-corpo` sem ajuste de safe-area~~ **RESOLVIDO** — soma `env(safe-area-inset-bottom, 0px)`, mesmo padrão das outras 3 regras (`.barra-lateral`/`.area-principal`/`.folha-mobile-nav`). Continua **não testado num iPhone de verdade** — risco residual, não um problema conhecido sem solução.
 3. Contraste de texto dos tokens `--status-*` (incluindo o novo `--status-bloqueio`) sobre fundo branco no tema claro fica abaixo do AA de 4.5:1 pra texto normal — débito pré-existente do sistema de cores, não introduzido por este redesign, não resolvido aqui (ver `docs/design-decisions.md` D1).
-4. Prints da Landing Page são de antes das Ondas 2/3 (sem Postgres local pra recapturar).
+4. **Prints da Landing Page continuam de antes das Ondas 2/3 — não pôde ser resolvido neste sandbox.** Recapturar exige rodar o app com Postgres de verdade (`cd server && npm run db:migrate && npx tsx src/scripts/seed-apresentacao-cervegela.ts`, depois abrir o painel logado e printar `/admin/dashboard`, `/admin/mesas` e a visão mobile de `/admin/reservas`) — nenhuma dessas ferramentas (Postgres, Docker) está disponível aqui. Ou você recaptura localmente e me manda os 3 arquivos pra eu trocar em `LandingPage.tsx`, ou peça de novo quando eu tiver acesso a um ambiente com banco.
 
 ## Riscos conhecidos
 

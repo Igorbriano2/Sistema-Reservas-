@@ -13,7 +13,7 @@ import {
 } from "../api/resources.js";
 import type { Bloqueio, Mesa, ModoConfiguracaoSalao, ModoHorarioReservaSalao, Reserva, Salao, SalaoElemento } from "../types.js";
 import { SalaoCanvasEditor } from "../components/salao-canvas/SalaoCanvasEditor.js";
-import { Button, Modal } from "../components/ui/index.js";
+import { Button, Modal, Skeleton } from "../components/ui/index.js";
 import { useEhMobile } from "../lib/useEhMobile.js";
 
 function hojeLocal(): string {
@@ -600,7 +600,11 @@ export function TablesPage() {
                 />
               )
             ) : (
-              carregando && <p>Carregando...</p>
+              // Doc redesign, docs/final-design-review.md "problemas restantes" #1 -
+              // ultimo "Carregando..." solto do redesign, trocado por Skeleton no
+              // formato aproximado do canvas (evita o salto de layout quando o
+              // primeiro salao carrega e o editor aparece no lugar).
+              carregando && <Skeleton altura="480px" />
             )}
           </>
         )}

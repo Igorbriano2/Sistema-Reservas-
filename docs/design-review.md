@@ -120,3 +120,14 @@ Passa item a item pela lista pedida (manifest, ícones, viewport/safe areas, nav
 **Validação**: `tsc -b` e `vite build` limpos; conferido que `dist/manifest.webmanifest` gerado contém os `shortcuts` corretamente. Login segue sem erro de console. **Safe areas e o banner offline não puderam ser testados num iPhone/aparelho com home indicator de verdade** (o navegador automatizado deste sandbox roda num desktop) — recomendo testar no seu ambiente, especialmente a barra de abas fixa no mobile e o banner ao desligar o wifi.
 
 **Regressões**: nenhuma encontrada.
+
+## 10. Fechamento de pendências (pós-revisão final)
+
+A pedido do usuário, resolvidas 2 das 4 pendências registradas em `docs/final-design-review.md`:
+
+- `TablesPage`: `<p>Carregando...</p>` solto → `Skeleton` (`web/src/pages/TablesPage.tsx`).
+- `.chat-instagram-corpo` (altura do chat no mobile, `web/src/index.css`): agora soma `env(safe-area-inset-bottom, 0px)`, mesmo padrão já aplicado em `.barra-lateral`/`.area-principal`/`.folha-mobile-nav` na Onda 4 — não era mais "não mexer às cegas", era completar um padrão já em uso 3 vezes no mesmo arquivo.
+
+**Não resolvido** (não é possível neste sandbox): recapturar os prints da Landing Page — exige Postgres rodando de verdade, indisponível aqui. Instruções de como o usuário pode gerar os prints (ou pedir de novo com acesso a banco) em `docs/final-design-review.md`.
+
+**Validação**: `tsc -b` e `vite build` limpos após as duas mudanças.
