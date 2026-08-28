@@ -98,9 +98,15 @@ reservationsRouter.post(
       throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
     }
 
+    // Doc 41 - gerente/owner pode cadastrar manualmente mesmo com o salao bloqueado ou
+    // com a capacidade ja esgotada "naturalmente" pelas reservas ativas; funcionario
+    // continua sujeito as duas checagens, igual reserva feita pelo agente/cliente.
+    const podeIgnorarBloqueioECapacidade = req.auth!.papel === "owner" || req.auth!.papel === "gerente";
+
     const reserva = await criarReserva(db, {
       unidadeId: req.unidadeId!,
       canalOrigem: "manual",
+      ignorarBloqueioECapacidade: podeIgnorarBloqueioECapacidade,
       ...dados,
     });
     res.status(201).json(reserva);

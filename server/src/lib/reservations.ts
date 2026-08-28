@@ -109,6 +109,15 @@ export interface CriarReservaParams {
   // (default da coluna), o caso normal pra reserva manual/sem deposito.
   statusPagamento?: "pago";
   stripePaymentIntentId?: string;
+  // Doc 41 - gerente/owner pode cadastrar manualmente pelo painel mesmo com o salao
+  // bloqueado (doc 28) ou com a capacidade do salao simples ja esgotada "naturalmente"
+  // (soma das reservas ativas) - decidido pela rota (papel do usuario logado), nunca
+  // por quem chama esta funcao a partir do agente/link publico/widget (esses sempre
+  // passam false/ausente). NAO afeta o conflito de MESA especifica (modo "mapa"): uma
+  // mesa fisica ja ocupada naquele horario continua rejeitada, inclusive pela propria
+  // constraint EXCLUDE do banco - nao faz sentido "ignorar" duas reservas na mesma
+  // mesa ao mesmo tempo.
+  ignorarBloqueioECapacidade?: boolean;
 }
 
 export async function criarReserva(db: Database, params: CriarReservaParams): Promise<Reserva> {
@@ -165,7 +174,7 @@ async function criarReservaComMesa(
       salaoId: mesaTrancada.salaoId,
       data: params.data,
     });
-    if (bloqueio) {
+    if (bloqueio && !params.ignorarBloqueioECapacidade) {
       throw new ConflitoDeHorarioError(`Mesa bloqueada nesta data (motivo: ${bloqueio.motivo})`);
     }
 
@@ -261,21 +270,23 @@ async function criarReservaSimples(
       salaoId: params.salaoId,
       data: params.data,
     });
-    if (bloqueio) {
+    if (bloqueio && !params.ignorarBloqueioECapacidade) {
       throw new ConflitoDeHorarioError(`Salao bloqueado nesta data (motivo: ${bloqueio.motivo})`);
     }
 
     const { horaFim, bufferMin } = await resolverJanela(tx, params.unidadeId, params.data, params.horaInicio, params.horaFim);
 
-    await validarCapacidadeSalaoSimples(tx, {
-      salaoId: params.salaoId,
-      capacidadeTotal: salaoTrancado.capacidadeTotal,
-      data: params.data,
-      horaInicio: params.horaInicio,
-      horaFim,
-      bufferMin,
-      numPessoasNova: params.numPessoas,
-    });
+    if (!params.ignorarBloqueioECapacidade) {
+      await validarCapacidadeSalaoSimples(tx, {
+        salaoId: params.salaoId,
+        capacidadeTotal: salaoTrancado.capacidadeTotal,
+        data: params.data,
+        horaInicio: params.horaInicio,
+        horaFim,
+        bufferMin,
+        numPessoasNova: params.numPessoas,
+      });
+    }
 
     try {
       const [reserva] = await tx

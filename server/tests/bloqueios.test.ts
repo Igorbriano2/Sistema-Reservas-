@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
+import { closeDb, criarEmpresaComAdmin, criarFuncionario, criarUsuarioUnidade, truncateAll } from "./helpers/db.js";
 import { criarRegraHorarioTodosOsDias } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
 
@@ -51,10 +51,13 @@ describe("Bloqueios de mesa/salao", () => {
     expect(doisAlvos.status).toBe(400);
   });
 
-  it("bloqueio de mesa impede reserva manual nessa mesa dentro do periodo, mas nao fora dele", async () => {
-    const { unidade, token } = await setup();
+  it("bloqueio de mesa impede reserva manual nessa mesa dentro do periodo, mas nao fora dele (funcionario, sem o bypass de gerente do doc 41)", async () => {
+    const { empresa, unidade, token } = await setup();
     const { mesa } = await criarSalaoEMesa(app, unidade.id, token);
     await criarRegraHorarioTodosOsDias(unidade.id);
+    const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);
+    await criarUsuarioUnidade(funcionario.id, unidade.id);
+    const tokenFuncionario = await login(app, funcionario.username, senha);
 
     const bloqueio = await request(app)
       .post(`/admin/unidades/${unidade.id}/bloqueios`)
@@ -64,22 +67,25 @@ describe("Bloqueios de mesa/salao", () => {
 
     const dentroDoPeriodo = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
-      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
       .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
     expect(dentroDoPeriodo.status).toBe(409);
     expect(dentroDoPeriodo.body.error ?? dentroDoPeriodo.text).toMatch(/bloqueada/i);
 
     const foraDoPeriodo = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
-      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
       .send({ mesaId: mesa.id, data: "2026-10-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
     expect(foraDoPeriodo.status).toBe(201);
   });
 
-  it("bloqueio de salao inteiro impede reserva em qualquer mesa daquele salao", async () => {
-    const { unidade, token } = await setup();
+  it("bloqueio de salao inteiro impede reserva em qualquer mesa daquele salao (funcionario, sem o bypass de gerente do doc 41)", async () => {
+    const { empresa, unidade, token } = await setup();
     const { salao, mesa } = await criarSalaoEMesa(app, unidade.id, token);
     await criarRegraHorarioTodosOsDias(unidade.id);
+    const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);
+    await criarUsuarioUnidade(funcionario.id, unidade.id);
+    const tokenFuncionario = await login(app, funcionario.username, senha);
 
     await request(app)
       .post(`/admin/unidades/${unidade.id}/bloqueios`)
@@ -88,7 +94,7 @@ describe("Bloqueios de mesa/salao", () => {
 
     const reserva = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
-      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
       .send({ mesaId: mesa.id, data: "2026-11-01", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
     expect(reserva.status).toBe(409);
   });
@@ -175,6 +181,41 @@ describe("Bloqueios de mesa/salao", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("gerente cadastra reserva manual mesmo com a mesa/salao bloqueado, mas funcionario continua bloqueado (doc 41)", async () => {
+    const { unidade, token } = await setup();
+    const { mesa } = await criarSalaoEMesa(app, unidade.id, token);
+    await criarRegraHorarioTodosOsDias(unidade.id);
+
+    await request(app)
+      .post(`/admin/unidades/${unidade.id}/bloqueios`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ mesaId: mesa.id, dataInicio: "2026-10-10", dataFim: "2026-10-15", motivo: "Manutencao eletrica" });
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Ger", username: "ger.bloqueios", senha: "senha12345", papel: "gerente", unidadeIds: [unidade.id] });
+    const tokenGerente = await login(app, "ger.bloqueios", "senha12345");
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Func", username: "func.bloqueios2", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+    const tokenFuncionario = await login(app, "func.bloqueios2", "senha12345");
+
+    const comoFuncionario = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+    expect(comoFuncionario.status).toBe(409);
+
+    const comoGerente = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${tokenGerente}`)
+      .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+    expect(comoGerente.status).toBe(201);
   });
 
   it("funcionario nao acessa bloqueios (owner only, igual mesas/saloes)", async () => {

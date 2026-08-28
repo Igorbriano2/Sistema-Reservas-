@@ -5,7 +5,7 @@ import { db } from "../src/db/client.js";
 import { reservas, saloes } from "../src/db/schema/index.js";
 import { criarReserva } from "../src/lib/reservations.js";
 import { ConflitoDeHorarioError } from "../src/lib/errors.js";
-import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
+import { closeDb, criarEmpresaComAdmin, criarFuncionario, criarUsuarioUnidade, truncateAll } from "./helpers/db.js";
 import { criarRegraHorarioTodosOsDias, criarSalaoSimples } from "./helpers/fixtures.js";
 import { login } from "./helpers/auth.js";
 
@@ -169,8 +169,11 @@ describe("Modo simples do salao (lib/reservations.ts direto)", () => {
 
 describe("Modo simples do salao (rotas /admin)", () => {
   it("cria salao em modo simples via API e reflete disponibilidade agregada", async () => {
-    const { unidade, token } = await setup();
+    const { empresa, unidade, token } = await setup();
     await criarRegraHorarioTodosOsDias(unidade.id);
+    const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);
+    await criarUsuarioUnidade(funcionario.id, unidade.id);
+    const tokenFuncionario = await login(app, funcionario.username, senha);
 
     const salao = await request(app)
       .post(`/admin/unidades/${unidade.id}/saloes`)
@@ -182,14 +185,16 @@ describe("Modo simples do salao (rotas /admin)", () => {
 
     const reserva = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
-      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
       .send({ salaoId: salao.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente A" });
     expect(reserva.status).toBe(201);
     expect(reserva.body.mesaId).toBeNull();
 
+    // Segunda reserva no mesmo horario/salao com o funcionario (sem o bypass de
+    // gerente/owner do doc 41): a soma estouraria a capacidade total (8).
     const excedente = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
-      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
       .send({ salaoId: salao.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente B" });
     expect(excedente.status).toBe(409);
 
@@ -229,6 +234,46 @@ describe("Modo simples do salao (rotas /admin)", () => {
         clienteNome: "Cliente",
       });
     expect(resposta.status).toBe(400);
+  });
+
+  it("gerente cadastra reserva manual mesmo com a capacidade do salao simples esgotada, mas funcionario continua bloqueado (doc 41)", async () => {
+    const { unidade, token } = await setup();
+    await criarRegraHorarioTodosOsDias(unidade.id);
+
+    const salao = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao Simples", modoConfiguracao: "simples", capacidadeTotal: 5 });
+
+    const cheia = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente A" });
+    expect(cheia.status).toBe(201);
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Ger", username: "ger.capacidade", senha: "senha12345", papel: "gerente", unidadeIds: [unidade.id] });
+    const tokenGerente = await login(app, "ger.capacidade", "senha12345");
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Func", username: "func.capacidade", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+    const tokenFuncionario = await login(app, "func.capacidade", "senha12345");
+
+    const comoFuncionario = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente B" });
+    expect(comoFuncionario.status).toBe(409);
+
+    const comoGerente = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${tokenGerente}`)
+      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente C" });
+    expect(comoGerente.status).toBe(201);
   });
 
   it("pagina publica de reserva (link) escolhe automaticamente o salao simples quando nao ha mesas", async () => {
