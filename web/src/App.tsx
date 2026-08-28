@@ -1,6 +1,7 @@
 import { Navigate, Route, BrowserRouter, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
 import type { Permissao } from "./types.js";
+import { AmbientParticles } from "./components/AmbientParticles.js";
 import { Layout } from "./components/Layout.js";
 import { LandingPage } from "./pages/LandingPage.js";
 import { ApresentacaoPage } from "./pages/ApresentacaoPage.js";
@@ -262,6 +263,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
+      {/* Puramente decorativo (redesign Apple-style/Liquid Glass) - fixo atras de tudo,
+          cobre o app inteiro de uma vez so, sem nenhum estado/logica propria. */}
+      <AmbientParticles />
       <AuthProvider>
         <PlataformaAuthProvider>
           <AppRoutes />

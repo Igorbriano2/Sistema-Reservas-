@@ -56,8 +56,26 @@
   --radius-full: 999px;
 
   --ease-padrao: cubic-bezier(0.16, 1, 0.3, 1);
+  /* "Mola" (spring) - overshoot leve, usada nos elementos de vidro (Liquid Glass) pra
+     dar a sensacao de material fisico reagindo ao toque, em vez de so um fade/translate
+     linear. Reservada pra hover/active de superficies "vidro" (botoes, cartoes,
+     pilulas) - o resto da UI continua em --ease-padrao. */
+  --ease-mola: cubic-bezier(0.34, 1.56, 0.64, 1);
   --duracao-micro: 150ms;
   --duracao-painel: 350ms;
+  --duracao-mola: 480ms;
+
+  /* Liquid Glass (redesign Apple-style) - superficies translucidas com blur "vidro
+     fosco", um realce fino no topo simulando luz pegando a borda, e sombra suave de
+     profundidade. --vidro-fundo/--vidro-fundo-forte sao o mesmo bg-elevated diluido em
+     dois niveis (forte = sidebar/topo, que precisam de mais legibilidade por ficarem
+     sempre visiveis; fraco = cartoes/pilulas soltos sobre o glow do body). */
+  --vidro-fundo: color-mix(in srgb, var(--bg-elevated) 62%, transparent);
+  --vidro-fundo-forte: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
+  --vidro-borda: rgba(255, 255, 255, 0.08);
+  --vidro-realce: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --vidro-sombra: 0 8px 32px rgba(0, 0, 0, 0.28);
+  --vidro-blur: blur(20px) saturate(150%);
 
   --font-texto: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
   --font-display: "Bodoni Moda", Georgia, "Times New Roman", serif;
@@ -77,6 +95,13 @@ html[data-theme="light"] {
   --accent-glow: rgba(216, 27, 70, 0.22);
   --text-primary: #171313; /* Preto quente */
   --text-secondary: #6b5c5c;
+  /* Liquid Glass no tema claro - o realce branco do tema escuro (luz "pegando" a
+     borda de vidro sobre um fundo escuro) fica invisivel sobre um fundo claro; aqui o
+     material de vidro se destaca do fundo com uma sombra suave por baixo em vez de
+     brilho por cima, e a borda vira um contorno escuro bem sutil. */
+  --vidro-borda: rgba(23, 19, 19, 0.08);
+  --vidro-realce: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 0 0 1px rgba(23, 19, 19, 0.04);
+  --vidro-sombra: 0 8px 28px rgba(23, 19, 19, 0.1);
   color-scheme: light;
 }
 
@@ -133,6 +158,55 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(var(--accent-rgb), 0.7);
+}
+
+/* Particulas ambiente (redesign Apple-style, ver components/AmbientParticles.tsx) -
+   orbes desfocadas, bem lentas e discretas, flutuando atras de tudo (z-index -1,
+   pointer-events:none) pra dar uma sensacao de profundidade "Spatial UI" sem competir
+   com o conteudo real. Um unico componente montado uma vez em App.tsx cobre o app
+   inteiro (admin, painel da plataforma, paginas publicas, landing) - puramente
+   decorativo, nao le nem guarda nenhum estado da aplicacao. */
+.particulas-ambiente {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.5) 0%, rgba(var(--accent-rgb), 0) 70%);
+  opacity: 0.55;
+  animation: particula-flutuar 26s ease-in-out infinite;
+  will-change: transform;
+}
+
+html[data-theme="light"] .particula {
+  opacity: 0.3;
+}
+
+@keyframes particula-flutuar {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(4%, -6%) scale(1.08);
+  }
+  66% {
+    transform: translate(-3%, 4%) scale(0.96);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .particula {
+    animation: none;
+  }
 }
 
 a {
@@ -205,17 +279,20 @@ button {
   font-weight: 600;
   background: var(--accent);
   color: var(--text-on-accent);
-  transition: transform var(--duracao-micro) var(--ease-padrao), box-shadow var(--duracao-micro) var(--ease-padrao),
+  box-shadow: var(--vidro-realce);
+  transition: transform var(--duracao-mola) var(--ease-mola), box-shadow var(--duracao-micro) var(--ease-padrao),
     background var(--duracao-micro) var(--ease-padrao);
 }
 
 .btn:hover:not(:disabled) {
   background: #f1345f;
-  box-shadow: 0 0 0 4px var(--accent-glow);
+  box-shadow: var(--vidro-realce), 0 0 0 4px var(--accent-glow);
+  transform: translateY(-1px) scale(1.015);
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.98);
+  transition-duration: var(--duracao-micro);
 }
 
 .btn:disabled {
@@ -223,16 +300,22 @@ button {
   cursor: not-allowed;
 }
 
+/* Vidro fosco (Liquid Glass) - o botao secundario e o mais comum da UI (cancelar,
+   filtros, acoes de tabela), entao e onde o material "vidro" mais aparece. */
 .btn-secundario {
-  background: var(--bg-elevated);
+  background: var(--vidro-fundo);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
   color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--vidro-borda);
+  box-shadow: var(--vidro-realce);
 }
 
 .btn-secundario:hover:not(:disabled) {
   background: var(--bg-elevated-hover);
   border-color: var(--accent);
-  box-shadow: none;
+  box-shadow: var(--vidro-realce);
+  transform: translateY(-1px) scale(1.015);
 }
 
 .btn-icone {
@@ -324,8 +407,11 @@ label {
 .barra-lateral {
   width: 232px;
   flex-shrink: 0;
-  background: var(--bg-elevated);
-  border-right: 1px solid var(--border-subtle);
+  background: var(--vidro-fundo-forte);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border-right: 1px solid var(--vidro-borda);
+  box-shadow: var(--vidro-realce);
   padding: 1.5rem 1rem;
   display: flex;
   flex-direction: column;
@@ -371,7 +457,7 @@ label {
   align-items: center;
   gap: 0.65rem;
   padding: 0.6rem 0.7rem;
-  border-radius: 8px;
+  border-radius: 10px;
   text-decoration: none;
   font-weight: 600;
   font-size: 0.9rem;
@@ -379,7 +465,8 @@ label {
   background: none;
   border: none;
   cursor: pointer;
-  transition: background var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao);
+  transition: background var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao),
+    transform var(--duracao-mola) var(--ease-mola);
 }
 
 .barra-lateral-alternar {
@@ -410,6 +497,7 @@ label {
 .barra-lateral nav > button:hover {
   background: var(--bg-elevated-hover);
   color: var(--text-primary);
+  transform: translateX(2px);
 }
 
 .barra-lateral nav a.ativo,
@@ -492,12 +580,18 @@ label {
 }
 
 .topo {
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--vidro-fundo-forte);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border-bottom: 1px solid var(--vidro-borda);
+  box-shadow: var(--vidro-realce);
   padding: 0.85rem 1.5rem;
   display: flex;
   align-items: center;
   gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .faixa-modo-teste {
@@ -566,17 +660,19 @@ label {
    nem de logica extra - mas nao dispara de novo so por causa de um re-render (ex:
    filtro de data), so quando a pagina troca de verdade. */
 .conteudo > * {
-  animation: pagina-fade-in 380ms var(--ease-padrao);
+  animation: pagina-fade-in 420ms var(--ease-mola);
 }
 
 @keyframes pagina-fade-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px) scale(0.99);
+    filter: blur(4px);
   }
   to {
     opacity: 1;
     transform: none;
+    filter: blur(0);
   }
 }
 
@@ -595,9 +691,12 @@ label {
 /* Cartoes / tabelas ------------------------------------------------------- */
 
 .cartao {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  background: var(--vidro-fundo);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--vidro-realce), var(--vidro-sombra);
   padding: 1.25rem;
   margin-bottom: 1.25rem;
 }
@@ -625,9 +724,10 @@ label {
 
 .cartao-metrica,
 .cartao-grafico {
-  background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--vidro-fundo);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
   animation: entrada-cartao var(--duracao-painel) var(--ease-padrao) both;
 }
 
@@ -637,13 +737,13 @@ label {
   flex-direction: column;
   gap: 0.5rem;
   background-image: linear-gradient(160deg, transparent 0%, transparent 55%, rgba(var(--accent-rgb), 0.1) 100%);
-  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.06);
-  transition: box-shadow var(--duracao-micro) var(--ease-padrao), transform var(--duracao-micro) var(--ease-padrao);
+  box-shadow: var(--vidro-realce), 0 0 0 1px rgba(var(--accent-rgb), 0.06);
+  transition: box-shadow var(--duracao-mola) var(--ease-mola), transform var(--duracao-mola) var(--ease-mola);
 }
 
 .cartao-metrica:hover {
-  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.22), 0 0 24px rgba(var(--accent-rgb), 0.1);
-  transform: translateY(-2px);
+  box-shadow: var(--vidro-realce), 0 0 0 1px rgba(var(--accent-rgb), 0.22), 0 0 28px rgba(var(--accent-rgb), 0.12);
+  transform: translateY(-3px) scale(1.008);
 }
 
 .cartao-metrica:nth-child(1) {
@@ -658,11 +758,12 @@ label {
 
 .cartao-grafico {
   animation-delay: 160ms;
+  box-shadow: var(--vidro-realce);
   transition: box-shadow var(--duracao-micro) var(--ease-padrao);
 }
 
 .cartao-grafico:hover {
-  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.14), 0 0 28px rgba(var(--accent-rgb), 0.08);
+  box-shadow: var(--vidro-realce), 0 0 0 1px rgba(var(--accent-rgb), 0.14), 0 0 28px rgba(var(--accent-rgb), 0.08);
 }
 
 .cartao-metrica strong {
@@ -825,20 +926,23 @@ tbody tr:hover {
 }
 
 .aba-status {
-  background: transparent;
-  border: 1px solid var(--border-subtle);
+  background: var(--vidro-fundo);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
   border-radius: 999px;
   padding: 0.4rem 0.85rem;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-secondary);
-  transition: border-color var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao),
-    background var(--duracao-micro) var(--ease-padrao);
+  transition: border-color var(--duracao-mola) var(--ease-mola), color var(--duracao-micro) var(--ease-padrao),
+    background var(--duracao-micro) var(--ease-padrao), transform var(--duracao-mola) var(--ease-mola);
 }
 
 .aba-status:hover {
   color: var(--text-primary);
   border-color: var(--text-secondary);
+  transform: translateY(-1px);
 }
 
 .aba-status.ativa {
@@ -951,20 +1055,23 @@ tbody tr:hover {
 }
 
 .pilula-data {
-  background: transparent;
-  border: 1px solid var(--border-subtle);
+  background: var(--vidro-fundo);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
   border-radius: 999px;
   padding: 0.45rem 0.9rem;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-secondary);
-  transition: border-color var(--duracao-micro) var(--ease-padrao), color var(--duracao-micro) var(--ease-padrao),
-    background var(--duracao-micro) var(--ease-padrao);
+  transition: border-color var(--duracao-mola) var(--ease-mola), color var(--duracao-micro) var(--ease-padrao),
+    background var(--duracao-micro) var(--ease-padrao), transform var(--duracao-mola) var(--ease-mola);
 }
 
 .pilula-data:hover {
   color: var(--text-primary);
   border-color: var(--text-secondary);
+  transform: translateY(-1px);
 }
 
 .pilula-data.ativa {
@@ -978,11 +1085,13 @@ tbody tr:hover {
   top: calc(100% + 0.5rem);
   left: 0;
   z-index: 30;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  background: var(--vidro-fundo-forte);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
+  border-radius: var(--radius-lg);
   padding: 1rem;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--vidro-realce), 0 12px 32px rgba(0, 0, 0, 0.3);
   width: min(320px, 90vw);
   animation: entrada-cartao var(--duracao-painel) var(--ease-padrao) both;
 }
@@ -1139,9 +1248,11 @@ tbody tr:hover {
 }
 
 .form-login {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
+  background: var(--vidro-fundo-forte);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
+  border-radius: 20px;
   padding: 2rem;
   /* min() em vez de largura fixa (doc redesign, achado #1 da auditoria) - largura
      fixa estourava (cortava parte do formulario, escondido pelo overflow-x:hidden
@@ -1152,8 +1263,8 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.08), 0 20px 60px rgba(0, 0, 0, 0.5);
-  animation: entrada-login var(--duracao-painel) var(--ease-padrao) both;
+  box-shadow: var(--vidro-realce), 0 0 0 1px rgba(var(--accent-rgb), 0.08), 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: entrada-login var(--duracao-painel) var(--ease-mola) both;
 }
 
 @keyframes entrada-login {
@@ -1193,9 +1304,11 @@ tbody tr:hover {
 
 .cartao-escolha,
 .cartao-loja {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
+  background: var(--vidro-fundo);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
+  border-radius: 20px;
   padding: 1.75rem 1.25rem;
   display: flex;
   flex-direction: column;
@@ -1203,8 +1316,9 @@ tbody tr:hover {
   gap: 0.5rem;
   text-align: center;
   color: var(--text-primary);
-  transition: border-color var(--duracao-micro) var(--ease-padrao), box-shadow var(--duracao-micro) var(--ease-padrao),
-    transform var(--duracao-micro) var(--ease-padrao);
+  box-shadow: var(--vidro-realce);
+  transition: border-color var(--duracao-mola) var(--ease-mola), box-shadow var(--duracao-mola) var(--ease-mola),
+    transform var(--duracao-mola) var(--ease-mola);
 }
 
 .cartao-escolha svg,
@@ -1227,8 +1341,8 @@ tbody tr:hover {
 .cartao-escolha:hover,
 .cartao-loja:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-  transform: translateY(-2px);
+  box-shadow: var(--vidro-realce), 0 0 0 3px var(--accent-glow);
+  transform: translateY(-3px) scale(1.01);
 }
 
 .grade-lojas {
@@ -1243,7 +1357,9 @@ tbody tr:hover {
 .modal-fundo {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 70;
   display: flex;
   align-items: center;
@@ -1253,15 +1369,33 @@ tbody tr:hover {
 }
 
 .modal-caixa {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  background: var(--vidro-fundo-forte);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
+  border-radius: 20px;
+  box-shadow: var(--vidro-realce), 0 20px 60px rgba(0, 0, 0, 0.45);
   width: min(480px, 100%);
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  animation: entrada-login var(--duracao-painel) var(--ease-padrao) both;
+  animation: entrada-vidro var(--duracao-mola) var(--ease-mola) both;
+}
+
+/* Entrada "liquida" (blur+escala) - reservada pra folhas de vidro que aparecem por
+   cima de tudo (modal), pra dar a sensacao de material condensando no lugar em vez
+   de so deslizar/aparecer. */
+@keyframes entrada-vidro {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
 }
 
 .modal-caixa:focus-visible {
@@ -1554,9 +1688,12 @@ tbody tr:hover {
 }
 
 .chat-conexao-faixa {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  background: var(--vidro-fundo);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
+  box-shadow: var(--vidro-realce);
+  border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
 }
@@ -1587,9 +1724,12 @@ tbody tr:hover {
   display: flex;
   height: 72vh;
   min-height: 480px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  background: var(--vidro-fundo);
+  backdrop-filter: var(--vidro-blur);
+  -webkit-backdrop-filter: var(--vidro-blur);
+  border: 1px solid var(--vidro-borda);
+  box-shadow: var(--vidro-realce);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -1868,9 +2008,12 @@ tbody tr:hover {
 
   .folha-mobile-nav {
     width: 100%;
-    background: var(--bg-elevated);
-    border-top: 1px solid var(--border-subtle);
-    border-radius: 16px 16px 0 0;
+    background: var(--vidro-fundo-forte);
+    backdrop-filter: var(--vidro-blur);
+    -webkit-backdrop-filter: var(--vidro-blur);
+    border-top: 1px solid var(--vidro-borda);
+    box-shadow: var(--vidro-realce);
+    border-radius: 20px 20px 0 0;
     /* +env() mesmo motivo do .area-principal acima - a folha nao pode terminar
        escondida atras da barra fixa (que ficou mais alta pela safe area). */
     padding: 0.5rem 0.75rem calc(1rem + 64px + env(safe-area-inset-bottom, 0px));
