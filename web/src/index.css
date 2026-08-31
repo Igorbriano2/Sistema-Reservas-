@@ -1096,6 +1096,18 @@ tbody tr:hover {
   animation: entrada-cartao var(--duracao-painel) var(--ease-padrao) both;
 }
 
+/* backdrop-filter no .cartao (Liquid Glass) cria um novo contexto de empilhamento -
+   sem isso, o z-index:30 do popover acima fica PRESO dentro do proprio .cartao, que
+   passa a empilhar como uma caixa so (na ordem do DOM) contra os cartoes seguintes -
+   o popover aparecia por baixo da tabela de reservas do cartao de baixo (bug
+   reportado). Eleva o proprio .cartao (como stacking context inteiro) so quando ele
+   tem o popover aberto dentro - :has() alcanca isso sem precisar de estado/prop nova
+   no componente React, so CSS. */
+.cartao:has(.calendario-mes-flutuante) {
+  position: relative;
+  z-index: 25;
+}
+
 .calendario-mes-cabecalho {
   display: flex;
   align-items: center;

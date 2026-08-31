@@ -16,6 +16,17 @@ export interface ModalProps {
 // - trocar um window.confirm por Modal e decisao de cada tela, na etapa dela.
 export function Modal({ titulo, aberto, aoFechar, children, rodape }: ModalProps) {
   const caixaRef = useRef<HTMLDivElement>(null);
+  // Chamadores costumam passar aoFechar como uma arrow function inline (ex:
+  // aoFechar={() => setFormAberto(false)}) - referencia nova a cada render do pai.
+  // Sem essa ref, aoFechar precisaria estar nas deps do efeito abaixo, e ele
+  // re-rodaria a cada digitacao em qualquer campo do formulario (pai re-renderiza
+  // por causa do estado do input, cria uma funcao aoFechar nova, dispara o efeito de
+  // novo), chamando caixaRef.current?.focus() de novo e roubando o foco do campo que
+  // o usuario estava digitando - bug real reportado: "precisa clicar no campo a cada
+  // caractere". Guardando a versao mais recente numa ref, o efeito roda so quando
+  // "aberto" muda de verdade, mas o handler de Escape sempre chama a funcao atual.
+  const aoFecharRef = useRef(aoFechar);
+  aoFecharRef.current = aoFechar;
 
   useEffect(() => {
     if (!aberto) return;
@@ -25,7 +36,7 @@ export function Modal({ titulo, aberto, aoFechar, children, rodape }: ModalProps
     caixaRef.current?.focus();
 
     function aoTeclar(e: KeyboardEvent) {
-      if (e.key === "Escape") aoFechar();
+      if (e.key === "Escape") aoFecharRef.current();
     }
     document.addEventListener("keydown", aoTeclar);
 
@@ -33,7 +44,7 @@ export function Modal({ titulo, aberto, aoFechar, children, rodape }: ModalProps
       document.body.style.overflow = tetoAnterior;
       document.removeEventListener("keydown", aoTeclar);
     };
-  }, [aberto, aoFechar]);
+  }, [aberto]);
 
   if (!aberto) return null;
 
