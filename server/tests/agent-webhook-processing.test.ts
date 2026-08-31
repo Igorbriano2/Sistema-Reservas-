@@ -21,9 +21,13 @@ vi.mock("../src/lib/instagram-api.js", () => ({
 vi.mock("../src/lib/anthropic-client.js", () => ({
   getAnthropicClient: vi.fn(),
 }));
+vi.mock("../src/lib/audio-transcription.js", () => ({
+  transcreverAudioDoInstagram: vi.fn(),
+}));
 
 const { enviarMensagemInstagram, obterPerfilInstagram } = await import("../src/lib/instagram-api.js");
 const { getAnthropicClient } = await import("../src/lib/anthropic-client.js");
+const { transcreverAudioDoInstagram } = await import("../src/lib/audio-transcription.js");
 const { processarEventoDoInstagram } = await import("../src/modules/agent/process-event.js");
 const { marcarComoEnviadoPeloAgente } = await import("../src/lib/instagram-notify.js");
 const { _cancelarTodosOsAgendamentosParaTeste } = await import("../src/modules/agent/debounce.js");
@@ -55,6 +59,7 @@ beforeEach(async () => {
   await truncateAll();
   vi.mocked(enviarMensagemInstagram).mockReset().mockResolvedValue("mid-resposta-agente");
   vi.mocked(obterPerfilInstagram).mockReset().mockResolvedValue({ nome: null, fotoUrl: null });
+  vi.mocked(transcreverAudioDoInstagram).mockReset();
   const criarMock = vi.fn().mockResolvedValue(respostaDeTexto("Resposta automatica do agente"));
   vi.mocked(getAnthropicClient)
     .mockReset()
@@ -403,5 +408,79 @@ describe("processarEventoDoInstagram - echo (mensagens enviadas PELA conta do re
     expect(getAnthropicClient).not.toHaveBeenCalled();
     const lista = await db.select().from(mensagens).where(eq(mensagens.conversaId, conversa.id));
     expect(lista.some((m) => m.igMessageId === "mid-cliente-2")).toBe(true);
+  });
+});
+
+describe("processarEventoDoInstagram - mensagem de voz (doc 42)", () => {
+  it("transcreve o audio e processa como uma mensagem de texto normal", async () => {
+    const { unidade } = await setupCompleto();
+    vi.mocked(transcreverAudioDoInstagram).mockResolvedValueOnce("Quero reservar uma mesa pra hoje");
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-audio" },
+      recipient: { id: "ig-conta-restaurante" },
+      message: { mid: "mid-audio-1", attachments: [{ type: "audio", payload: { url: "https://cdn.example/audio.m4a" } }] },
+    });
+    await aguardarTurnoAgendado();
+
+    expect(transcreverAudioDoInstagram).toHaveBeenCalledWith("https://cdn.example/audio.m4a");
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
+    const lista = await db.select().from(mensagens).where(eq(mensagens.conversaId, conversa.id));
+    expect(lista.find((m) => m.papel === "user")?.conteudo).toBe("Quero reservar uma mesa pra hoje");
+    expect(enviarMensagemInstagram).toHaveBeenCalledTimes(1);
+  });
+
+  it("audio que nao pode ser transcrito pede pro cliente escrever em texto, sem acionar o agente nem gravar mensagem do cliente", async () => {
+    await setupCompleto();
+    vi.mocked(transcreverAudioDoInstagram).mockResolvedValueOnce(null);
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-audio-2" },
+      recipient: { id: "ig-conta-restaurante" },
+      message: { mid: "mid-audio-2", attachments: [{ type: "audio", payload: { url: "https://cdn.example/audio2.m4a" } }] },
+    });
+    await aguardarTurnoAgendado();
+
+    expect(getAnthropicClient).not.toHaveBeenCalled();
+    expect(enviarMensagemInstagram).toHaveBeenCalledTimes(1);
+    const [, , textoEnviado] = vi.mocked(enviarMensagemInstagram).mock.calls[0];
+    expect(textoEnviado).toMatch(/não consegui entender o áudio/i);
+
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.igSenderId, "ig-cliente-audio-2"));
+    const lista = await db.select().from(mensagens).where(eq(mensagens.conversaId, conversa.id));
+    expect(lista.some((m) => m.papel === "user")).toBe(false);
+  });
+
+  it("ignora evento sem texto e sem anexo de audio (ex: delivery/read receipt)", async () => {
+    await setupCompleto();
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-cliente-3" },
+      recipient: { id: "ig-conta-restaurante" },
+      message: { mid: "mid-sem-conteudo" },
+    });
+
+    expect(await db.select().from(conversas)).toHaveLength(0);
+    expect(transcreverAudioDoInstagram).not.toHaveBeenCalled();
+  });
+
+  it("echo de audio (humano mandou voz pelo proprio Instagram) grava um marcador e pausa o agente, sem tentar transcrever", async () => {
+    const { unidade } = await setupCompleto();
+
+    await processarEventoDoInstagram(db, {
+      sender: { id: "ig-conta-restaurante" },
+      recipient: { id: "ig-cliente-audio-3" },
+      message: { mid: "mid-echo-audio", is_echo: true, attachments: [{ type: "audio", payload: { url: "https://cdn.example/echo.m4a" } }] },
+    });
+
+    expect(transcreverAudioDoInstagram).not.toHaveBeenCalled();
+    const [conversa] = await db.select().from(conversas).where(eq(conversas.unidadeId, unidade.id));
+    expect(conversa.agentPaused).toBe(true);
+    const [msg] = await db
+      .select()
+      .from(mensagens)
+      .where(and(eq(mensagens.conversaId, conversa.id), eq(mensagens.igMessageId, "mid-echo-audio")));
+    expect(msg.conteudo).toBe("[Áudio enviado]");
+    expect(msg.enviadoPorHumano).toBe(true);
   });
 });

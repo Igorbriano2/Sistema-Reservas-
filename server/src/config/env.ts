@@ -23,6 +23,11 @@ const envSchema = z.object({
   // erros de raciocinio (ex: confundir data pedida pelo cliente com "hoje") quando
   // OpenAI virou temporariamente a IA principal.
   OPENAI_MODEL: z.string().default("gpt-5.6-terra"),
+  // Doc 42 - transcricao de audio (mensagens de voz do Instagram). Sempre via OpenAI
+  // (Whisper), mesmo quando a Anthropic e a IA principal do texto - a Claude API nao
+  // aceita audio bruto como entrada. So e usada se OPENAI_API_KEY estiver configurada;
+  // sem ela, audio recebido pede pro cliente escrever em texto (ver process-event.ts).
+  OPENAI_TRANSCRIPTION_MODEL: z.string().default("whisper-1"),
   // Qual das duas e a PRIMARIA (a outra vira o fallback automatico) - flag reversivel
   // pra trocar sem precisar mexer em codigo/deploy, ex: credito da Claude acabou,
   // troca pra "openai" temporariamente no painel da DigitalOcean e volta depois so

@@ -13,6 +13,7 @@ import {
 import { montarSystemPrompt, montarSystemPromptResolucaoUnidade, type SystemPromptPartes } from "../../lib/agent-prompt.js";
 import { enviarRespostaDoAgente, foiEnviadoPeloAgente } from "../../lib/instagram-notify.js";
 import { preencherPerfilClienteEmSegundoPlano } from "../../lib/instagram-profile.js";
+import { transcreverAudioDoInstagram } from "../../lib/audio-transcription.js";
 import { executarTurnoDoAgente } from "./orchestrator.js";
 import { executarTool } from "./tool-executor.js";
 import { agendarTurnoDoAgente } from "./debounce.js";
@@ -25,10 +26,22 @@ import type { AgentContext } from "./context.js";
 // (orchestrator.ts), que ai sim escala de verdade.
 const MENSAGEM_ERRO_INESPERADO = "Desculpe, tive um problema para concluir sua solicitacao agora. Pode repetir sua mensagem?";
 
+// Doc 42 - quando o audio recebido nao pode ser transcrito (sem OPENAI_API_KEY
+// configurada, download falhou, transcricao veio vazia etc).
+const MENSAGEM_AUDIO_NAO_TRANSCRITO = "Desculpe, não consegui entender o áudio agora. Pode escrever a mensagem em texto?";
+
 export interface InstagramMessagingEvent {
   sender?: { id?: string };
   recipient?: { id?: string };
-  message?: { mid?: string; text?: string; is_echo?: boolean };
+  message?: {
+    mid?: string;
+    text?: string;
+    is_echo?: boolean;
+    // Doc 42 - mensagem de voz: a Meta so manda o tipo + uma URL temporaria pro
+    // arquivo (nunca o audio em si) - outros tipos possiveis (image/video/file) sao
+    // ignorados de proposito, so audio e tratado por enquanto.
+    attachments?: Array<{ type?: string; payload?: { url?: string } }>;
+  };
 }
 
 const HISTORICO_MAX_MENSAGENS = 20;
@@ -221,8 +234,12 @@ export async function processarEventoDoInstagram(db: Database, evento: Instagram
   const igBusinessAccountId = ehEcho ? evento.sender?.id : evento.recipient?.id;
   const igSenderId = ehEcho ? evento.recipient?.id : evento.sender?.id;
 
-  if (!igBusinessAccountId || !igSenderId || !mensagem?.text) {
-    return; // ignora delivery/read receipts e mensagens sem texto (midia fica para depois do MVP)
+  // Doc 42 - mensagem de voz: unico tipo de midia tratado por enquanto (imagem/video/
+  // arquivo continuam ignorados, igual antes).
+  const anexoDeAudio = mensagem?.attachments?.find((a) => a?.type === "audio" && a.payload?.url);
+
+  if (!igBusinessAccountId || !igSenderId || !mensagem || (!mensagem.text && !anexoDeAudio)) {
+    return; // ignora delivery/read receipts e mensagens sem texto nem audio (outras midias ficam pra depois)
   }
 
   const [conexao] = await db
@@ -257,12 +274,15 @@ export async function processarEventoDoInstagram(db: Database, evento: Instagram
     // corrida), o insert abaixo colide com o unique index e e ignorado
     // (onConflictDoNothing) - nada a fazer. Se nao corresponde a nenhuma, foi um
     // humano respondendo pela Meta Business Suite: registra e pausa o agente.
+    // Doc 42 - echo de audio (humano mandou uma mensagem de voz pelo proprio Instagram,
+    // nao pelo painel) nunca precisa ser transcrito: e a nossa propria saida, ninguem
+    // vai perguntar pro agente o que ela diz - so guarda um marcador no historico.
     const [inserida] = await db
       .insert(mensagens)
       .values({
         conversaId: conversa.id,
         papel: "assistant",
-        conteudo: mensagem.text,
+        conteudo: mensagem.text ?? "[Áudio enviado]",
         igMessageId: mensagem.mid,
         enviadoPorHumano: true,
       })
@@ -278,9 +298,33 @@ export async function processarEventoDoInstagram(db: Database, evento: Instagram
     return;
   }
 
+  // Doc 42 - mensagem de voz do cliente: transcreve ANTES de seguir o fluxo normal,
+  // pra o resto do pipeline (historico, debounce, agente, tools) nunca precisar saber
+  // que a mensagem original nao era texto - ele so ve o texto transcrito, igual
+  // qualquer outra mensagem.
+  const textoDoCliente = mensagem.text ?? (anexoDeAudio ? await transcreverAudioDoInstagram(anexoDeAudio.payload!.url!) : null);
+
+  if (!textoDoCliente) {
+    console.warn(`[webhook] audio de ${igSenderId} nao pode ser transcrito`);
+    if (!conversa.agentPaused) {
+      try {
+        await enviarRespostaDoAgente(db, {
+          unidadeId: conversa.unidadeId,
+          empresaId: conexao.empresaId,
+          igSenderId,
+          conversaId: conversa.id,
+          texto: MENSAGEM_AUDIO_NAO_TRANSCRITO,
+        });
+      } catch (err) {
+        console.error(`[webhook] erro ao avisar sobre audio nao transcrito (conversa ${conversa.id}):`, err);
+      }
+    }
+    return;
+  }
+
   const [mensagemInserida] = await db
     .insert(mensagens)
-    .values({ conversaId: conversa.id, papel: "user", conteudo: mensagem.text, igMessageId: mensagem.mid })
+    .values({ conversaId: conversa.id, papel: "user", conteudo: textoDoCliente, igMessageId: mensagem.mid })
     .onConflictDoNothing({ target: mensagens.igMessageId, where: sql`${mensagens.igMessageId} is not null` })
     .returning();
 

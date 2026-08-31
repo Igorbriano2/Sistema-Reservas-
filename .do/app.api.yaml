@@ -96,6 +96,11 @@ services:
         type: SECRET
       - key: OPENAI_MODEL
         value: gpt-5.6-terra
+      # Doc 42 - transcricao de mensagem de voz do Instagram (Whisper). Sempre via
+      # OpenAI mesmo com Anthropic como IA principal - a Claude API nao aceita audio
+      # bruto. So funciona se OPENAI_API_KEY (acima) estiver preenchida.
+      - key: OPENAI_TRANSCRIPTION_MODEL
+        value: whisper-1
       # Qual das duas e a PRIMARIA agora ("anthropic" ou "openai") - a outra vira o
       # fallback automatico. Troca reversivel sem precisar de deploy novo: so editar
       # este valor no painel da DigitalOcean (ou aqui, se reaplicar o app spec).
