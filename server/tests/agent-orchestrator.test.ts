@@ -7,7 +7,7 @@ import { executarTurnoDoAgente, type MessagesCreateFn } from "../src/modules/age
 import { executarTool } from "../src/modules/agent/tool-executor.js";
 import type { AgentContext } from "../src/modules/agent/context.js";
 import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
-import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
+import { criarConversa, criarConversaPendente, criarMesa, criarRegraHorarioTodosOsDias, criarSalao } from "./helpers/fixtures.js";
 
 // systemPrompt agora e {cacheavel, volatil} (doc 39 - separa o bloco cacheado do
 // bloco com data/hora, que nunca pode entrar no cache) - filler simples pros testes
@@ -144,5 +144,48 @@ describe("executarTurnoDoAgente (loop de tool use)", () => {
 
     const [atualizada] = await db.select().from(conversas).where(eq(conversas.id, conversa.id));
     expect(atualizada.agentPaused).toBe(true);
+  });
+
+  // Doc 43 - achado real de producao: conexao de Instagram compartilhada por varias
+  // unidades (doc 17, parte 4), cliente ja manda a pergunta de verdade junto com a
+  // escolha da unidade (ex: "Londrina, qual o valor do rodizio?"), tudo agrupado no
+  // MESMO turno (doc 16). Antes desta correcao, a lista de tools do turno era
+  // calculada uma unica vez no INICIO (com unidadeId ainda null), entao mesmo depois
+  // do modelo chamar resolver_unidade_da_conversa com sucesso, a proxima iteracao
+  // continuava so com [resolver_unidade_da_conversa, escalate_to_human] disponiveis -
+  // o modelo nunca conseguia chamar get_menu/check_rodizio_price/etc nesse turno e
+  // acabava escalando pra humano perguntas totalmente respondiveis.
+  it("doc 43: resolve a unidade e ja usa uma tool de dados no MESMO turno, sem escalar pra humano", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversaPendente(empresa.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: null, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    const criarMensagem: MessagesCreateFn = vi
+      .fn()
+      .mockResolvedValueOnce(respostaDeToolUse("tool_1", "resolver_unidade_da_conversa", { unidade_id: unidade.id }))
+      .mockResolvedValueOnce(respostaDeToolUse("tool_2", "get_horario_funcionamento", {}))
+      .mockResolvedValueOnce(respostaDeTexto("Abrimos hoje das 18h as 23h!"));
+
+    const texto = await executarTurnoDoAgente({
+      db,
+      ctx,
+      systemPrompt: SYSTEM_PROMPT_TESTE,
+      historico: [],
+      mensagemDoCliente: "Londrina, voces abrem hoje?",
+      criarMensagem,
+    });
+
+    expect(texto).toBe("Abrimos hoje das 18h as 23h!");
+    expect(criarMensagem).toHaveBeenCalledTimes(3);
+
+    // A 2a chamada (depois de resolver a unidade) precisa ja oferecer o conjunto
+    // completo de tools (get_horario_funcionamento incluso), nao mais so as duas
+    // tools de pre-resolucao.
+    const segundaChamada = (criarMensagem as ReturnType<typeof vi.fn>).mock.calls[1][0] as Anthropic.MessageCreateParamsNonStreaming;
+    expect(segundaChamada.tools?.map((t) => t.name)).toContain("get_horario_funcionamento");
+
+    const [atualizada] = await db.select().from(conversas).where(eq(conversas.id, conversa.id));
+    expect(atualizada.unidadeId).toBe(unidade.id);
+    expect(atualizada.agentPaused).toBe(false);
   });
 });

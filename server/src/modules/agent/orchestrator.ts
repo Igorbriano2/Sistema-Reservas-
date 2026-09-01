@@ -88,13 +88,21 @@ async function executarTurnoComAnthropic(params: ExecutarTurnoParams): Promise<s
     ...params.historico,
     { role: "user", content: params.mensagemDoCliente },
   ];
-  // Fixado no inicio do turno (doc 17, parte 4): se o modelo resolver a unidade no
-  // meio deste MESMO turno, as tools de reserva ainda ficam indisponiveis ate o
-  // proximo turno (proxima mensagem do cliente) - suficiente pra nunca vazar
-  // disponibilidade/link da unidade errada, e simples de raciocinar sobre.
-  const tools = obterToolsDoAgente(params.ctx.unidadeId !== null);
-
   for (let iteracao = 0; iteracao < MAX_ITERACOES_DE_TOOL_USE; iteracao++) {
+    // Doc 43: recalculado a CADA iteracao (nao fixado uma vez no inicio do turno) -
+    // achado real de producao: quando a conexao e compartilhada por varias unidades
+    // (doc 17, parte 4) e o cliente ja manda a pergunta de verdade junto com a
+    // escolha da unidade (ex: "Londrina, qual o valor do rodizio?"), o modelo
+    // resolvia a unidade e so DEPOIS descobria que nao tinha nenhuma tool alem de
+    // resolver_unidade_da_conversa/escalate_to_human pra responder o resto - acabava
+    // escalando pra humano perguntas totalmente respondiveis (cardapio, rodizio,
+    // horario etc.) so porque a unidade tinha acabado de ser resolvida NESSE MESMO
+    // turno. resolverUnidadeDaConversa (tool-executor.ts) atualiza params.ctx.
+    // unidadeId em memoria assim que resolve - lendo aqui de novo a cada iteracao, a
+    // tool list ja abre no mesmo turno. Sem risco de vazar unidade errada: cada tool
+    // ainda revalida ctx.unidadeId por conta propria (ver unidadeResolvida em
+    // tool-executor.ts), entao nada e chamado antes da resolucao real acontecer.
+    const tools = obterToolsDoAgente(params.ctx.unidadeId !== null);
     const resposta = await criarMensagem({
       model: env.ANTHROPIC_MODEL,
       max_tokens: MAX_TOKENS_RESPOSTA,
@@ -179,7 +187,6 @@ function paraFerramentasOpenAi(tools: Anthropic.Tool[]): OpenAI.Chat.ChatComplet
 // recebe nome+input+contexto, nunca sabe qual IA chamou).
 async function executarTurnoComOpenAi(params: ExecutarTurnoParams): Promise<string> {
   const criarMensagem = params.criarMensagemOpenAi ?? defaultCriarMensagemOpenAi;
-  const tools = paraFerramentasOpenAi(obterToolsDoAgente(params.ctx.unidadeId !== null));
 
   // historico (Anthropic.MessageParam[]) so guarda role+content em texto puro (ver
   // carregarTurnoPendente em process-event.ts) - nunca blocos estruturados - entao a
@@ -198,6 +205,8 @@ async function executarTurnoComOpenAi(params: ExecutarTurnoParams): Promise<stri
   ];
 
   for (let iteracao = 0; iteracao < MAX_ITERACOES_DE_TOOL_USE; iteracao++) {
+    // Doc 43: recalculado a cada iteracao - mesmo motivo do loop Anthropic acima.
+    const tools = paraFerramentasOpenAi(obterToolsDoAgente(params.ctx.unidadeId !== null));
     const resposta = await criarMensagem({
       model: env.OPENAI_MODEL,
       max_tokens: MAX_TOKENS_RESPOSTA,

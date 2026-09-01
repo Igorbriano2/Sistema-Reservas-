@@ -442,6 +442,13 @@ async function resolverUnidadeDaConversa(db: Database, ctx: AgentContext, input:
 
   await db.update(conversas).set({ unidadeId: unidade.id }).where(eq(conversas.id, ctx.conversaId));
 
+  // Doc 43: atualiza o ctx em memoria (nao so o banco) para que as demais tools
+  // deste MESMO turno (get_menu, check_rodizio_price, check_availability etc, ver
+  // orchestrator.ts que agora recalcula obterToolsDoAgente a cada iteracao) ja
+  // enxerguem a unidade resolvida, em vez de obrigar o cliente a mandar outra
+  // mensagem so pra repetir uma pergunta que ja tinha feito.
+  ctx.unidadeId = unidade.id;
+
   return { output: { unidade_resolvida: unidade.nome } };
 }
 

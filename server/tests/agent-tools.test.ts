@@ -554,6 +554,22 @@ describe("Tools do agente - resolver_unidade_da_conversa (doc 17, parte 4)", () 
     expect(atualizada.unidadeId).toBe(unidade.id);
   });
 
+  it("doc 43: atualiza ctx.unidadeId em memoria (nao so o banco), para as demais tools do MESMO turno ja verem a unidade resolvida", async () => {
+    const { empresa, unidade } = await setupUnidadeCompleta();
+    const conversa = await criarConversaPendente(empresa.id, "ig-cliente-1");
+    const ctx: AgentContext = { empresaId: empresa.id, unidadeId: null, igSenderId: "ig-cliente-1", conversaId: conversa.id };
+
+    await executarTool(db, ctx, "resolver_unidade_da_conversa", { unidade_id: unidade.id });
+    expect(ctx.unidadeId).toBe(unidade.id);
+
+    // Prova indireta de que o restante do turno ja pode usar tools de unidade (ex:
+    // get_menu) sem precisar esperar o proximo turno - antes desta correcao, ctx
+    // so era atualizado no banco, e este mesmo ctx (em memoria) continuava com
+    // unidadeId null ate o proximo turno recarregar do banco.
+    const resultadoMenu = await executarTool(db, ctx, "get_menu", {});
+    expect(resultadoMenu.isError).toBeUndefined();
+  });
+
   it("rejeita um unidade_id de outra empresa, sem gravar nada", async () => {
     const { empresa } = await setupUnidadeCompleta({ nomeEmpresa: "Empresa A", emailAdmin: "admin@a.com" });
     const { unidade: unidadeDeOutraEmpresa } = await setupUnidadeCompleta({ nomeEmpresa: "Empresa B", emailAdmin: "admin@b.com" });
