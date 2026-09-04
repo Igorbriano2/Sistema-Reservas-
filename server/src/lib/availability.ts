@@ -27,9 +27,22 @@ export type ResultadoValidacaoDeJanela = { ok: true; janela: JanelaValidada } | 
 // uma reserva pra um dia fechado ou fora do horario de funcionamento.
 export async function validarJanelaDeFuncionamento(
   db: Queryable,
-  params: { unidadeId: string; data: string; horaInicio: string; respeitarHorariosFixos?: boolean },
+  params: {
+    unidadeId: string;
+    data: string;
+    horaInicio: string;
+    respeitarHorariosFixos?: boolean;
+    // Doc 44 - gerente/owner adicionando/editando reserva manual pelo painel pode
+    // ignorar o dia/horario estar "fechado" (excecao marcada como fechada, nenhuma
+    // regra de horario cadastrada pro dia da semana, ou horario pedido fora de
+    // qualquer turno) - decidido pela rota (papel do usuario logado). NAO afeta a
+    // antecedencia minima (doc 37): quando o horario pedido CAI dentro de um turno de
+    // verdade, a antecedencia continua valendo pra todo mundo, inclusive gerente/owner
+    // - so os tres motivos de "fechado" acima sao ignoraveis.
+    ignorarFechamento?: boolean;
+  },
 ): Promise<ResultadoValidacaoDeJanela> {
-  const { unidadeId, data, horaInicio, respeitarHorariosFixos } = params;
+  const { unidadeId, data, horaInicio, respeitarHorariosFixos, ignorarFechamento } = params;
 
   const [excecao] = await db
     .select()
@@ -37,14 +50,19 @@ export async function validarJanelaDeFuncionamento(
     .where(and(eq(excecoesHorario.unidadeId, unidadeId), eq(excecoesHorario.data, data)))
     .limit(1);
 
-  if (excecao?.fechado) {
+  if (excecao?.fechado && !ignorarFechamento) {
     return { ok: false, motivo: "Unidade fechada nesta data." };
   }
 
-  const regras = await db
-    .select()
-    .from(regrasHorario)
-    .where(and(eq(regrasHorario.unidadeId, unidadeId), eq(regrasHorario.diaSemana, diaDaSemana(data))));
+  // Dia marcado como excecao fechada E ignorarFechamento=true: nao ha turno de
+  // verdade pra basear duracao/antecedencia, entao nem busca as regras do dia da
+  // semana - segue direto pros defaults abaixo (janela undefined).
+  const regras = excecao?.fechado
+    ? []
+    : await db
+        .select()
+        .from(regrasHorario)
+        .where(and(eq(regrasHorario.unidadeId, unidadeId), eq(regrasHorario.diaSemana, diaDaSemana(data))));
 
   // Excecao pode sobrescrever a janela de funcionamento do dia (ex.: horario especial de feriado),
   // mas a duracao padrao da reserva e o buffer continuam vindo da regra do dia da semana.
@@ -52,7 +70,7 @@ export async function validarJanelaDeFuncionamento(
     ? [{ horaAbertura: excecao.horaAbertura, horaFechamento: excecao.horaFechamento, regra: regras[0] }]
     : regras.map((regra) => ({ horaAbertura: regra.horaAbertura, horaFechamento: regra.horaFechamento, regra }));
 
-  if (janelas.length === 0) {
+  if (janelas.length === 0 && !ignorarFechamento) {
     return { ok: false, motivo: "Nenhum horario de funcionamento cadastrado para este dia." };
   }
 
@@ -65,14 +83,14 @@ export async function validarJanelaDeFuncionamento(
   // horario de fechamento, o fechamento so define ate quando aceitar reserva NOVA.
   const janela = janelas.find((j) => inicioMin >= paraMinutos(j.horaAbertura) && inicioMin < paraMinutos(j.horaFechamento));
 
-  if (!janela) {
+  if (!janela && !ignorarFechamento) {
     return { ok: false, motivo: "Fora do horario de funcionamento." };
   }
 
   // Horarios fixos (doc 28) - so vale pro fluxo PUBLICO (respeitarHorariosFixos=true),
   // mesmo criterio ja usado por exigeDeposito: reserva manual do dono/funcionario no
   // painel, ou edicao feita pelo proprio dono, nunca fica presa a essa restricao.
-  const horariosFixos = janela.regra?.horariosFixos;
+  const horariosFixos = janela?.regra?.horariosFixos;
   if (respeitarHorariosFixos && horariosFixos && horariosFixos.length > 0) {
     const horaNormalizada = horaInicio.slice(0, 5);
     const permitido = horariosFixos.some((h) => h.slice(0, 5) === horaNormalizada);
@@ -82,13 +100,15 @@ export async function validarJanelaDeFuncionamento(
     }
   }
 
-  const duracaoPadraoMin = janela.regra?.duracaoPadraoMin ?? 90;
-  const bufferMin = janela.regra?.bufferMin ?? 0;
+  const duracaoPadraoMin = janela?.regra?.duracaoPadraoMin ?? 90;
+  const bufferMin = janela?.regra?.bufferMin ?? 0;
   const horaFim = somarMinutos(horaInicio, duracaoPadraoMin);
 
   // Antecedencia minima do turno (doc 19) - so busca o fuso da unidade quando
-  // precisa (regra padrao e 0, sem restricao).
-  const antecedenciaMinMin = janela.regra?.antecedenciaMinMin ?? 0;
+  // precisa (regra padrao e 0, sem restricao). Sem "janela" (dia/horario fechado
+  // ignorado via doc 44), nao ha turno de verdade pra exigir antecedencia - o
+  // proprio gerente/owner ja esta escolhendo conscientemente furar o fechamento.
+  const antecedenciaMinMin = janela?.regra?.antecedenciaMinMin ?? 0;
   if (antecedenciaMinMin > 0) {
     const [unidadeRow] = await db.select({ timezone: unidades.timezone }).from(unidades).where(eq(unidades.id, unidadeId)).limit(1);
     const minutosDisponiveis = minutosAteReserva(data, horaInicio, unidadeRow?.timezone ?? "America/Sao_Paulo");
@@ -100,7 +120,7 @@ export async function validarJanelaDeFuncionamento(
     }
   }
 
-  const turno: TurnoResolvido | undefined = janela.regra
+  const turno: TurnoResolvido | undefined = janela?.regra
     ? {
         nome: janela.regra.nome,
         descontoPercentual: janela.regra.descontoPercentual,

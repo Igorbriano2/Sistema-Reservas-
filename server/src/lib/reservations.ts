@@ -379,13 +379,30 @@ export interface AtualizarReservaParams {
 // condicoesDeIdentidade SEMPRE inclui id + unidade_id; quando chamada em nome de um
 // cliente do Instagram, tambem inclui ig_sender_id, transformando a checagem de posse
 // em parte da propria query (nunca um "buscar depois comparar" separado e falivel).
+interface OpcoesDeAtualizacao {
+  // Doc 28 - o proprio cliente remarcando via chat/link publico respeita horarios
+  // fixos, igual a reserva nova; o dono/funcionario editando pelo painel nunca fica
+  // preso a essa restricao.
+  respeitarHorariosFixos?: boolean;
+  // Doc 44 - mesmo bypass que ja existia so pra CRIACAO manual (doc 41): gerente/owner
+  // tambem precisa conseguir EDITAR uma reserva existente (ex: mudar o horario, o
+  // numero de pessoas) mesmo com o salao fechado nesse dia/horario (sem regra de
+  // horario cadastrada, dia marcado como excecao fechada, ou antecedencia minima nao
+  // cumprida) ou com a capacidade do salao simples ja esgotada - decidido pela rota
+  // (papel do usuario logado), nunca por quem chama esta funcao em nome do cliente
+  // (atualizarReservaDoCliente sempre omite/false). NAO afeta o conflito de MESA
+  // especifica (modo "mapa") - ver mesmo racional em CriarReservaParams.
+  ignorarBloqueioECapacidade?: boolean;
+}
+
 async function atualizarReservaComCondicoes(
   db: Database,
   unidadeId: string,
   condicoesDeIdentidade: SQL[],
   patch: AtualizarReservaParams,
-  respeitarHorariosFixos = false,
+  opcoes: OpcoesDeAtualizacao = {},
 ): Promise<Reserva> {
+  const { respeitarHorariosFixos = false, ignorarBloqueioECapacidade = false } = opcoes;
   return db.transaction(async (tx) => {
     const [atual] = await tx
       .select()
@@ -429,7 +446,13 @@ async function atualizarReservaComCondicoes(
     // editar so o numero de pessoas ou o nome do cliente, por exemplo, nao precisa
     // reconferir o horario.
     if (!patch.horaFim && (data !== atual.data || horaInicio !== atual.horaInicio)) {
-      const validacaoDaJanela = await validarJanelaDeFuncionamento(tx, { unidadeId, data, horaInicio, respeitarHorariosFixos });
+      const validacaoDaJanela = await validarJanelaDeFuncionamento(tx, {
+        unidadeId,
+        data,
+        horaInicio,
+        respeitarHorariosFixos,
+        ignorarFechamento: ignorarBloqueioECapacidade,
+      });
       if (!validacaoDaJanela.ok) {
         throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
       }
@@ -475,7 +498,7 @@ async function atualizarReservaComCondicoes(
         }
 
         const bloqueio = await bloqueioDeSalaoAtivoPara(tx, { unidadeId, salaoId, data });
-        if (bloqueio) {
+        if (bloqueio && !ignorarBloqueioECapacidade) {
           throw new ConflitoDeHorarioError(`Salao bloqueado nesta data (motivo: ${bloqueio.motivo})`);
         }
 
@@ -485,16 +508,18 @@ async function atualizarReservaComCondicoes(
         }
         const { bufferMin } = await resolverJanela(tx, unidadeId, data, horaInicio);
 
-        await validarCapacidadeSalaoSimples(tx, {
-          salaoId,
-          capacidadeTotal: salao.capacidadeTotal,
-          data,
-          horaInicio,
-          horaFim,
-          bufferMin,
-          numPessoasNova: numPessoas,
-          ignorarReservaId: atual.id,
-        });
+        if (!ignorarBloqueioECapacidade) {
+          await validarCapacidadeSalaoSimples(tx, {
+            salaoId,
+            capacidadeTotal: salao.capacidadeTotal,
+            data,
+            horaInicio,
+            horaFim,
+            bufferMin,
+            numPessoasNova: numPessoas,
+            ignorarReservaId: atual.id,
+          });
+        }
       }
     } else {
       mesaId = patch.mesaId ?? atual.mesaId;
@@ -526,7 +551,7 @@ async function atualizarReservaComCondicoes(
         }
 
         const bloqueio = await bloqueioAtivoPara(tx, { unidadeId, mesaId, salaoId: mesa.salaoId, data });
-        if (bloqueio) {
+        if (bloqueio && !ignorarBloqueioECapacidade) {
           throw new ConflitoDeHorarioError(`Mesa bloqueada nesta data (motivo: ${bloqueio.motivo})`);
         }
 
@@ -579,12 +604,17 @@ export async function atualizarReservaDaUnidade(
   unidadeId: string,
   reservaId: string,
   patch: AtualizarReservaParams,
+  // Doc 44 - decidido pela rota (papel do usuario logado): owner/gerente pode editar
+  // mesmo com o salao fechado ou a capacidade esgotada, funcionario continua sujeito
+  // as duas checagens.
+  opcoes: { ignorarBloqueioECapacidade?: boolean } = {},
 ): Promise<Reserva> {
   return atualizarReservaComCondicoes(
     db,
     unidadeId,
     [eq(reservas.id, reservaId), eq(reservas.unidadeId, unidadeId)],
     patch,
+    opcoes,
   );
 }
 
@@ -643,8 +673,9 @@ export async function atualizarReservaDoCliente(
     patch,
     // Doc 28 - o proprio cliente remarcando via chat respeita horarios fixos, igual a
     // reserva nova; o dono/funcionario editando pelo painel (atualizarReservaDaUnidade)
-    // continua sem essa restricao.
-    true,
+    // continua sem essa restricao. ignorarBloqueioECapacidade fica de fora (default
+    // false) - o cliente via chat nunca pode ignorar o salao fechado/capacidade.
+    { respeitarHorariosFixos: true },
   );
 }
 

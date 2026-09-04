@@ -201,6 +201,85 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
   });
 });
 
+describe("Painel admin - gerente/owner ignora salao fechado ao criar/editar reserva manual (doc 44)", () => {
+  it("gerente cadastra reserva num dia sem NENHUMA regra de horario cadastrada, mas funcionario continua bloqueado", async () => {
+    const { unidade, token } = await setup();
+    const salao = await criarSalao(unidade.id);
+    const mesa = await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+    // De proposito, nenhuma regrasHorario cadastrada pra unidade - "salao fechado"
+    // porque nao ha nenhum turno configurado pra nenhum dia da semana.
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Ger", username: "ger.fechado1", senha: "senha12345", papel: "gerente", unidadeIds: [unidade.id] });
+    const tokenGerente = await login(app, "ger.fechado1", "senha12345");
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Func", username: "func.fechado1", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+    const tokenFuncionario = await login(app, "func.fechado1", "senha12345");
+
+    const comoFuncionario = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+    expect(comoFuncionario.status).toBe(409);
+    expect(comoFuncionario.body.error).toMatch(/horario de funcionamento/i);
+
+    const comoGerente = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${tokenGerente}`)
+      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+    expect(comoGerente.status).toBe(201);
+  });
+
+  it("gerente edita uma reserva existente pra um dia marcado como excecao fechada, mas funcionario continua bloqueado", async () => {
+    const { unidade, token } = await setup();
+    const salao = await criarSalao(unidade.id);
+    const mesa = await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
+    await criarRegraHorarioTodosOsDias(unidade.id);
+
+    const criada = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+    expect(criada.status).toBe(201);
+
+    await request(app)
+      .post(`/admin/unidades/${unidade.id}/excecoes-horario`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ data: "2026-12-25", nome: "Natal", fechado: true });
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Ger", username: "ger.fechado2", senha: "senha12345", papel: "gerente", unidadeIds: [unidade.id] });
+    const tokenGerente = await login(app, "ger.fechado2", "senha12345");
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Func", username: "func.fechado2", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+    const tokenFuncionario = await login(app, "func.fechado2", "senha12345");
+
+    const comoFuncionario = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${criada.body.id}`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ data: "2026-12-25", horaInicio: "19:00" });
+    expect(comoFuncionario.status).toBe(409);
+    expect(comoFuncionario.body.error).toMatch(/fechada/i);
+
+    const comoGerente = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${criada.body.id}`)
+      .set("Authorization", `Bearer ${tokenGerente}`)
+      .send({ data: "2026-12-25", horaInicio: "19:00" });
+    expect(comoGerente.status).toBe(200);
+    expect(comoGerente.body.data).toBe("2026-12-25");
+  });
+});
+
 describe("Tool check_availability expoe turno_nome/turno_desconto_percentual (doc 19)", () => {
   it("retorna o nome do turno e o desconto configurado quando o horario cai nele", async () => {
     // Ver comentario no describe acima - fixa o "agora" longe da virada de dia pra

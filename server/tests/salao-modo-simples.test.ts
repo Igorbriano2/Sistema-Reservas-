@@ -276,6 +276,54 @@ describe("Modo simples do salao (rotas /admin)", () => {
     expect(comoGerente.status).toBe(201);
   });
 
+  it("gerente EDITA uma reserva pra aumentar num_pessoas alem da capacidade ja esgotada do salao, mas funcionario continua bloqueado (doc 44)", async () => {
+    const { unidade, token } = await setup();
+    await criarRegraHorarioTodosOsDias(unidade.id);
+
+    const salao = await request(app)
+      .post(`/admin/unidades/${unidade.id}/saloes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Salao Simples", modoConfiguracao: "simples", capacidadeTotal: 5 });
+
+    const editavel = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ salaoId: salao.body.id, data: "2026-09-21", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente A" });
+    expect(editavel.status).toBe(201);
+
+    const cheia = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ salaoId: salao.body.id, data: "2026-09-21", horaInicio: "19:00", numPessoas: 3, clienteNome: "Cliente B" });
+    expect(cheia.status).toBe(201);
+    // Capacidade (5) ja esgotada: 2 + 3. Editar "editavel" pra 3 pessoas estouraria pra 6.
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Ger", username: "ger.capacidade2", senha: "senha12345", papel: "gerente", unidadeIds: [unidade.id] });
+    const tokenGerente = await login(app, "ger.capacidade2", "senha12345");
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Func", username: "func.capacidade2", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+    const tokenFuncionario = await login(app, "func.capacidade2", "senha12345");
+
+    const comoFuncionario = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${editavel.body.id}`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ numPessoas: 3 });
+    expect(comoFuncionario.status).toBe(409);
+
+    const comoGerente = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${editavel.body.id}`)
+      .set("Authorization", `Bearer ${tokenGerente}`)
+      .send({ numPessoas: 3 });
+    expect(comoGerente.status).toBe(200);
+    expect(comoGerente.body.numPessoas).toBe(3);
+  });
+
   it("pagina publica de reserva (link) escolhe automaticamente o salao simples quando nao ha mesas", async () => {
     const { empresa, unidade } = await criarEmpresaComAdmin();
     void empresa;

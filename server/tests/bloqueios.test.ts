@@ -218,6 +218,48 @@ describe("Bloqueios de mesa/salao", () => {
     expect(comoGerente.status).toBe(201);
   });
 
+  it("gerente EDITA uma reserva existente pra dentro do periodo bloqueado, mas funcionario continua bloqueado (doc 44)", async () => {
+    const { unidade, token } = await setup();
+    const { mesa } = await criarSalaoEMesa(app, unidade.id, token);
+    await criarRegraHorarioTodosOsDias(unidade.id);
+
+    const criada = await request(app)
+      .post(`/admin/unidades/${unidade.id}/reservations`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ mesaId: mesa.id, data: "2026-10-01", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+    expect(criada.status).toBe(201);
+
+    await request(app)
+      .post(`/admin/unidades/${unidade.id}/bloqueios`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ mesaId: mesa.id, dataInicio: "2026-10-10", dataFim: "2026-10-15", motivo: "Manutencao eletrica" });
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Ger", username: "ger.bloqueios3", senha: "senha12345", papel: "gerente", unidadeIds: [unidade.id] });
+    const tokenGerente = await login(app, "ger.bloqueios3", "senha12345");
+
+    await request(app)
+      .post("/admin/usuarios")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ nome: "Func", username: "func.bloqueios3", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+    const tokenFuncionario = await login(app, "func.bloqueios3", "senha12345");
+
+    const comoFuncionario = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${criada.body.id}`)
+      .set("Authorization", `Bearer ${tokenFuncionario}`)
+      .send({ data: "2026-10-12" });
+    expect(comoFuncionario.status).toBe(409);
+
+    const comoGerente = await request(app)
+      .patch(`/admin/unidades/${unidade.id}/reservations/${criada.body.id}`)
+      .set("Authorization", `Bearer ${tokenGerente}`)
+      .send({ data: "2026-10-12" });
+    expect(comoGerente.status).toBe(200);
+    expect(comoGerente.body.data).toBe("2026-10-12");
+  });
+
   it("funcionario nao acessa bloqueios (owner only, igual mesas/saloes)", async () => {
     const { unidade, token } = await setup();
     const funcionario = await request(app)

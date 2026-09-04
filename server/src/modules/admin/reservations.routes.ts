@@ -81,27 +81,33 @@ reservationsRouter.post(
   "/",
   asyncHandler(async (req, res) => {
     const dados = criarReservaSchema.parse(req.body);
+
+    // Doc 41/44 - gerente/owner pode cadastrar manualmente mesmo com o salao fechado
+    // (sem horario de funcionamento cadastrado pro dia, dia marcado como excecao
+    // fechada, ou horario pedido fora de qualquer turno), bloqueado, ou com a
+    // capacidade ja esgotada "naturalmente" pelas reservas ativas; funcionario
+    // continua sujeito a todas essas checagens, igual reserva feita pelo agente/
+    // cliente. NAO inclui a antecedencia minima (doc 37): quando o horario pedido cai
+    // dentro de um turno de verdade, ela continua valendo pra todo mundo (ver
+    // ignorarFechamento em validarJanelaDeFuncionamento).
+    const podeIgnorarBloqueioECapacidade = req.auth!.papel === "owner" || req.auth!.papel === "gerente";
+
     // Doc 37 - a mesma antecedencia minima que ja vale pra edicao (e pro cliente via
-    // agente/link publico) agora tambem vale pra reserva manual criada pelo
-    // dono/funcionario no painel: sem essa checagem, dava pra criar direto pra
-    // qualquer horario (inclusive fechado) e so a EDICAO respeitava a regra -
-    // inconsistente. Horarios fixos (doc 28) continuam so pro fluxo publico
-    // (respeitarHorariosFixos: false) - o dono/funcionario sempre pode escolher
-    // qualquer horario dentro do turno.
+    // agente/link publico) tambem vale pra reserva manual criada pelo painel: sem essa
+    // checagem, dava pra criar direto pra qualquer horario (inclusive fechado) e so a
+    // EDICAO respeitava a regra - inconsistente. Horarios fixos (doc 28) continuam so
+    // pro fluxo publico (respeitarHorariosFixos: false) - o dono/funcionario sempre
+    // pode escolher qualquer horario dentro do turno.
     const validacaoDaJanela = await validarJanelaDeFuncionamento(db, {
       unidadeId: req.unidadeId!,
       data: dados.data,
       horaInicio: dados.horaInicio,
       respeitarHorariosFixos: false,
+      ignorarFechamento: podeIgnorarBloqueioECapacidade,
     });
     if (!validacaoDaJanela.ok) {
       throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
     }
-
-    // Doc 41 - gerente/owner pode cadastrar manualmente mesmo com o salao bloqueado ou
-    // com a capacidade ja esgotada "naturalmente" pelas reservas ativas; funcionario
-    // continua sujeito as duas checagens, igual reserva feita pelo agente/cliente.
-    const podeIgnorarBloqueioECapacidade = req.auth!.papel === "owner" || req.auth!.papel === "gerente";
 
     const reserva = await criarReserva(db, {
       unidadeId: req.unidadeId!,
@@ -117,7 +123,14 @@ reservationsRouter.patch(
   "/:reservationId",
   asyncHandler(async (req, res) => {
     const dados = atualizarReservaSchema.parse(req.body);
-    const reserva = await atualizarReservaDaUnidade(db, req.unidadeId!, req.params.reservationId, dados);
+    // Doc 44 - mesmo bypass ja existente na criacao (doc 41): gerente/owner tambem
+    // pode EDITAR uma reserva (trocar data/horario/numero de pessoas) mesmo com o
+    // salao fechado, bloqueado, ou com a capacidade esgotada; funcionario continua
+    // sujeito a todas as checagens.
+    const podeIgnorarBloqueioECapacidade = req.auth!.papel === "owner" || req.auth!.papel === "gerente";
+    const reserva = await atualizarReservaDaUnidade(db, req.unidadeId!, req.params.reservationId, dados, {
+      ignorarBloqueioECapacidade: podeIgnorarBloqueioECapacidade,
+    });
     res.json(reserva);
   }),
 );
