@@ -384,14 +384,15 @@ interface OpcoesDeAtualizacao {
   // fixos, igual a reserva nova; o dono/funcionario editando pelo painel nunca fica
   // preso a essa restricao.
   respeitarHorariosFixos?: boolean;
-  // Doc 44 - mesmo bypass que ja existia so pra CRIACAO manual (doc 41): gerente/owner
-  // tambem precisa conseguir EDITAR uma reserva existente (ex: mudar o horario, o
-  // numero de pessoas) mesmo com o salao fechado nesse dia/horario (sem regra de
-  // horario cadastrada, dia marcado como excecao fechada, ou antecedencia minima nao
-  // cumprida) ou com a capacidade do salao simples ja esgotada - decidido pela rota
-  // (papel do usuario logado), nunca por quem chama esta funcao em nome do cliente
-  // (atualizarReservaDoCliente sempre omite/false). NAO afeta o conflito de MESA
-  // especifica (modo "mapa") - ver mesmo racional em CriarReservaParams.
+  // Doc 44/45 - mesmo bypass que ja existia so pra CRIACAO manual (doc 41): gerente/
+  // owner tambem precisa conseguir EDITAR uma reserva existente (ex: mudar o
+  // horario, o numero de pessoas) mesmo com o salao fechado nesse dia/horario (sem
+  // regra de horario cadastrada, dia marcado como excecao fechada, ou fora de
+  // qualquer turno), antecedencia minima nao cumprida, ou com a capacidade do salao
+  // simples ja esgotada - decidido pela rota (papel do usuario logado), nunca por
+  // quem chama esta funcao em nome do cliente (atualizarReservaDoCliente sempre
+  // omite/false). NAO afeta o conflito de MESA especifica (modo "mapa") - ver mesmo
+  // racional em CriarReservaParams.
   ignorarBloqueioECapacidade?: boolean;
 }
 
@@ -451,7 +452,7 @@ async function atualizarReservaComCondicoes(
         data,
         horaInicio,
         respeitarHorariosFixos,
-        ignorarFechamento: ignorarBloqueioECapacidade,
+        ignorarRegrasDeHorario: ignorarBloqueioECapacidade,
       });
       if (!validacaoDaJanela.ok) {
         throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);

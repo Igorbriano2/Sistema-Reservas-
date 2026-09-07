@@ -9,7 +9,7 @@ import { agoraNoFuso, paraHora } from "../src/lib/time.js";
 import { gerarTokenDeReserva } from "../src/lib/reservation-link.js";
 import { executarTool } from "../src/modules/agent/tool-executor.js";
 import type { AgentContext } from "../src/modules/agent/context.js";
-import { closeDb, criarEmpresaComAdmin, truncateAll } from "./helpers/db.js";
+import { closeDb, criarEmpresaComAdmin, criarFuncionario, criarUsuarioUnidade, truncateAll } from "./helpers/db.js";
 import { login } from "./helpers/auth.js";
 import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarSalao, criarSalaoSimples } from "./helpers/fixtures.js";
 
@@ -132,13 +132,13 @@ describe("verificarDisponibilidade - antecedencia minima e turno (doc 19)", () =
   });
 });
 
-describe("Painel admin - antecedencia minima tambem no create e na edicao de reserva (doc 37)", () => {
-  it("rejeita criar reserva manual abaixo da antecedencia minima, mas aceita com antecedencia suficiente", async () => {
+describe("Painel admin - antecedencia minima tambem no create e na edicao de reserva (doc 37, funcionario) / bypass de gerente-owner (doc 45)", () => {
+  it("rejeita funcionario criando reserva manual abaixo da antecedencia minima, mas aceita com antecedencia suficiente", async () => {
     // Mesmo motivo do describe acima: fixa o "agora" longe da virada de dia.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-01-15T12:00:00-03:00"));
     try {
-      const { unidade, token } = await setup();
+      const { empresa, unidade, token } = await setup();
       const salao = await criarSalao(unidade.id);
       const mesa = await criarMesa(salao.id, { capacidadeMin: 1, capacidadeMax: 4 });
       await criarRegraHorarioTodosOsDias(unidade.id, {
@@ -147,11 +147,14 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
         duracaoPadraoMin: 15,
         antecedenciaMinMin: 60,
       });
+      const { usuario: funcionario, senha } = await criarFuncionario(empresa.id);
+      await criarUsuarioUnidade(funcionario.id, unidade.id);
+      const tokenFuncionario = await login(app, funcionario.username, senha);
 
       const cedoDemais = dataHoraDaquiA(20);
       const rejeitada = await request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
-        .set("Authorization", `Bearer ${token}`)
+        .set("Authorization", `Bearer ${tokenFuncionario}`)
         .send({ mesaId: mesa.id, data: cedoDemais.data, horaInicio: cedoDemais.horaInicio, numPessoas: 2, clienteNome: "Fulano" });
       expect(rejeitada.status).toBe(409);
       expect(rejeitada.body.error).toMatch(/antecedencia/i);
@@ -159,15 +162,23 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
       const comAntecedencia = dataHoraDaquiA(180);
       const aceita = await request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
-        .set("Authorization", `Bearer ${token}`)
+        .set("Authorization", `Bearer ${tokenFuncionario}`)
         .send({ mesaId: mesa.id, data: comAntecedencia.data, horaInicio: comAntecedencia.horaInicio, numPessoas: 2, clienteNome: "Fulano" });
       expect(aceita.status).toBe(201);
+
+      // Doc 45: gerente/owner (aqui, o proprio dono/token de setup()) ignora a
+      // antecedencia minima tambem - "independente da regra que trave".
+      const comoOwner = await request(app)
+        .post(`/admin/unidades/${unidade.id}/reservations`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ mesaId: mesa.id, data: cedoDemais.data, horaInicio: cedoDemais.horaInicio, numPessoas: 2, clienteNome: "Beltrano" });
+      expect(comoOwner.status).toBe(201);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("rejeita mudar a data/hora de uma reserva existente pra dentro da antecedencia minima", async () => {
+  it("rejeita funcionario mudando a data/hora de uma reserva existente pra dentro da antecedencia minima, mas gerente consegue (doc 45)", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-01-15T12:00:00-03:00"));
     try {
@@ -180,6 +191,18 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
         duracaoPadraoMin: 15,
         antecedenciaMinMin: 60,
       });
+
+      await request(app)
+        .post("/admin/usuarios")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ nome: "Ger", username: "ger.antecedencia", senha: "senha12345", papel: "gerente", unidadeIds: [unidade.id] });
+      const tokenGerente = await login(app, "ger.antecedencia", "senha12345");
+
+      await request(app)
+        .post("/admin/usuarios")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ nome: "Func", username: "func.antecedencia", senha: "senha12345", papel: "funcionario", unidadeIds: [unidade.id] });
+      const tokenFuncionario = await login(app, "func.antecedencia", "senha12345");
 
       const comAntecedencia = dataHoraDaquiA(180);
       const criada = await request(app)
@@ -189,12 +212,19 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
       expect(criada.status).toBe(201);
 
       const cedoDemais = dataHoraDaquiA(20);
-      const editada = await request(app)
+      const editadaPorFuncionario = await request(app)
         .patch(`/admin/unidades/${unidade.id}/reservations/${criada.body.id}`)
-        .set("Authorization", `Bearer ${token}`)
+        .set("Authorization", `Bearer ${tokenFuncionario}`)
         .send({ data: cedoDemais.data, horaInicio: cedoDemais.horaInicio });
-      expect(editada.status).toBe(409);
-      expect(editada.body.error).toMatch(/antecedencia/i);
+      expect(editadaPorFuncionario.status).toBe(409);
+      expect(editadaPorFuncionario.body.error).toMatch(/antecedencia/i);
+
+      const editadaPorGerente = await request(app)
+        .patch(`/admin/unidades/${unidade.id}/reservations/${criada.body.id}`)
+        .set("Authorization", `Bearer ${tokenGerente}`)
+        .send({ data: cedoDemais.data, horaInicio: cedoDemais.horaInicio });
+      expect(editadaPorGerente.status).toBe(200);
+      expect(editadaPorGerente.body.data).toBe(cedoDemais.data);
     } finally {
       vi.useRealTimers();
     }

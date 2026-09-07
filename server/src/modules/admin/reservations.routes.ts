@@ -82,14 +82,13 @@ reservationsRouter.post(
   asyncHandler(async (req, res) => {
     const dados = criarReservaSchema.parse(req.body);
 
-    // Doc 41/44 - gerente/owner pode cadastrar manualmente mesmo com o salao fechado
-    // (sem horario de funcionamento cadastrado pro dia, dia marcado como excecao
-    // fechada, ou horario pedido fora de qualquer turno), bloqueado, ou com a
-    // capacidade ja esgotada "naturalmente" pelas reservas ativas; funcionario
-    // continua sujeito a todas essas checagens, igual reserva feita pelo agente/
-    // cliente. NAO inclui a antecedencia minima (doc 37): quando o horario pedido cai
-    // dentro de um turno de verdade, ela continua valendo pra todo mundo (ver
-    // ignorarFechamento em validarJanelaDeFuncionamento).
+    // Doc 41/44/45 - gerente/owner pode cadastrar manualmente mesmo com o salao
+    // fechado (sem horario de funcionamento cadastrado pro dia, dia marcado como
+    // excecao fechada, ou horario pedido fora de qualquer turno), antecedencia minima
+    // nao cumprida, bloqueado, ou com a capacidade ja esgotada "naturalmente" pelas
+    // reservas ativas - o cargo precisa conseguir mexer na reserva independente de
+    // qual regra travaria. Funcionario continua sujeito a todas essas checagens,
+    // igual reserva feita pelo agente/cliente.
     const podeIgnorarBloqueioECapacidade = req.auth!.papel === "owner" || req.auth!.papel === "gerente";
 
     // Doc 37 - a mesma antecedencia minima que ja vale pra edicao (e pro cliente via
@@ -103,7 +102,7 @@ reservationsRouter.post(
       data: dados.data,
       horaInicio: dados.horaInicio,
       respeitarHorariosFixos: false,
-      ignorarFechamento: podeIgnorarBloqueioECapacidade,
+      ignorarRegrasDeHorario: podeIgnorarBloqueioECapacidade,
     });
     if (!validacaoDaJanela.ok) {
       throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
