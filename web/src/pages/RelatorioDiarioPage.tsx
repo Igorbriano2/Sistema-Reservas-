@@ -3,7 +3,9 @@ import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import { listarMesas, listarReservas, listarSaloes } from "../api/resources.js";
 import { EmptyState, Skeleton, StatusBadge } from "../components/ui/index.js";
-import type { Mesa, Reserva, Salao } from "../types.js";
+import { exportarRelatorioDiarioXlsx } from "../lib/exportarPlanilha.js";
+import { useContagemAnimada } from "../lib/useContagemAnimada.js";
+import type { Mesa, Reserva, ReservaStatus, Salao } from "../types.js";
 
 function hojeLocal(): string {
   const agora = new Date();
@@ -13,30 +15,17 @@ function hojeLocal(): string {
   return `${ano}-${mes}-${dia}`;
 }
 
-const STATUS_LABEL: Record<Reserva["status"], string> = {
-  pendente: "Pendente",
-  confirmada: "Confirmada",
-  cancelada: "Cancelada",
-  concluida: "Concluida",
-  no_show: "Nao compareceu",
-};
+// Mesma ordem/paleta usada no dashboard gerencial (DashboardPage) - pendente primeiro
+// por ser o status que mais precisa de atencao.
+const STATUS_ORDEM: ReservaStatus[] = ["pendente", "confirmada", "concluida", "no_show", "cancelada"];
 
-// Escapa aspas/virgula/quebra de linha pra um campo CSV valido (RFC 4180 basico) -
-// sem lib externa, campo de restaurante nunca precisa de mais que isso.
-function paraCampoCsv(valor: string): string {
-  if (/[",\n]/.test(valor)) {
-    return `"${valor.replace(/"/g, '""')}"`;
-  }
-  return valor;
-}
-
-// Doc 46 - relatorio do dia (reservas + comandas), pensado pro fechamento do
-// restaurante: uma lista de tudo que aconteceu no dia, com a comanda de cada mesa, pra
-// conferir contra o caixa. So aparece pra empresas com comandaHabilitada (Cervegela
-// por enquanto, ver ClientesPage no painel da plataforma) - reaproveita o MESMO
-// endpoint de listagem de reservas que a pagina operacional (GET .../reservations?
-// data=), sem rota nova no backend: e so uma visao/exportacao diferente do mesmo dado
-// que o atendente ja pode ver na aba Reservas.
+// Doc 46 - relatorio do dia (reservas + mesa fisica + comandas), pensado pro fechamento
+// do restaurante: um dashboard com o resumo do dia e uma exportacao em planilha (.xlsx,
+// com uma aba por reserva e outra por comanda), pra conferir contra o caixa. So aparece
+// pra empresas com comandaHabilitada (Cervegela por enquanto, ver ClientesPage no
+// painel da plataforma) - reaproveita o MESMO endpoint de listagem de reservas que a
+// pagina operacional (GET .../reservations?data=), sem rota nova no backend: e so uma
+// visao/exportacao diferente do mesmo dado que o atendente ja pode ver na aba Reservas.
 export function RelatorioDiarioPage() {
   const { unidade, usuario } = useAuth();
   const [data, setData] = useState(hojeLocal());
@@ -72,37 +61,55 @@ export function RelatorioDiarioPage() {
   const reservasOrdenadas = useMemo(() => [...reservas].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)), [reservas]);
   const naoCanceladas = useMemo(() => reservas.filter((r) => r.status !== "cancelada"), [reservas]);
   const totalPessoas = useMemo(() => naoCanceladas.reduce((soma, r) => soma + r.numPessoas, 0), [naoCanceladas]);
-  const totalComMesaOuComanda = useMemo(
-    () => reservas.filter((r) => r.mesaFisica || r.comandas.length > 0).length,
-    [reservas],
-  );
+  const totalComandas = useMemo(() => reservas.reduce((soma, r) => soma + r.comandas.length, 0), [reservas]);
+  const mesasEmUso = useMemo(() => new Set(reservas.map((r) => r.mesaFisica).filter((m): m is string => !!m)).size, [reservas]);
 
-  function exportarCsv() {
-    const cabecalho = ["Hora", "Cliente", "Telefone", "Pessoas", "Local", "Mesa", "Comandas", "Status", "Observacoes"];
-    const linhas = reservasOrdenadas.map((r) =>
-      [
-        r.horaInicio.slice(0, 5),
-        r.clienteNome,
-        r.clienteTelefone ?? "",
-        String(r.numPessoas),
-        nomeDoLocal(r),
-        r.mesaFisica ?? "",
-        r.comandas.map((c) => c.numero).join("; "),
-        STATUS_LABEL[r.status],
-        r.observacoes ?? "",
-      ]
-        .map(paraCampoCsv)
-        .join(","),
-    );
-    // BOM (﻿) na frente - sem isso o Excel abre acentos quebrados num CSV UTF-8.
-    const conteudo = "﻿" + [cabecalho.join(","), ...linhas].join("\n");
-    const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `relatorio-${data}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const porStatus = useMemo(() => {
+    const contagem: Record<ReservaStatus, number> = { pendente: 0, confirmada: 0, cancelada: 0, concluida: 0, no_show: 0 };
+    for (const r of reservas) contagem[r.status] += 1;
+    return contagem;
+  }, [reservas]);
+
+  // Comandas por mesa fisica (doc 46, "relatorio de comandas, mesa e reserva") - da pro
+  // atendente ver de relance quais mesas concentram mais comandas abertas no dia. So
+  // considera reservas com mesa fisica atribuida (ou seja, ja sentadas).
+  const comandasPorMesa = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const r of reservas) {
+      if (!r.mesaFisica) continue;
+      mapa.set(r.mesaFisica, (mapa.get(r.mesaFisica) ?? 0) + r.comandas.length);
+    }
+    return [...mapa.entries()]
+      .map(([mesa, quantidade]) => ({ mesa, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+  }, [reservas]);
+  const maxComandasPorMesa = comandasPorMesa[0]?.quantidade ?? 0;
+
+  const pronto = !carregando;
+  const totalReservasAnimado = useContagemAnimada(reservas.length, pronto);
+  const totalPessoasAnimado = useContagemAnimada(totalPessoas, pronto);
+  const mesasEmUsoAnimado = useContagemAnimada(mesasEmUso, pronto);
+  const totalComandasAnimado = useContagemAnimada(totalComandas, pronto);
+
+  const [larguraPronta, setLarguraPronta] = useState(false);
+  useEffect(() => {
+    setLarguraPronta(false);
+    const quadro = requestAnimationFrame(() => setLarguraPronta(true));
+    return () => cancelAnimationFrame(quadro);
+  }, [reservas]);
+
+  const [exportando, setExportando] = useState(false);
+
+  async function exportarPlanilha() {
+    setExportando(true);
+    setErro(null);
+    try {
+      await exportarRelatorioDiarioXlsx({ data, reservas: reservasOrdenadas, nomeDoLocal });
+    } catch {
+      setErro("Nao foi possivel gerar a planilha.");
+    } finally {
+      setExportando(false);
+    }
   }
 
   if (!unidade) {
@@ -130,8 +137,13 @@ export function RelatorioDiarioPage() {
             <input type="date" value={data} onChange={(e) => setData(e.target.value)} max={hojeLocal()} />
           </label>
           <span style={{ flex: 1 }} />
-          <button type="button" className="btn btn-secundario" disabled={reservasOrdenadas.length === 0} onClick={exportarCsv}>
-            Exportar CSV
+          <button
+            type="button"
+            className="btn btn-secundario"
+            disabled={reservasOrdenadas.length === 0 || exportando}
+            onClick={exportarPlanilha}
+          >
+            {exportando ? "Gerando..." : "Exportar planilha (.xlsx)"}
           </button>
         </div>
       </div>
@@ -141,17 +153,76 @@ export function RelatorioDiarioPage() {
       <div className="grade-metricas">
         <div className="cartao cartao-metrica">
           <span className="texto-secundario">Reservas no dia</span>
-          <strong>{carregando ? "-" : reservas.length}</strong>
+          <strong>{carregando ? "-" : totalReservasAnimado}</strong>
         </div>
         <div className="cartao cartao-metrica">
           <span className="texto-secundario">Pessoas (exceto canceladas)</span>
-          <strong>{carregando ? "-" : totalPessoas}</strong>
+          <strong>{carregando ? "-" : totalPessoasAnimado}</strong>
         </div>
         <div className="cartao cartao-metrica">
-          <span className="texto-secundario">Com mesa/comanda registrada</span>
-          <strong>{carregando ? "-" : `${totalComMesaOuComanda} de ${reservas.length}`}</strong>
+          <span className="texto-secundario">Mesas em uso</span>
+          <strong>{carregando ? "-" : mesasEmUsoAnimado}</strong>
+        </div>
+        <div className="cartao cartao-metrica">
+          <span className="texto-secundario">Comandas abertas</span>
+          <strong>{carregando ? "-" : totalComandasAnimado}</strong>
         </div>
       </div>
+
+      <div className="cartao cartao-grafico">
+        <h3 style={{ marginTop: 0 }}>Reservas por status</h3>
+        {carregando ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+            <Skeleton altura="1.5rem" />
+            <Skeleton altura="1.5rem" />
+            <Skeleton altura="1.5rem" />
+          </div>
+        ) : reservas.length === 0 ? (
+          <EmptyState titulo="Nenhuma reserva nesta data" descricao="Escolha outro dia para ver o relatório." />
+        ) : (
+          <div className="barra-status">
+            {STATUS_ORDEM.map((status) => {
+              const quantidade = porStatus[status];
+              const percentual = reservas.length > 0 ? (quantidade / reservas.length) * 100 : 0;
+              return (
+                <div key={status} className="linha-status">
+                  <StatusBadge estado={status} />
+                  <div className="trilha-status">
+                    <div
+                      className={`preenchimento-status preenchimento-${status}`}
+                      style={{ width: larguraPronta ? `${percentual}%` : "0%" }}
+                    />
+                  </div>
+                  <span className="texto-secundario">{quantidade}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {!carregando && comandasPorMesa.length > 0 && (
+        <div className="cartao cartao-grafico">
+          <h3 style={{ marginTop: 0 }}>Comandas por mesa</h3>
+          <div className="barra-status">
+            {comandasPorMesa.map(({ mesa, quantidade }) => {
+              const percentual = maxComandasPorMesa > 0 ? (quantidade / maxComandasPorMesa) * 100 : 0;
+              return (
+                <div key={mesa} className="linha-status">
+                  <span>Mesa {mesa}</span>
+                  <div className="trilha-status">
+                    <div
+                      className="preenchimento-status preenchimento-confirmada"
+                      style={{ width: larguraPronta ? `${percentual}%` : "0%" }}
+                    />
+                  </div>
+                  <span className="texto-secundario">{quantidade}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="cartao">
         {carregando ? (

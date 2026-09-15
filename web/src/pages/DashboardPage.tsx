@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import { listarReservasPorPeriodo } from "../api/resources.js";
 import { EmptyState, Skeleton, StatusBadge } from "../components/ui/index.js";
+import { useContagemAnimada } from "../lib/useContagemAnimada.js";
 import type { Reserva, ReservaStatus } from "../types.js";
 
 // Pendente primeiro (doc redesign, "destaque proximas reservas e pendencias") - e
@@ -18,28 +19,6 @@ function dataLocal(offsetDias = 0): string {
   const mes = String(agora.getMonth() + 1).padStart(2, "0");
   const dia = String(agora.getDate()).padStart(2, "0");
   return `${ano}-${mes}-${dia}`;
-}
-
-// Anima um numero de 0 ate o valor final (efeito "contagem") quando `ativo` liga -
-// so roda depois que os dados carregaram, pra nao animar em cima do placeholder "-".
-function useContagemAnimada(valor: number, ativo: boolean, duracaoMs = 700): number {
-  const [exibido, setExibido] = useState(0);
-
-  useEffect(() => {
-    if (!ativo) return;
-    let inicio: number | null = null;
-    let quadro: number;
-    function passo(tempo: number) {
-      if (inicio === null) inicio = tempo;
-      const progresso = Math.min((tempo - inicio) / duracaoMs, 1);
-      setExibido(Math.round(valor * progresso));
-      if (progresso < 1) quadro = requestAnimationFrame(passo);
-    }
-    quadro = requestAnimationFrame(passo);
-    return () => cancelAnimationFrame(quadro);
-  }, [valor, ativo, duracaoMs]);
-
-  return exibido;
 }
 
 export function DashboardPage() {
