@@ -643,6 +643,9 @@ export function ReservationsPage() {
                         <a href={`tel:${reserva.clienteTelefone}`}>{reserva.clienteTelefone}</a>
                       </div>
                     )}
+                    <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+                      {nomeDoLocal(reserva)}
+                    </div>
                   </td>
                   <td>{reserva.numPessoas}</td>
                   <td>{nomeDoLocal(reserva)}</td>
