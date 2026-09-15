@@ -24,6 +24,12 @@ const { gerarTokenDeReserva } = await import("../src/lib/reservation-link.js");
 
 const app = createApp();
 
+// Doc 46 - telefone/data de nascimento passaram a ser obrigatorios pra CRIAR uma
+// reserva pelas rotas HTTP - filler generico pros testes deste arquivo que nao estao
+// testando essa validacao especificamente (os testes de doc 16 mais abaixo, que
+// testam telefone/nascimento de verdade, continuam com seus proprios valores).
+const CLIENTE_FILLER = { clienteTelefone: "43988414050", dataNascimento: "1990-05-20" };
+
 beforeEach(async () => {
   await truncateAll();
   vi.mocked(enviarMensagemInstagram).mockReset().mockResolvedValue("mid-confirmacao");
@@ -104,6 +110,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
         horaInicio: "19:00",
         numPessoas: 2,
         clienteNome: "Cliente Publico",
+        ...CLIENTE_FILLER,
         // tentativa de forjar isolamento - o schema nem declara esses campos, sao ignorados
         unidadeId: "00000000-0000-0000-0000-000000000000",
         igSenderId: "sender-forjado",
@@ -129,6 +136,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Publico",
+      ...CLIENTE_FILLER,
     });
 
     expect(res.status).toBe(201);
@@ -174,6 +182,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Publico",
+      ...CLIENTE_FILLER,
     });
 
     expect(res.status).toBe(201);
@@ -190,6 +199,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Publico",
+      ...CLIENTE_FILLER,
     });
 
     expect(res.status).toBe(201);
@@ -208,6 +218,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
         horaInicio: "19:00",
         numPessoas: 2,
         clienteNome: "Cliente Publico",
+        ...CLIENTE_FILLER,
         mesaId: mesaEscolhida.id,
       });
 
@@ -225,6 +236,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Publico",
+      ...CLIENTE_FILLER,
       mesaId: mesa.id,
     };
 
@@ -274,6 +286,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
       numPessoas: 2,
       clienteNome: "Cliente Sem Optin",
       clienteTelefone: "11977776666",
+      dataNascimento: "1990-05-20",
       mesaId: mesa.id,
     });
     expect(res.status).toBe(201);
@@ -285,7 +298,9 @@ describe("POST /public/reservation-link/:token/reservations", () => {
     expect(cliente.whatsappOptInEm).toBeNull();
   });
 
-  it("doc 16 - nao cria registro de cliente quando nenhum telefone e informado", async () => {
+  // Doc 46 - telefone virou obrigatorio pra fazer a reserva; a tool anonima antiga
+  // (reserva sem telefone) deixou de existir - o teste agora cobre a rejeicao.
+  it("doc 46 - rejeita reserva sem telefone informado (obrigatorio)", async () => {
     const { unidade, mesa } = await setupUnidadeCompleta();
     const token = gerarTokenDeReserva({ unidadeId: unidade.id, igSenderId: "ig-anonimo" });
 
@@ -294,12 +309,13 @@ describe("POST /public/reservation-link/:token/reservations", () => {
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Anonimo",
-      whatsappOptIn: true,
+      dataNascimento: "1990-05-20",
       mesaId: mesa.id,
     });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(400);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    const todas = await db.select().from(reservas);
+    expect(todas).toHaveLength(0);
     const todos = await db.select().from(clientes);
     expect(todos).toHaveLength(0);
   });
@@ -315,6 +331,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
       numPessoas: 2,
       clienteNome: "Cliente Repete",
       clienteTelefone: "11966665555",
+      dataNascimento: "1990-05-20",
       mesaId: mesa.id,
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -325,6 +342,7 @@ describe("POST /public/reservation-link/:token/reservations", () => {
       numPessoas: 2,
       clienteNome: "Cliente Repete",
       clienteTelefone: "11966665555",
+      dataNascimento: "1990-05-20",
       whatsappOptIn: true,
       mesaId: mesa.id,
     });
@@ -398,6 +416,7 @@ describe("GET /public/reservation-link/:token/mesas-disponiveis", () => {
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Primeiro cliente",
+      ...CLIENTE_FILLER,
       mesaId: mesa.id,
     });
 

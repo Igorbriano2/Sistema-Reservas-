@@ -114,6 +114,8 @@ describe("Isolamento multi-tenant nos endpoints /admin", () => {
         horaFim: "20:30",
         numPessoas: 2,
         clienteNome: "Cliente A",
+        clienteTelefone: "43988414050",
+        dataNascimento: "1990-05-20",
       });
     expect(criar.status).toBe(201);
 

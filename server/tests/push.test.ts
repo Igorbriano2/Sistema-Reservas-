@@ -174,6 +174,8 @@ describe("Push disparado em nova reserva publica", () => {
       horaInicio: "20:00",
       numPessoas: 2,
       clienteNome: "Cliente Push",
+      clienteTelefone: "43988414050",
+      dataNascimento: "1990-05-20",
       mesaId: mesa.id,
     });
     expect(res.status).toBe(201);
@@ -195,6 +197,8 @@ describe("Push disparado em nova reserva publica", () => {
       horaInicio: "20:00",
       numPessoas: 2,
       clienteNome: "Cliente Sem Push",
+      clienteTelefone: "43988414050",
+      dataNascimento: "1990-05-20",
       mesaId: mesa.id,
     });
     expect(res.status).toBe(201);

@@ -56,6 +56,10 @@ const atualizarClienteSchema = z
     assinaturaStatus: z.enum(assinaturaStatusEnum.enumValues).optional(),
     plano: z.string().min(1).optional(),
     observacoes: z.string().optional(),
+    // Doc 46 - liga o campo de comanda + relatorio do dia pra este cliente (Cervegela
+    // por enquanto). Generico o bastante pra outros restaurantes no futuro, sem
+    // precisar de deploy.
+    comandaHabilitada: z.boolean().optional(),
   })
   .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar");
 
@@ -149,7 +153,7 @@ clientesRouter.post(
     }
 
     const [empresa] = await db
-      .select({ nome: empresas.nome })
+      .select({ nome: empresas.nome, comandaHabilitada: empresas.comandaHabilitada })
       .from(empresas)
       .where(eq(empresas.id, owner.empresaId))
       .limit(1);
@@ -171,6 +175,9 @@ clientesRouter.post(
         username: owner.username,
         papel: owner.papel,
         empresaId: owner.empresaId,
+        // Doc 46 - mesmo campo que /login e /me devolvem, pro suporte "acessar como"
+        // ver os mesmos itens de nav que o dono veria.
+        comandaHabilitada: empresa?.comandaHabilitada ?? false,
       },
       empresaNome: empresa?.nome ?? null,
     });

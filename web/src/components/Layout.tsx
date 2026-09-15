@@ -26,6 +26,10 @@ interface ItemDeNav {
   // Visivel no "Painel Operacao" (escolha pos-login estilo GetIn - Part A). Quem
   // nao marcar so aparece no "Painel Gestao".
   operacao?: boolean;
+  // Doc 46 - so aparece pra empresas com a funcionalidade de comanda marcada pelo
+  // admin da plataforma (ClientesPage). Combina com "permissao" quando os dois
+  // estiverem presentes (precisa das duas coisas).
+  requerComanda?: boolean;
 }
 
 // Grupo de itens com submenu (Part B, ex: Reservas > Reservas/Fila de espera/Mesas).
@@ -227,6 +231,13 @@ const NAV: EntradaDeNav[] = [
     itens: [
       { to: "/admin/relatorios", label: "Relatórios", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeRelatorios /> },
       { to: "/admin/feedback", label: "Feedback", permissao: { valor: "ver_relatorios", escopo: "unidade" }, icone: <IconeFeedback /> },
+      {
+        to: "/admin/relatorio-diario",
+        label: "Relatório do dia",
+        permissao: { valor: "ver_relatorios", escopo: "unidade" },
+        requerComanda: true,
+        icone: <IconeRelatorios />,
+      },
     ],
   },
   // Item 02 - conversas que precisam de atendimento humano viram uma aba de "Chat" a
@@ -313,6 +324,7 @@ export function Layout() {
 
   function itemVisivel(item: ItemDeNav): boolean {
     if (painelModo === "operacao" && !item.operacao) return false;
+    if (item.requerComanda && !usuario?.comandaHabilitada) return false;
     if (item.ownerOnly) return isOwner;
     if (item.permissao) {
       return item.permissao.escopo === "unidade" ? temPermissaoNaUnidade(item.permissao.valor) : temPermissaoNaEmpresa(item.permissao.valor);

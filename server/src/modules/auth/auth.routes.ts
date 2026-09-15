@@ -2,7 +2,7 @@ import { Router } from "express";
 import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
-import { usuarios } from "../../db/schema/index.js";
+import { empresas, usuarios } from "../../db/schema/index.js";
 import { verifyPassword } from "../../lib/password.js";
 import { signAuthToken } from "../../lib/jwt.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
@@ -46,6 +46,16 @@ authRouter.post("/login", async (req, res) => {
 
   const token = signAuthToken({ sub: usuario.id, empresaId: usuario.empresaId, papel: usuario.papel });
 
+  // Doc 46 - o painel precisa saber se a comanda/relatorio do dia esta liberada pra
+  // esta empresa (Cervegela por enquanto) pra mostrar ou nao esses itens de nav -
+  // unico dado no nivel de empresa que o front recebe hoje, por isso um select
+  // avulso em vez de reaproveitar algum join ja existente.
+  const [empresaDoUsuario] = await db
+    .select({ comandaHabilitada: empresas.comandaHabilitada })
+    .from(empresas)
+    .where(eq(empresas.id, usuario.empresaId))
+    .limit(1);
+
   res.json({
     token,
     usuario: {
@@ -55,6 +65,7 @@ authRouter.post("/login", async (req, res) => {
       username: usuario.username,
       papel: usuario.papel,
       empresaId: usuario.empresaId,
+      comandaHabilitada: empresaDoUsuario?.comandaHabilitada ?? false,
     },
   });
 });
@@ -71,6 +82,12 @@ authRouter.get("/me", requireAuth, async (req, res) => {
     return;
   }
 
+  const [empresaDoUsuario] = await db
+    .select({ comandaHabilitada: empresas.comandaHabilitada })
+    .from(empresas)
+    .where(eq(empresas.id, usuario.empresaId))
+    .limit(1);
+
   res.json({
     id: usuario.id,
     nome: usuario.nome,
@@ -78,5 +95,6 @@ authRouter.get("/me", requireAuth, async (req, res) => {
     username: usuario.username,
     papel: usuario.papel,
     empresaId: usuario.empresaId,
+    comandaHabilitada: empresaDoUsuario?.comandaHabilitada ?? false,
   });
 });

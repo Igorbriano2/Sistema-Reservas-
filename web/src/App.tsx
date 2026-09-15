@@ -14,6 +14,7 @@ import { ReservationsPage } from "./pages/ReservationsPage.js";
 import { TablesPage } from "./pages/TablesPage.js";
 import { BlocksPage } from "./pages/BlocksPage.js";
 import { ReportsPage } from "./pages/ReportsPage.js";
+import { RelatorioDiarioPage } from "./pages/RelatorioDiarioPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { UnidadesPage } from "./pages/UnidadesPage.js";
 import { MenuPage } from "./pages/MenuPage.js";
@@ -201,6 +202,18 @@ function AppRoutes() {
           element={
             <RequirePermissaoNaUnidade permissao="ver_relatorios">
               <FeedbackPage />
+            </RequirePermissaoNaUnidade>
+          }
+        />
+        {/* Doc 46 - a checagem de comandaHabilitada em si fica dentro da propria
+            pagina (RelatorioDiarioPage.tsx), igual o item de nav escondido em
+            Layout.tsx - aqui so exige a mesma permissao "ver_relatorios" das outras
+            abas de relatorio. */}
+        <Route
+          path="relatorio-diario"
+          element={
+            <RequirePermissaoNaUnidade permissao="ver_relatorios">
+              <RelatorioDiarioPage />
             </RequirePermissaoNaUnidade>
           }
         />

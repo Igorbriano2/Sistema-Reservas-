@@ -89,7 +89,15 @@ interface FormState {
   numPessoas: string;
   clienteNome: string;
   clienteTelefone: string;
+  // Doc 46 - so exigida ao CRIAR (ver salvar()); numa edicao o campo comeca vazio,
+  // ja que a reserva nao guarda a data de nascimento (isso vive em "clientes", por
+  // telefone) e nao vale a pena buscar so pra preencher o form.
+  dataNascimento: string;
   observacoes: string;
+  // Doc 46 - so aparece no form quando usuario.comandaHabilitada (Cervegela por
+  // enquanto); enviado sempre que preenchido, o backend ignora se a empresa nao tiver
+  // a funcionalidade.
+  comanda: string;
 }
 
 const FORM_VAZIO: FormState = {
@@ -98,7 +106,9 @@ const FORM_VAZIO: FormState = {
   numPessoas: "2",
   clienteNome: "",
   clienteTelefone: "",
+  dataNascimento: "",
   observacoes: "",
+  comanda: "",
 };
 
 function paraLocalDaReserva(reserva: Reserva): string {
@@ -108,7 +118,7 @@ function paraLocalDaReserva(reserva: Reserva): string {
 }
 
 export function ReservationsPage() {
-  const { unidade } = useAuth();
+  const { unidade, usuario } = useAuth();
   const [data, setData] = useState(hojeLocal());
   const [grupo, setGrupo] = useState<GrupoStatus>("recebidas");
   const [busca, setBusca] = useState("");
@@ -230,7 +240,9 @@ export function ReservationsPage() {
       numPessoas: String(reserva.numPessoas),
       clienteNome: reserva.clienteNome,
       clienteTelefone: reserva.clienteTelefone ?? "",
+      dataNascimento: "",
       observacoes: reserva.observacoes ?? "",
+      comanda: reserva.comanda ?? "",
     });
     setErroForm(null);
     setFormAberto(true);
@@ -254,6 +266,7 @@ export function ReservationsPage() {
           clienteNome: form.clienteNome,
           clienteTelefone: form.clienteTelefone || undefined,
           observacoes: form.observacoes || undefined,
+          comanda: form.comanda || undefined,
         });
       } else {
         const dados: DadosNovaReserva = {
@@ -263,8 +276,10 @@ export function ReservationsPage() {
           horaInicio: form.horaInicio,
           numPessoas: Number(form.numPessoas),
           clienteNome: form.clienteNome,
-          clienteTelefone: form.clienteTelefone || undefined,
+          clienteTelefone: form.clienteTelefone,
+          dataNascimento: form.dataNascimento,
           observacoes: form.observacoes || undefined,
+          comanda: form.comanda || undefined,
         };
         await criarReserva(unidade.id, dados);
       }
@@ -435,8 +450,34 @@ export function ReservationsPage() {
             </label>
             <label>
               Telefone
-              <input value={form.clienteTelefone} onChange={(e) => setForm({ ...form, clienteTelefone: e.target.value })} />
+              <input
+                value={form.clienteTelefone}
+                onChange={(e) => setForm({ ...form, clienteTelefone: e.target.value })}
+                required={!editando}
+              />
             </label>
+          </div>
+          <div className="linha-form">
+            {/* Doc 46 - data de nascimento so ao criar: a reserva nao guarda esse dado
+                (fica em "clientes", por telefone), entao numa edicao nao ha valor pra
+                mostrar nem sentido em exigir de novo. */}
+            {!editando && (
+              <label>
+                Data de nascimento
+                <input
+                  type="date"
+                  value={form.dataNascimento}
+                  onChange={(e) => setForm({ ...form, dataNascimento: e.target.value })}
+                  required
+                />
+              </label>
+            )}
+            {usuario?.comandaHabilitada && (
+              <label>
+                Comanda
+                <input value={form.comanda} onChange={(e) => setForm({ ...form, comanda: e.target.value })} />
+              </label>
+            )}
           </div>
           <label style={{ marginBottom: 0 }}>
             Observacoes
@@ -542,6 +583,7 @@ export function ReservationsPage() {
                       <a href={`tel:${reserva.clienteTelefone}`}>{reserva.clienteTelefone}</a>
                     </>
                   )}
+                  {usuario?.comandaHabilitada && reserva.comanda && <> - Comanda {reserva.comanda}</>}
                 </div>
                 {STATUS_ATIVOS.has(reserva.status) && (
                   <div className="reserva-card-mobile-acoes">
@@ -585,6 +627,7 @@ export function ReservationsPage() {
                 <th>Cliente</th>
                 <th>Pessoas</th>
                 <th>Local</th>
+                {usuario?.comandaHabilitada && <th>Comanda</th>}
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -603,6 +646,7 @@ export function ReservationsPage() {
                   </td>
                   <td>{reserva.numPessoas}</td>
                   <td>{nomeDoLocal(reserva)}</td>
+                  {usuario?.comandaHabilitada && <td>{reserva.comanda ?? "-"}</td>}
                   <td>
                     <StatusBadge estado={reserva.status} />
                   </td>

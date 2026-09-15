@@ -7,6 +7,11 @@ import { login } from "./helpers/auth.js";
 
 const app = createApp();
 
+// Doc 46 - telefone/data de nascimento passaram a ser obrigatorios pra CRIAR uma
+// reserva pelas rotas HTTP - filler generico pros testes deste arquivo que nao estao
+// testando essa validacao especificamente.
+const CLIENTE_FILLER = { clienteTelefone: "43988414050", dataNascimento: "1990-05-20" };
+
 beforeEach(async () => {
   await truncateAll();
 });
@@ -106,6 +111,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
         horaFim: "20:30",
         numPessoas: 2,
         clienteNome: "Fulano",
+        ...CLIENTE_FILLER,
       });
     expect(reserva.status).toBe(201);
     expect(reserva.body.status).toBe("confirmada");
@@ -133,7 +139,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
       return request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
         .set("Authorization", `Bearer ${token}`)
-        .send({ mesaId: mesa.body.id, data: "2026-09-15", horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+        .send({ mesaId: mesa.body.id, data: "2026-09-15", horaInicio, numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     }
 
     const reserva1 = await novaReserva("19:00");
@@ -167,7 +173,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
     const reserva = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ mesaId: mesa.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     await request(app)
       .delete(`/admin/unidades/${unidade.id}/reservations/${reserva.body.id}`)
       .set("Authorization", `Bearer ${token}`);
@@ -201,7 +207,7 @@ describe("CRUD de saloes, mesas e regras de horario", () => {
       await request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
         .set("Authorization", `Bearer ${token}`)
-        .send({ mesaId: mesa.body.id, data, horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+        .send({ mesaId: mesa.body.id, data, horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     }
 
     const resposta = await request(app)

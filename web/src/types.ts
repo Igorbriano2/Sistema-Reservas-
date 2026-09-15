@@ -8,6 +8,9 @@ export interface Usuario {
   username: string | null;
   papel: PapelUsuario;
   empresaId: string;
+  // Doc 46 - funcionalidade de comanda + relatorio do dia, ligada por empresa pelo
+  // admin da plataforma (so a Cervegela por enquanto). Vem de /auth/login e /auth/me.
+  comandaHabilitada: boolean;
 }
 
 // Funcionalidades "configuraveis" que o dono liga/desliga por login na hora de criar
@@ -290,6 +293,8 @@ export interface Reserva {
   horaFim: string;
   status: ReservaStatus;
   observacoes: string | null;
+  // Doc 46 - numero da comanda fisica, so usado por empresas com comandaHabilitada.
+  comanda: string | null;
   canalOrigem: CanalOrigem;
   statusPagamento: StatusPagamento;
   criadoEm: string;

@@ -11,6 +11,11 @@ import { login } from "./helpers/auth.js";
 
 const app = (await import("../src/app.js")).createApp();
 
+// Doc 46 - telefone/data de nascimento passaram a ser obrigatorios pra CRIAR uma
+// reserva pelas rotas HTTP (admin/publica/widget) - filler generico pros testes deste
+// arquivo que nao estao testando essa validacao especificamente.
+const CLIENTE_FILLER = { clienteTelefone: "43988414050", dataNascimento: "1990-05-20" };
+
 beforeEach(async () => {
   await truncateAll();
 });
@@ -186,7 +191,7 @@ describe("Modo simples do salao (rotas /admin)", () => {
     const reserva = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ salaoId: salao.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente A" });
+      .send({ salaoId: salao.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente A", ...CLIENTE_FILLER });
     expect(reserva.status).toBe(201);
     expect(reserva.body.mesaId).toBeNull();
 
@@ -195,7 +200,7 @@ describe("Modo simples do salao (rotas /admin)", () => {
     const excedente = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ salaoId: salao.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente B" });
+      .send({ salaoId: salao.body.id, data: "2026-09-15", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente B", ...CLIENTE_FILLER });
     expect(excedente.status).toBe(409);
 
     const disponibilidade = await request(app)
@@ -232,6 +237,7 @@ describe("Modo simples do salao (rotas /admin)", () => {
         horaInicio: "19:00",
         numPessoas: 2,
         clienteNome: "Cliente",
+        ...CLIENTE_FILLER,
       });
     expect(resposta.status).toBe(400);
   });
@@ -248,7 +254,7 @@ describe("Modo simples do salao (rotas /admin)", () => {
     const cheia = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente A" });
+      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 5, clienteNome: "Cliente A", ...CLIENTE_FILLER });
     expect(cheia.status).toBe(201);
 
     await request(app)
@@ -266,13 +272,13 @@ describe("Modo simples do salao (rotas /admin)", () => {
     const comoFuncionario = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente B" });
+      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente B", ...CLIENTE_FILLER });
     expect(comoFuncionario.status).toBe(409);
 
     const comoGerente = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenGerente}`)
-      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente C" });
+      .send({ salaoId: salao.body.id, data: "2026-09-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente C", ...CLIENTE_FILLER });
     expect(comoGerente.status).toBe(201);
   });
 
@@ -288,13 +294,13 @@ describe("Modo simples do salao (rotas /admin)", () => {
     const editavel = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ salaoId: salao.body.id, data: "2026-09-21", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente A" });
+      .send({ salaoId: salao.body.id, data: "2026-09-21", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente A", ...CLIENTE_FILLER });
     expect(editavel.status).toBe(201);
 
     const cheia = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ salaoId: salao.body.id, data: "2026-09-21", horaInicio: "19:00", numPessoas: 3, clienteNome: "Cliente B" });
+      .send({ salaoId: salao.body.id, data: "2026-09-21", horaInicio: "19:00", numPessoas: 3, clienteNome: "Cliente B", ...CLIENTE_FILLER });
     expect(cheia.status).toBe(201);
     // Capacidade (5) ja esgotada: 2 + 3. Editar "editavel" pra 3 pessoas estouraria pra 6.
 
@@ -337,6 +343,8 @@ describe("Modo simples do salao (rotas /admin)", () => {
       horaInicio: "19:00",
       numPessoas: 4,
       clienteNome: "Cliente Publico",
+      clienteTelefone: "43988414050",
+      dataNascimento: "1990-05-20",
     });
 
     expect(res.status).toBe(201);

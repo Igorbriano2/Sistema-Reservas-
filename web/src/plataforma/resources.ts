@@ -17,6 +17,7 @@ export interface DadosAtualizarCliente {
   assinaturaStatus?: AssinaturaStatus;
   plano?: string;
   observacoes?: string;
+  comandaHabilitada?: boolean;
 }
 
 export function atualizarCliente(empresaId: string, dados: DadosAtualizarCliente) {
@@ -66,7 +67,15 @@ export function entrarEmModoTeste() {
 // o tipo Usuario do painel do restaurante (email/username podem ser null).
 export interface AcessoDeSuporte {
   token: string;
-  usuario: { id: string; nome: string; email: string | null; username: string | null; papel: string; empresaId: string };
+  usuario: {
+    id: string;
+    nome: string;
+    email: string | null;
+    username: string | null;
+    papel: string;
+    empresaId: string;
+    comandaHabilitada: boolean;
+  };
   empresaNome: string | null;
 }
 

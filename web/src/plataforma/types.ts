@@ -19,6 +19,8 @@ export interface Cliente {
   assinaturaStatus: AssinaturaStatus;
   observacoes: string | null;
   ehDemo: boolean;
+  // Doc 46 - liga o campo de comanda + relatorio do dia (so a Cervegela por enquanto).
+  comandaHabilitada: boolean;
   criadoEm: string;
   contato: { nome: string; email: string } | null;
 }

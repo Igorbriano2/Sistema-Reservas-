@@ -2,9 +2,10 @@ import { Router } from "express";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
-import { reservaStatusEnum, reservas } from "../../db/schema/index.js";
+import { empresas, reservaStatusEnum, reservas } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { validarJanelaDeFuncionamento } from "../../lib/availability.js";
+import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
 import { ConflitoDeHorarioError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { atualizarReservaDaUnidade, cancelarReservaDaUnidade, criarReserva } from "../../lib/reservations.js";
 
@@ -13,6 +14,15 @@ export const reservationsRouter = Router({ mergeParams: true });
 const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, "Use o formato HH:MM");
 const dataSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use o formato YYYY-MM-DD");
 
+// Doc 46 - so retorna a linha quando a empresa (do login autenticado) tem a
+// funcionalidade de comanda marcada pelo admin da plataforma (ClientesPage) - usado
+// tanto pra decidir se persiste o numero da comanda quanto, no futuro, outras telas
+// gated pela mesma flag.
+async function empresaTemComandaHabilitada(empresaId: string): Promise<boolean> {
+  const [empresa] = await db.select({ comandaHabilitada: empresas.comandaHabilitada }).from(empresas).where(eq(empresas.id, empresaId)).limit(1);
+  return empresa?.comandaHabilitada ?? false;
+}
+
 // "data" filtra um dia exato (usado pelo painel operacional); "dataInicio"/"dataFim"
 // filtram um periodo (usado pelo dashboard gerencial) - mutuamente exclusivos.
 const listarQuerySchema = z.object({
@@ -20,6 +30,13 @@ const listarQuerySchema = z.object({
   dataInicio: dataSchema.optional(),
   dataFim: dataSchema.optional(),
 });
+
+// Doc 46 - nome/telefone/data de nascimento passam a ser obrigatorios ao CRIAR uma
+// reserva manual pelo painel, igual ao link publico e ao widget (ver reservation-link.
+// routes.ts/widget.routes.ts) - antes so nome era exigido. So vale pra criacao: editar
+// uma reserva ja existente (atualizarReservaSchema abaixo) nao reabre essa exigencia
+// pra registros antigos sem telefone/nascimento.
+const dataNascimentoSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data de nascimento deve estar no formato YYYY-MM-DD");
 
 const criarReservaSchema = z
   .object({
@@ -30,8 +47,13 @@ const criarReservaSchema = z
     horaFim: horaSchema.optional(),
     numPessoas: z.number().int().positive(),
     clienteNome: z.string().min(1),
-    clienteTelefone: z.string().optional(),
+    clienteTelefone: z.string().min(1),
+    dataNascimento: dataNascimentoSchema,
     observacoes: z.string().optional(),
+    // Doc 46 - so tem efeito quando a empresa tem comanda_habilitada=true (ver
+    // empresaTemComandaHabilitada acima); ignorado silenciosamente pra qualquer outra
+    // empresa, mesmo que o campo venha preenchido no body.
+    comanda: z.string().optional(),
   })
   .refine((d) => !!d.mesaId !== !!d.salaoId, "Informe exatamente um dos dois: mesaId ou salaoId");
 
@@ -46,6 +68,7 @@ const atualizarReservaSchema = z
     clienteNome: z.string().min(1).optional(),
     clienteTelefone: z.string().optional(),
     observacoes: z.string().optional(),
+    comanda: z.string().optional(),
     status: z.enum(reservaStatusEnum.enumValues).optional(),
   })
   .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar")
@@ -108,12 +131,41 @@ reservationsRouter.post(
       throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
     }
 
+    // Doc 46 - comanda so e persistida pra empresas com a funcionalidade marcada
+    // (Cervegela por enquanto); qualquer outra empresa que mande o campo tem ele
+    // silenciosamente ignorado, sem erro (evita 400 surpresa se o frontend cachear
+    // um form antigo/outra aba).
+    const comandaHabilitada = await empresaTemComandaHabilitada(req.auth!.empresaId);
+    const { dataNascimento, comanda, ...dadosDaReserva } = dados;
+
     const reserva = await criarReserva(db, {
       unidadeId: req.unidadeId!,
       canalOrigem: "manual",
       ignorarBloqueioECapacidade: podeIgnorarBloqueioECapacidade,
-      ...dados,
+      comanda: comandaHabilitada ? comanda : undefined,
+      ...dadosDaReserva,
     });
+
+    // Doc 46 - mesmo upsert que o link publico/widget ja fazem: nome/telefone/
+    // nascimento agora sao obrigatorios em toda reserva nova, entao toda reserva
+    // manual tambem alimenta a tabela de clientes (aniversario/WhatsApp, doc 16), nao
+    // so as feitas pelo proprio cliente. AGUARDADO (nao fire-and-forget como no link
+    // publico/widget): aqui quem esta esperando a resposta e o proprio atendente no
+    // painel, nao um cliente numa pagina publica onde cada milissegundo de latencia
+    // importa - e sem aguardar, o insert podia sobreviver a resposta HTTP e ainda
+    // estar em voo quando o processo seguinte mexesse nas mesmas tabelas (o caso real
+    // que pegamos: corrida com o TRUNCATE ... CASCADE entre testes).
+    try {
+      await salvarOuAtualizarCliente(db, {
+        empresaId: req.auth!.empresaId,
+        telefone: dados.clienteTelefone,
+        nome: dados.clienteNome,
+        dataNascimento: dados.dataNascimento,
+      });
+    } catch (err) {
+      console.error("[admin/reservations] falha ao salvar dados do cliente:", err);
+    }
+
     res.status(201).json(reserva);
   }),
 );
@@ -127,6 +179,12 @@ reservationsRouter.patch(
     // salao fechado, bloqueado, ou com a capacidade esgotada; funcionario continua
     // sujeito a todas as checagens.
     const podeIgnorarBloqueioECapacidade = req.auth!.papel === "owner" || req.auth!.papel === "gerente";
+    // Doc 46 - mesmo racional do POST: ignora silenciosamente pra empresa sem a
+    // funcionalidade. So consulta o flag quando o body realmente tenta mexer na
+    // comanda (evita uma query extra em toda edicao comum, ex: marcar sentada).
+    if (dados.comanda !== undefined && !(await empresaTemComandaHabilitada(req.auth!.empresaId))) {
+      delete dados.comanda;
+    }
     const reserva = await atualizarReservaDaUnidade(db, req.unidadeId!, req.params.reservationId, dados, {
       ignorarBloqueioECapacidade: podeIgnorarBloqueioECapacidade,
     });

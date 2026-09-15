@@ -22,6 +22,7 @@ export function WidgetReservationPage() {
   const [numPessoas, setNumPessoas] = useState("2");
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTelefone, setClienteTelefone] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -83,7 +84,8 @@ export function WidgetReservationPage() {
         horaInicio,
         numPessoas: Number(numPessoas),
         clienteNome,
-        clienteTelefone: clienteTelefone || undefined,
+        clienteTelefone,
+        dataNascimento,
       });
       setConfirmada(reserva);
     } catch (err) {
@@ -175,8 +177,12 @@ export function WidgetReservationPage() {
           <input value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} required />
         </label>
         <label>
-          Telefone (opcional)
-          <input value={clienteTelefone} onChange={(e) => setClienteTelefone(e.target.value)} placeholder="43988414050" />
+          Telefone
+          <input value={clienteTelefone} onChange={(e) => setClienteTelefone(e.target.value)} placeholder="43988414050" required />
+        </label>
+        <label>
+          Data de nascimento
+          <input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} required />
         </label>
         {erro && <span className="erro">{erro}</span>}
         <div className="acoes">

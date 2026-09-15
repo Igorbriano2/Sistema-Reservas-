@@ -47,7 +47,15 @@ describe("Relatorios basicos", () => {
       const resposta = await request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
         .set("Authorization", `Bearer ${token}`)
-        .send({ mesaId, data: "2026-09-14", horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+        .send({
+          mesaId,
+          data: "2026-09-14",
+          horaInicio,
+          numPessoas: 2,
+          clienteNome: "Fulano",
+          clienteTelefone: "43988414050",
+          dataNascimento: "1990-05-20",
+        });
       return resposta.body.id as string;
     }
 

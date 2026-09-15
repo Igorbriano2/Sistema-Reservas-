@@ -323,10 +323,10 @@ export function PublicReservationPage() {
       horaInicio,
       numPessoas: Number(numPessoas),
       clienteNome,
-      clienteTelefone: clienteTelefone || undefined,
+      clienteTelefone,
       mesaId: mesaEscolhidaId ?? undefined,
-      dataNascimento: dataNascimento || undefined,
-      whatsappOptIn: clienteTelefone ? whatsappOptIn : undefined,
+      dataNascimento,
+      whatsappOptIn,
     };
   }
 
@@ -596,12 +596,12 @@ export function PublicReservationPage() {
           <input value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} required />
         </label>
         <label>
-          Telefone (opcional)
-          <input value={clienteTelefone} onChange={(e) => setClienteTelefone(e.target.value)} />
+          Telefone
+          <input value={clienteTelefone} onChange={(e) => setClienteTelefone(e.target.value)} required />
         </label>
         <label>
-          Data de nascimento (opcional)
-          <input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} />
+          Data de nascimento
+          <input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} required />
         </label>
         <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input

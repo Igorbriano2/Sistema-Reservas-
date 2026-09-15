@@ -372,8 +372,13 @@ export interface DadosNovaReserva {
   horaFim?: string;
   numPessoas: number;
   clienteNome: string;
-  clienteTelefone?: string;
+  // Doc 46 - obrigatorios ao criar (nao ao editar, ver DadosEditarReserva abaixo).
+  clienteTelefone: string;
+  dataNascimento: string;
   observacoes?: string;
+  // So tem efeito pra empresa com comanda habilitada (ver Usuario.comandaHabilitada) -
+  // ignorado pelo backend pra qualquer outra.
+  comanda?: string;
 }
 
 export function criarReserva(unidadeId: string, dados: DadosNovaReserva) {
@@ -390,6 +395,7 @@ export interface DadosEditarReserva {
   clienteNome?: string;
   clienteTelefone?: string;
   observacoes?: string;
+  comanda?: string;
   status?: Reserva["status"];
 }
 
@@ -521,12 +527,13 @@ export interface DadosReservaPublica {
   horaInicio: string;
   numPessoas: number;
   clienteNome: string;
-  clienteTelefone?: string;
+  // Doc 46 - obrigatorios pra fazer a reserva (antes eram opcionais).
+  clienteTelefone: string;
+  dataNascimento: string;
   // Escolhida pelo cliente no mapa visual (doc 11 Parte 2). Se ausente, o backend
   // escolhe a mesa/salao automaticamente (fluxo antigo, ainda suportado).
   mesaId?: string;
-  // Doc 16 - opcionais, so tem efeito com clienteTelefone tambem preenchido.
-  dataNascimento?: string;
+  // Doc 16 - opt-in de WhatsApp continua opcional.
   whatsappOptIn?: boolean;
   // Doc 22 - obrigatorio quando o turno exige deposito (ver criarDepositoDeReserva).
   paymentIntentId?: string;
@@ -665,7 +672,10 @@ export interface DadosReservaWidget {
   horaInicio: string;
   numPessoas: number;
   clienteNome: string;
-  clienteTelefone?: string;
+  // Doc 46 - obrigatorios pra fazer a reserva (antes so telefone existia, e era
+  // opcional; data de nascimento nem existia no widget).
+  clienteTelefone: string;
+  dataNascimento: string;
 }
 
 export function criarReservaWidget(unidadeId: string, dados: DadosReservaWidget) {

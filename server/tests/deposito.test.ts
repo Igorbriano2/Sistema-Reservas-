@@ -17,6 +17,11 @@ const { gerarTokenDeReserva } = await import("../src/lib/reservation-link.js");
 
 const app = createApp();
 
+// Doc 46 - telefone/data de nascimento passaram a ser obrigatorios pra CRIAR uma
+// reserva pelas rotas HTTP - filler generico pros testes deste arquivo que nao estao
+// testando essa validacao especificamente.
+const CLIENTE_FILLER = { clienteTelefone: "43988414050", dataNascimento: "1990-05-20" };
+
 function criarStripeFalso() {
   return {
     paymentIntents: { create: vi.fn(), retrieve: vi.fn() },
@@ -88,7 +93,7 @@ describe("POST /public/reservation-link/:token/reservations com deposito exigido
 
     const resposta = await request(app)
       .post(`/public/reservation-link/${token}/reservations`)
-      .send({ data: "2026-10-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente Teste" });
+      .send({ data: "2026-10-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Cliente Teste", ...CLIENTE_FILLER });
 
     expect(resposta.status).toBe(400);
     expect(await db.select().from(reservas)).toHaveLength(0);
@@ -110,6 +115,7 @@ describe("POST /public/reservation-link/:token/reservations com deposito exigido
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Teste",
+      ...CLIENTE_FILLER,
       mesaId: mesa.id,
       paymentIntentId: "pi_ok",
     });
@@ -131,6 +137,7 @@ describe("POST /public/reservation-link/:token/reservations com deposito exigido
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Teste",
+      ...CLIENTE_FILLER,
       mesaId: mesa.id,
       paymentIntentId: "pi_pendente",
     });
@@ -155,6 +162,7 @@ describe("POST /public/reservation-link/:token/reservations com deposito exigido
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Teste",
+      ...CLIENTE_FILLER,
       mesaId: mesa.id,
       paymentIntentId: "pi_trocado",
     });
@@ -194,6 +202,7 @@ describe("POST /public/reservation-link/:token/reservations com deposito exigido
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Teste",
+      ...CLIENTE_FILLER,
       mesaId: mesa.id,
       paymentIntentId: "pi_pago_mas_sem_mesa",
     });
@@ -215,6 +224,7 @@ describe("POST /public/reservation-link/:token/reservations com deposito exigido
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Teste",
+      ...CLIENTE_FILLER,
       mesaId: mesa.id,
       paymentIntentId: "pi_replay",
     });
@@ -227,6 +237,7 @@ describe("POST /public/reservation-link/:token/reservations com deposito exigido
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente Teste",
+      ...CLIENTE_FILLER,
       mesaId: segundaMesa.id,
       paymentIntentId: "pi_replay",
     });

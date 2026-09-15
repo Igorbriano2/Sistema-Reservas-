@@ -276,14 +276,16 @@ const criarReservaPublicaSchema = z.object({
   horaInicio: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "horario deve estar no formato HH:MM"),
   numPessoas: z.number().int().positive(),
   clienteNome: z.string().min(1),
-  clienteTelefone: z.string().optional(),
+  // Doc 46 - telefone e data de nascimento passam a ser obrigatorios pra fazer uma
+  // reserva (antes so o nome era exigido) - alimentam tanto find_my_reservations
+  // (posse da reserva) quanto a tabela de clientes (aniversario/WhatsApp, doc 16).
+  clienteTelefone: z.string().min(1),
   // Escolhida pelo cliente no mapa visual (Parte 2). Se ausente, cai no fluxo antigo
   // (backend escolhe a mesa/salao automaticamente).
   mesaId: z.string().uuid().optional(),
-  // Doc 16 - opcionais, so tem efeito quando clienteTelefone tambem e informado (sem
-  // telefone nao ha pra quem mandar WhatsApp nenhum). Opt-in nunca e assumido: so vira
-  // true se o campo vier explicitamente true (checkbox comeca desmarcado no form).
-  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data de nascimento deve estar no formato YYYY-MM-DD").optional(),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data de nascimento deve estar no formato YYYY-MM-DD"),
+  // Opt-in de WhatsApp continua OPCIONAL (doc 16) - nunca e assumido: so vira true se
+  // o campo vier explicitamente true (checkbox comeca desmarcado no form).
   whatsappOptIn: z.boolean().optional(),
   // Doc 22 - obrigatorio quando o turno exige deposito (obtido em POST /deposito e
   // confirmado no navegador via stripe.confirmCardPayment antes de chegar aqui).

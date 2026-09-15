@@ -7,6 +7,11 @@ import { login } from "./helpers/auth.js";
 
 const app = createApp();
 
+// Doc 46 - telefone/data de nascimento passaram a ser obrigatorios pra CRIAR uma
+// reserva pelas rotas HTTP - filler generico pros testes deste arquivo que nao estao
+// testando essa validacao especificamente.
+const CLIENTE_FILLER = { clienteTelefone: "43988414050", dataNascimento: "1990-05-20" };
+
 beforeEach(async () => {
   await truncateAll();
 });
@@ -68,14 +73,14 @@ describe("Bloqueios de mesa/salao", () => {
     const dentroDoPeriodo = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(dentroDoPeriodo.status).toBe(409);
     expect(dentroDoPeriodo.body.error ?? dentroDoPeriodo.text).toMatch(/bloqueada/i);
 
     const foraDoPeriodo = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ mesaId: mesa.id, data: "2026-10-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-10-20", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(foraDoPeriodo.status).toBe(201);
   });
 
@@ -95,7 +100,7 @@ describe("Bloqueios de mesa/salao", () => {
     const reserva = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ mesaId: mesa.id, data: "2026-11-01", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-11-01", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(reserva.status).toBe(409);
   });
 
@@ -208,13 +213,13 @@ describe("Bloqueios de mesa/salao", () => {
     const comoFuncionario = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(comoFuncionario.status).toBe(409);
 
     const comoGerente = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenGerente}`)
-      .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-10-12", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(comoGerente.status).toBe(201);
   });
 
@@ -226,7 +231,7 @@ describe("Bloqueios de mesa/salao", () => {
     const criada = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ mesaId: mesa.id, data: "2026-10-01", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-10-01", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(criada.status).toBe(201);
 
     await request(app)

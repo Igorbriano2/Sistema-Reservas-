@@ -107,7 +107,16 @@ describe("Papeis - funcionario acessa reservas do dia e disponibilidade normalme
     const criar = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ mesaId: mesa.body.id, data: "2026-12-01", horaInicio: "19:00", horaFim: "20:30", numPessoas: 2, clienteNome: "Cliente X" });
+      .send({
+        mesaId: mesa.body.id,
+        data: "2026-12-01",
+        horaInicio: "19:00",
+        horaFim: "20:30",
+        numPessoas: 2,
+        clienteNome: "Cliente X",
+        clienteTelefone: "43988414050",
+        dataNascimento: "1990-05-20",
+      });
     expect(criar.status).toBe(201);
 
     const listar = await request(app)

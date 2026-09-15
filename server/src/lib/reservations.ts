@@ -102,6 +102,10 @@ export interface CriarReservaParams {
   clienteNome: string;
   clienteTelefone?: string;
   observacoes?: string;
+  // Doc 46 - so persistido quando a empresa tem comanda_habilitada=true (decidido pela
+  // rota chamadora, igual ignorarBloqueioECapacidade abaixo) - nunca preenchido pelo
+  // agente/link publico/widget.
+  comanda?: string;
   igSenderId?: string;
   canalOrigem: "instagram" | "manual" | "widget";
   // Doc 22 - preenchidos so quando o turno exige deposito e o pagamento ja foi
@@ -202,6 +206,7 @@ async function criarReservaComMesa(
           horaInicio: params.horaInicio,
           horaFim,
           observacoes: params.observacoes,
+          comanda: params.comanda,
           canalOrigem: params.canalOrigem,
           statusPagamento: params.statusPagamento,
           stripePaymentIntentId: params.stripePaymentIntentId,
@@ -302,6 +307,7 @@ async function criarReservaSimples(
           horaInicio: params.horaInicio,
           horaFim,
           observacoes: params.observacoes,
+          comanda: params.comanda,
           canalOrigem: params.canalOrigem,
           statusPagamento: params.statusPagamento,
           stripePaymentIntentId: params.stripePaymentIntentId,
@@ -374,6 +380,8 @@ export interface AtualizarReservaParams {
   horaFim?: string;
   status?: (typeof reservas.$inferSelect)["status"];
   observacoes?: string;
+  // Doc 46 - mesmo racional de CriarReservaParams.comanda acima.
+  comanda?: string;
 }
 
 // condicoesDeIdentidade SEMPRE inclui id + unidade_id; quando chamada em nome de um
@@ -587,6 +595,7 @@ async function atualizarReservaComCondicoes(
           horaFim,
           status: patch.status,
           observacoes: patch.observacoes,
+          comanda: patch.comanda,
         })
         .where(eq(reservas.id, atual.id))
         .returning();

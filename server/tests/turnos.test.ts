@@ -15,6 +15,11 @@ import { criarConversa, criarMesa, criarRegraHorarioTodosOsDias, criarSalao, cri
 
 const app = createApp();
 
+// Doc 46 - telefone/data de nascimento passaram a ser obrigatorios pra CRIAR uma
+// reserva pelas rotas HTTP - filler generico pros testes deste arquivo que nao estao
+// testando essa validacao especificamente.
+const CLIENTE_FILLER = { clienteTelefone: "43988414050", dataNascimento: "1990-05-20" };
+
 beforeEach(async () => {
   await truncateAll();
 });
@@ -155,7 +160,7 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
       const rejeitada = await request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
         .set("Authorization", `Bearer ${tokenFuncionario}`)
-        .send({ mesaId: mesa.id, data: cedoDemais.data, horaInicio: cedoDemais.horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+        .send({ mesaId: mesa.id, data: cedoDemais.data, horaInicio: cedoDemais.horaInicio, numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
       expect(rejeitada.status).toBe(409);
       expect(rejeitada.body.error).toMatch(/antecedencia/i);
 
@@ -163,7 +168,7 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
       const aceita = await request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
         .set("Authorization", `Bearer ${tokenFuncionario}`)
-        .send({ mesaId: mesa.id, data: comAntecedencia.data, horaInicio: comAntecedencia.horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+        .send({ mesaId: mesa.id, data: comAntecedencia.data, horaInicio: comAntecedencia.horaInicio, numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
       expect(aceita.status).toBe(201);
 
       // Doc 45: gerente/owner (aqui, o proprio dono/token de setup()) ignora a
@@ -171,7 +176,7 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
       const comoOwner = await request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
         .set("Authorization", `Bearer ${token}`)
-        .send({ mesaId: mesa.id, data: cedoDemais.data, horaInicio: cedoDemais.horaInicio, numPessoas: 2, clienteNome: "Beltrano" });
+        .send({ mesaId: mesa.id, data: cedoDemais.data, horaInicio: cedoDemais.horaInicio, numPessoas: 2, clienteNome: "Beltrano", ...CLIENTE_FILLER });
       expect(comoOwner.status).toBe(201);
     } finally {
       vi.useRealTimers();
@@ -208,7 +213,7 @@ describe("Painel admin - antecedencia minima tambem no create e na edicao de res
       const criada = await request(app)
         .post(`/admin/unidades/${unidade.id}/reservations`)
         .set("Authorization", `Bearer ${token}`)
-        .send({ mesaId: mesa.id, data: comAntecedencia.data, horaInicio: comAntecedencia.horaInicio, numPessoas: 2, clienteNome: "Fulano" });
+        .send({ mesaId: mesa.id, data: comAntecedencia.data, horaInicio: comAntecedencia.horaInicio, numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
       expect(criada.status).toBe(201);
 
       const cedoDemais = dataHoraDaquiA(20);
@@ -254,14 +259,14 @@ describe("Painel admin - gerente/owner ignora salao fechado ao criar/editar rese
     const comoFuncionario = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenFuncionario}`)
-      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(comoFuncionario.status).toBe(409);
     expect(comoFuncionario.body.error).toMatch(/horario de funcionamento/i);
 
     const comoGerente = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${tokenGerente}`)
-      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(comoGerente.status).toBe(201);
   });
 
@@ -274,7 +279,7 @@ describe("Painel admin - gerente/owner ignora salao fechado ao criar/editar rese
     const criada = await request(app)
       .post(`/admin/unidades/${unidade.id}/reservations`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano" });
+      .send({ mesaId: mesa.id, data: "2026-11-10", horaInicio: "19:00", numPessoas: 2, clienteNome: "Fulano", ...CLIENTE_FILLER });
     expect(criada.status).toBe(201);
 
     await request(app)
@@ -466,6 +471,7 @@ describe("horarios fixos por turno (doc 28 - ex: Cervegela so aceita reserva as 
       horaInicio: "20:00",
       numPessoas: 4,
       clienteNome: "Cliente Teste",
+      ...CLIENTE_FILLER,
     });
     expect(fora.status).toBeGreaterThanOrEqual(400);
 
@@ -474,6 +480,7 @@ describe("horarios fixos por turno (doc 28 - ex: Cervegela so aceita reserva as 
       horaInicio: "19:00",
       numPessoas: 4,
       clienteNome: "Cliente Teste",
+      ...CLIENTE_FILLER,
     });
     expect(noHorario.status).toBe(201);
   });

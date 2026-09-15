@@ -166,7 +166,11 @@ const criarReservaWidgetSchema = z.object({
   horaInicio: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "horario deve estar no formato HH:MM"),
   numPessoas: z.number().int().positive(),
   clienteNome: z.string().min(1),
-  clienteTelefone: z.string().optional(),
+  // Doc 46 - telefone e data de nascimento passam a ser obrigatorios pra fazer uma
+  // reserva, igual ao link publico do agente (reservation-link.routes.ts) - antes o
+  // widget nem coletava data de nascimento.
+  clienteTelefone: z.string().min(1),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data de nascimento deve estar no formato YYYY-MM-DD"),
   mesaId: z.string().uuid().optional(),
 });
 
@@ -218,15 +222,14 @@ widgetRouter.post(
           clienteTelefone: dados.clienteTelefone,
         });
 
-    if (dados.clienteTelefone) {
-      salvarOuAtualizarCliente(db, {
-        empresaId: unidade.empresaId,
-        telefone: dados.clienteTelefone,
-        nome: dados.clienteNome,
-      }).catch((err) => {
-        console.error("[widget] falha ao salvar dados do cliente:", err);
-      });
-    }
+    salvarOuAtualizarCliente(db, {
+      empresaId: unidade.empresaId,
+      telefone: dados.clienteTelefone,
+      nome: dados.clienteNome,
+      dataNascimento: dados.dataNascimento,
+    }).catch((err) => {
+      console.error("[widget] falha ao salvar dados do cliente:", err);
+    });
 
     enviarPushParaUnidade(db, unidade.id, {
       titulo: "Nova reserva (widget do site)",

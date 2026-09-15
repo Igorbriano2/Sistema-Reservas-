@@ -13,6 +13,11 @@ export const empresas = pgTable("empresas", {
   // Empresa sandbox usada pelo "modo teste" do painel da plataforma - nunca aparece
   // na listagem de clientes reais.
   ehDemo: boolean("eh_demo").notNull().default(false),
+  // Doc 46 - liga o campo de "numero da comanda" na reserva manual do painel e a
+  // pagina de relatorio do dia (reservas + comandas) - so a Cervegela por enquanto,
+  // ligado manualmente pelo admin da plataforma (ClientesPage). Default false pra
+  // nao aparecer pra nenhum outro restaurante sem essa funcionalidade combinada.
+  comandaHabilitada: boolean("comanda_habilitada").notNull().default(false),
   // Cliente da Stripe reaproveitado entre unidades da MESMA empresa (doc 17) - ao
   // adicionar uma 2a unidade, cria uma nova subscription pro mesmo customer em vez
   // de duplicar cadastro no gateway. Preenchido na 1a assinatura da empresa.

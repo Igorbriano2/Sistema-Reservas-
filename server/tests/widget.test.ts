@@ -64,6 +64,7 @@ describe("POST /public/widget/:unidadeId/reservations", () => {
       numPessoas: 2,
       clienteNome: "Cliente do Site",
       clienteTelefone: "43988414050",
+      dataNascimento: "1990-05-20",
     });
 
     expect(resposta.status).toBe(201);
@@ -86,6 +87,8 @@ describe("POST /public/widget/:unidadeId/reservations", () => {
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente do Site",
+      clienteTelefone: "43988414050",
+      dataNascimento: "1990-05-20",
       mesaId: mesa.id,
     });
 
@@ -114,6 +117,8 @@ describe("POST /public/widget/:unidadeId/reservations", () => {
       horaInicio: "19:00",
       numPessoas: 2,
       clienteNome: "Cliente do Site",
+      clienteTelefone: "43988414050",
+      dataNascimento: "1990-05-20",
     });
     expect(resposta.status).not.toBe(201);
     expect(await db.select().from(reservas)).toHaveLength(0);

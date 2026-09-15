@@ -57,6 +57,20 @@ export function ClientesPage() {
     }
   }
 
+  // Doc 46 - liga/desliga o campo de comanda + relatorio do dia pra este cliente.
+  async function mudarComandaHabilitada(cliente: Cliente, comandaHabilitada: boolean) {
+    setSalvandoId(cliente.id);
+    setErro(null);
+    try {
+      const atualizado = await atualizarCliente(cliente.id, { comandaHabilitada });
+      setClientes((lista) => lista.map((c) => (c.id === cliente.id ? { ...c, ...atualizado } : c)));
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Nao foi possivel atualizar a funcionalidade de comanda.");
+    } finally {
+      setSalvandoId(null);
+    }
+  }
+
   function abrirEdicao(cliente: Cliente) {
     setEditandoId(cliente.id);
     setNovoNome(cliente.contato?.nome ?? "");
@@ -144,7 +158,9 @@ export function ClientesPage() {
         <h3 style={{ marginTop: 0 }}>Clientes</h3>
         <p className="texto-secundario" style={{ fontSize: "0.85rem", marginTop: 0 }}>
           "Assinatura / Acesso" controla se o restaurante consegue usar o painel: "Suspenso" ou "Cancelado" bloqueia o
-          acesso imediatamente (util pra assinaturas pagas via Pix, fora do controle automatico da Stripe).
+          acesso imediatamente (util pra assinaturas pagas via Pix, fora do controle automatico da Stripe). "Comanda"
+          libera o campo de numero da comanda na reserva manual e o relatório do dia (reservas + comandas) pra esse
+          cliente.
         </p>
         {carregando ? (
           <p>Carregando...</p>
@@ -159,6 +175,7 @@ export function ClientesPage() {
                 <th>Contato</th>
                 <th>Plano</th>
                 <th>Assinatura / Acesso</th>
+                <th>Comanda</th>
                 <th>Desde</th>
                 <th>Login do dono</th>
                 <th></th>
@@ -194,6 +211,19 @@ export function ClientesPage() {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", whiteSpace: "nowrap" }}>
+                      <input
+                        type="checkbox"
+                        checked={cliente.comandaHabilitada}
+                        disabled={salvandoId === cliente.id}
+                        onChange={(e) => mudarComandaHabilitada(cliente, e.target.checked)}
+                      />
+                      <span className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+                        {cliente.comandaHabilitada ? "Ligada" : "Desligada"}
+                      </span>
+                    </label>
                   </td>
                   <td>{cliente.criadoEm.slice(0, 10).split("-").reverse().join("/")}</td>
                   <td>
