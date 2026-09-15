@@ -278,6 +278,13 @@ export type CanalOrigem = "instagram" | "manual" | "widget";
 // deposito confirmado); existe pro tipo cobrir o estado transitorio do fluxo.
 export type StatusPagamento = "nao_exigido" | "pendente" | "pago" | "reembolsado";
 
+// Doc 46 (redesign) - uma comanda individual da reserva. Uma reserva pode ter varias
+// (grupo com comandas separadas), adicionadas ao sentar ou depois.
+export interface ReservaComanda {
+  id: string;
+  numero: string;
+}
+
 export interface Reserva {
   id: string;
   unidadeId: string;
@@ -293,8 +300,12 @@ export interface Reserva {
   horaFim: string;
   status: ReservaStatus;
   observacoes: string | null;
-  // Doc 46 - numero da comanda fisica, so usado por empresas com comandaHabilitada.
-  comanda: string | null;
+  // Doc 46 (redesign) - numero/identificador da mesa fisica, atribuido pelo atendente
+  // ao sentar o cliente. So usado por empresas com comandaHabilitada.
+  mesaFisica: string | null;
+  // Doc 46 (redesign) - so vem preenchido (sempre presente, pode ser []) pra empresas
+  // com comandaHabilitada; ver GET .../reservations no backend.
+  comandas: ReservaComanda[];
   canalOrigem: CanalOrigem;
   statusPagamento: StatusPagamento;
   criadoEm: string;

@@ -58,11 +58,15 @@ export const reservas = pgTable(
     horaFim: time("hora_fim").notNull(),
     status: reservaStatusEnum("status").notNull().default("confirmada"),
     observacoes: text("observacoes"),
-    // Doc 46 - numero da comanda fisica, so usado por empresas com a funcionalidade
-    // marcada (ver empresas.comanda_habilitada) - hoje so a Cervegela. Texto livre (nao
-    // integer) porque comandas podem ter letras/zeros a esquerda dependendo do sistema
-    // de PDV de cada restaurante.
-    comanda: text("comanda"),
+    // Doc 46 - numero/identificador da mesa FISICA (ex: "12"), atribuido pelo atendente
+    // ao sentar o cliente - so usado por empresas com a funcionalidade marcada (ver
+    // empresas.comanda_habilitada), hoje so a Cervegela. Diferente de mesaId/salaoId:
+    // aqueles sao o local RESERVADO (mesa do mapa ou salao inteiro em modo simples),
+    // que pra um salao modo simples nao mapeia nenhuma mesa fisica individual - esta
+    // coluna e onde a mesa fisica real e registrada, independente do modo de
+    // configuracao do salao. As comandas em si (podem ser varias por reserva, ver
+    // "todos os clientes terao comandas individuais") vivem em reserva_comandas.
+    mesaFisica: text("mesa_fisica"),
     canalOrigem: canalOrigemEnum("canal_origem").notNull().default("manual"),
     // Doc 22 - deposito via Stripe. paymentIntentId fica nulo pra "nao_exigido".
     statusPagamento: statusPagamentoEnum("status_pagamento").notNull().default("nao_exigido"),

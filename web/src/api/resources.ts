@@ -23,6 +23,7 @@ import type {
   RegraHorario,
   Relatorio,
   Reserva,
+  ReservaComanda,
   Salao,
   SalaoElemento,
   TipoElementoSalao,
@@ -36,6 +37,14 @@ import type {
 // "identificador" aceita e-mail (dono) OU username (dono/gerente/funcionario) - ver doc 17.
 export function login(identificador: string, senha: string) {
   return api.post<{ token: string; usuario: Usuario }>("/auth/login", { identificador, senha });
+}
+
+// Doc 46 - o usuario ficava so em localStorage desde o login, sem nenhum refresh:
+// uma mudanca feita depois (ex: comandaHabilitada ligado pelo admin da plataforma)
+// nunca aparecia pro dono/gerente sem ele deslogar e logar de novo. AuthContext chama
+// isso uma vez ao carregar o painel pra manter esses dados atuais.
+export function obterUsuarioAtual() {
+  return api.get<Usuario>("/auth/me");
 }
 
 export function listarUnidades() {
@@ -376,9 +385,6 @@ export interface DadosNovaReserva {
   clienteTelefone: string;
   dataNascimento: string;
   observacoes?: string;
-  // So tem efeito pra empresa com comanda habilitada (ver Usuario.comandaHabilitada) -
-  // ignorado pelo backend pra qualquer outra.
-  comanda?: string;
 }
 
 export function criarReserva(unidadeId: string, dados: DadosNovaReserva) {
@@ -395,7 +401,10 @@ export interface DadosEditarReserva {
   clienteNome?: string;
   clienteTelefone?: string;
   observacoes?: string;
-  comanda?: string;
+  // Doc 46 (redesign) - atribuida ao sentar (ou editada depois). So tem efeito pra
+  // empresa com comanda habilitada (ver Usuario.comandaHabilitada) - ignorado pelo
+  // backend pra qualquer outra.
+  mesaFisica?: string;
   status?: Reserva["status"];
 }
 
@@ -405,6 +414,18 @@ export function atualizarReserva(unidadeId: string, reservaId: string, dados: Da
 
 export function cancelarReserva(unidadeId: string, reservaId: string) {
   return api.delete<Reserva>(`/admin/unidades/${unidadeId}/reservations/${reservaId}`);
+}
+
+// Doc 46 (redesign) - comandas individuais da reserva (Cervegela: "todos os clientes
+// terao comandas individuais"), adicionadas ao sentar e/ou depois (o atendente pode ir
+// abrindo mais comandas conforme chega gente na mesa). So tem efeito pra empresa com
+// comandaHabilitada - o backend rejeita (400) pra qualquer outra.
+export function adicionarComanda(unidadeId: string, reservaId: string, numero: string) {
+  return api.post<ReservaComanda>(`/admin/unidades/${unidadeId}/reservations/${reservaId}/comandas`, { numero });
+}
+
+export function removerComanda(unidadeId: string, reservaId: string, comandaId: string) {
+  return api.delete<void>(`/admin/unidades/${unidadeId}/reservations/${reservaId}/comandas/${comandaId}`);
 }
 
 // Owner apenas (backend rejeita com 403 para funcionario/gerente nestas rotas).

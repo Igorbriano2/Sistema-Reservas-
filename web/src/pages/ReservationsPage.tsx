@@ -3,19 +3,21 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { ApiError } from "../api/client.js";
 import {
+  adicionarComanda,
   cancelarReserva,
   criarReserva,
   listarMesas,
   listarReservas,
   listarSaloes,
   atualizarReserva,
+  removerComanda,
   type DadosNovaReserva,
 } from "../api/resources.js";
 import { CalendarioMes } from "../components/CalendarioMes.js";
 import { IconeWhatsApp } from "../components/IconeWhatsApp.js";
 import { Button, EmptyState, Modal, Skeleton, StatusBadge } from "../components/ui/index.js";
 import { linkWhatsApp } from "../lib/whatsapp.js";
-import type { Mesa, Reserva, Salao } from "../types.js";
+import type { Mesa, Reserva, ReservaComanda, Salao } from "../types.js";
 
 function dataLocal(offsetDias = 0): string {
   const agora = new Date();
@@ -94,10 +96,11 @@ interface FormState {
   // telefone) e nao vale a pena buscar so pra preencher o form.
   dataNascimento: string;
   observacoes: string;
-  // Doc 46 - so aparece no form quando usuario.comandaHabilitada (Cervegela por
-  // enquanto); enviado sempre que preenchido, o backend ignora se a empresa nao tiver
-  // a funcionalidade.
-  comanda: string;
+  // Doc 46 (redesign) - so aparece na EDICAO quando usuario.comandaHabilitada
+  // (Cervegela por enquanto): mesa fisica e atribuida ao sentar (ver modal "Sentar"
+  // abaixo) ou corrigida depois aqui. As comandas em si nao entram no form - sao
+  // geridas ao vivo (comandasEditando/adicionar-remover), nao no "Salvar" em lote.
+  mesaFisica: string;
 }
 
 const FORM_VAZIO: FormState = {
@@ -108,7 +111,7 @@ const FORM_VAZIO: FormState = {
   clienteTelefone: "",
   dataNascimento: "",
   observacoes: "",
-  comanda: "",
+  mesaFisica: "",
 };
 
 function paraLocalDaReserva(reserva: Reserva): string {
@@ -138,6 +141,25 @@ export function ReservationsPage() {
   const [salvando, setSalvando] = useState(false);
   const [erroForm, setErroForm] = useState<string | null>(null);
   const [calendarioAberto, setCalendarioAberto] = useState(false);
+  // Doc 46 (redesign) - comandas da reserva em edicao: geridas ao vivo (cada
+  // adicionar/remover chama a API na hora), nao fazem parte do "Salvar" em lote do
+  // form principal.
+  const [comandasEditando, setComandasEditando] = useState<ReservaComanda[]>([]);
+  const [novaComandaEditando, setNovaComandaEditando] = useState("");
+  const [comandaOperando, setComandaOperando] = useState(false);
+
+  // Doc 46 (redesign) - "Sentar" pra empresa com comandaHabilitada abre este modal
+  // pedindo a mesa fisica + as comandas (podem ser varias) ANTES de marcar como
+  // concluida - pra empresa sem a funcionalidade, "Sentar" continua marcando direto
+  // (ver iniciarSentar).
+  const [sentarAberto, setSentarAberto] = useState(false);
+  const [reservaParaSentar, setReservaParaSentar] = useState<Reserva | null>(null);
+  const [formSentar, setFormSentar] = useState<{ mesaFisica: string; comandas: string[] }>({
+    mesaFisica: "",
+    comandas: [""],
+  });
+  const [salvandoSentar, setSalvandoSentar] = useState(false);
+  const [erroSentar, setErroSentar] = useState<string | null>(null);
 
   const mesasPorId = useMemo(() => new Map(mesas.map((m) => [m.id, m])), [mesas]);
   const saloesPorId = useMemo(() => new Map(saloes.map((s) => [s.id, s])), [saloes]);
@@ -242,10 +264,78 @@ export function ReservationsPage() {
       clienteTelefone: reserva.clienteTelefone ?? "",
       dataNascimento: "",
       observacoes: reserva.observacoes ?? "",
-      comanda: reserva.comanda ?? "",
+      mesaFisica: reserva.mesaFisica ?? "",
     });
+    setComandasEditando(reserva.comandas ?? []);
+    setNovaComandaEditando("");
     setErroForm(null);
     setFormAberto(true);
+  }
+
+  async function adicionarComandaEditando() {
+    if (!unidade || !editando) return;
+    const numero = novaComandaEditando.trim();
+    if (!numero) return;
+    setComandaOperando(true);
+    try {
+      const comanda = await adicionarComanda(unidade.id, editando.id, numero);
+      setComandasEditando((atual) => [...atual, comanda]);
+      setNovaComandaEditando("");
+    } catch (err) {
+      setErroForm(err instanceof ApiError ? err.message : "Nao foi possivel adicionar a comanda.");
+    } finally {
+      setComandaOperando(false);
+    }
+  }
+
+  async function removerComandaEditando(comandaId: string) {
+    if (!unidade || !editando) return;
+    setComandaOperando(true);
+    try {
+      await removerComanda(unidade.id, editando.id, comandaId);
+      setComandasEditando((atual) => atual.filter((c) => c.id !== comandaId));
+    } catch (err) {
+      setErroForm(err instanceof ApiError ? err.message : "Nao foi possivel remover a comanda.");
+    } finally {
+      setComandaOperando(false);
+    }
+  }
+
+  // Doc 46 (redesign) - pra empresa sem comandaHabilitada, "Sentar" continua marcando
+  // status=concluida direto, igual sempre foi; pra Cervegela (e futuras empresas com a
+  // funcionalidade), abre o modal pra pedir mesa fisica + comandas ANTES de sentar.
+  function iniciarSentar(reserva: Reserva) {
+    if (!usuario?.comandaHabilitada) {
+      marcarStatus(reserva, "concluida");
+      return;
+    }
+    setReservaParaSentar(reserva);
+    setFormSentar({ mesaFisica: "", comandas: [""] });
+    setErroSentar(null);
+    setSentarAberto(true);
+  }
+
+  async function confirmarSentar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!unidade || !reservaParaSentar) return;
+    setSalvandoSentar(true);
+    setErroSentar(null);
+    try {
+      await atualizarReserva(unidade.id, reservaParaSentar.id, {
+        status: "concluida",
+        mesaFisica: formSentar.mesaFisica.trim() || undefined,
+      });
+      const numeros = formSentar.comandas.map((c) => c.trim()).filter(Boolean);
+      for (const numero of numeros) {
+        await adicionarComanda(unidade.id, reservaParaSentar.id, numero);
+      }
+      setSentarAberto(false);
+      await carregar();
+    } catch (err) {
+      setErroSentar(err instanceof ApiError ? err.message : "Nao foi possivel sentar a mesa.");
+    } finally {
+      setSalvandoSentar(false);
+    }
   }
 
   async function salvar(e: React.FormEvent) {
@@ -266,7 +356,7 @@ export function ReservationsPage() {
           clienteNome: form.clienteNome,
           clienteTelefone: form.clienteTelefone || undefined,
           observacoes: form.observacoes || undefined,
-          comanda: form.comanda || undefined,
+          mesaFisica: form.mesaFisica || undefined,
         });
       } else {
         const dados: DadosNovaReserva = {
@@ -279,7 +369,6 @@ export function ReservationsPage() {
           clienteTelefone: form.clienteTelefone,
           dataNascimento: form.dataNascimento,
           observacoes: form.observacoes || undefined,
-          comanda: form.comanda || undefined,
         };
         await criarReserva(unidade.id, dados);
       }
@@ -472,10 +561,14 @@ export function ReservationsPage() {
                 />
               </label>
             )}
-            {usuario?.comandaHabilitada && (
+            {editando && usuario?.comandaHabilitada && (
               <label>
-                Comanda
-                <input value={form.comanda} onChange={(e) => setForm({ ...form, comanda: e.target.value })} />
+                Mesa física
+                <input
+                  value={form.mesaFisica}
+                  onChange={(e) => setForm({ ...form, mesaFisica: e.target.value })}
+                  placeholder="Ex: 12"
+                />
               </label>
             )}
           </div>
@@ -483,9 +576,117 @@ export function ReservationsPage() {
             Observacoes
             <textarea rows={2} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} />
           </label>
+          {editando && usuario?.comandaHabilitada && (
+            <div style={{ marginTop: "0.75rem" }}>
+              <span style={{ display: "block", marginBottom: "0.35rem", fontWeight: 600 }}>Comandas</span>
+              {comandasEditando.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  {comandasEditando.map((c) => (
+                    <span
+                      key={c.id}
+                      className="pilula-data"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                    >
+                      {c.numero}
+                      <button
+                        type="button"
+                        onClick={() => removerComandaEditando(c.id)}
+                        disabled={comandaOperando}
+                        aria-label={`Remover comanda ${c.numero}`}
+                        style={{ border: "none", background: "none", cursor: "pointer", fontWeight: 700 }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input
+                  value={novaComandaEditando}
+                  onChange={(e) => setNovaComandaEditando(e.target.value)}
+                  placeholder="Numero da comanda"
+                />
+                <button
+                  type="button"
+                  className="btn btn-secundario"
+                  onClick={adicionarComandaEditando}
+                  disabled={comandaOperando}
+                >
+                  Adicionar
+                </button>
+              </div>
+            </div>
+          )}
           {erroForm && (
             <p className="erro" style={{ marginBottom: 0, marginTop: "0.75rem" }}>
               {erroForm}
+            </p>
+          )}
+        </form>
+      </Modal>
+
+      <Modal
+        titulo={`Sentar${reservaParaSentar ? " - " + reservaParaSentar.clienteNome : ""}`}
+        aberto={sentarAberto}
+        aoFechar={() => setSentarAberto(false)}
+        rodape={
+          <>
+            <Button variante="secundario" onClick={() => setSentarAberto(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="form-sentar" disabled={salvandoSentar}>
+              {salvandoSentar ? "Salvando..." : "Confirmar"}
+            </Button>
+          </>
+        }
+      >
+        <form id="form-sentar" onSubmit={confirmarSentar}>
+          <label>
+            Mesa física
+            <input
+              value={formSentar.mesaFisica}
+              onChange={(e) => setFormSentar({ ...formSentar, mesaFisica: e.target.value })}
+              placeholder="Ex: 12"
+            />
+          </label>
+          <div style={{ marginTop: "0.75rem" }}>
+            <span style={{ display: "block", marginBottom: "0.35rem", fontWeight: 600 }}>Comandas</span>
+            {formSentar.comandas.map((valor, i) => (
+              <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <input
+                  value={valor}
+                  onChange={(e) => {
+                    const novas = [...formSentar.comandas];
+                    novas[i] = e.target.value;
+                    setFormSentar({ ...formSentar, comandas: novas });
+                  }}
+                  placeholder="Numero da comanda"
+                />
+                {formSentar.comandas.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn btn-secundario"
+                    onClick={() =>
+                      setFormSentar({ ...formSentar, comandas: formSentar.comandas.filter((_, idx) => idx !== i) })
+                    }
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn btn-secundario"
+              onClick={() => setFormSentar({ ...formSentar, comandas: [...formSentar.comandas, ""] })}
+            >
+              + Adicionar comanda
+            </button>
+          </div>
+          {erroSentar && (
+            <p className="erro" style={{ marginBottom: 0, marginTop: "0.75rem" }}>
+              {erroSentar}
             </p>
           )}
         </form>
@@ -583,11 +784,16 @@ export function ReservationsPage() {
                       <a href={`tel:${reserva.clienteTelefone}`}>{reserva.clienteTelefone}</a>
                     </>
                   )}
-                  {usuario?.comandaHabilitada && reserva.comanda && <> - Comanda {reserva.comanda}</>}
+                  {usuario?.comandaHabilitada && (reserva.mesaFisica || reserva.comandas.length > 0) && (
+                    <>
+                      {reserva.mesaFisica && <> - Mesa {reserva.mesaFisica}</>}
+                      {reserva.comandas.length > 0 && <> - Comandas: {reserva.comandas.map((c) => c.numero).join(", ")}</>}
+                    </>
+                  )}
                 </div>
                 {STATUS_ATIVOS.has(reserva.status) && (
                   <div className="reserva-card-mobile-acoes">
-                    <button className="btn" onClick={() => marcarStatus(reserva, "concluida")}>
+                    <button className="btn" onClick={() => iniciarSentar(reserva)}>
                       Sentar
                     </button>
                     <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "no_show")}>
@@ -627,7 +833,7 @@ export function ReservationsPage() {
                 <th>Cliente</th>
                 <th>Pessoas</th>
                 <th>Local</th>
-                {usuario?.comandaHabilitada && <th>Comanda</th>}
+                {usuario?.comandaHabilitada && <th>Mesa/Comandas</th>}
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -643,13 +849,25 @@ export function ReservationsPage() {
                         <a href={`tel:${reserva.clienteTelefone}`}>{reserva.clienteTelefone}</a>
                       </div>
                     )}
-                    <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>
-                      {nomeDoLocal(reserva)}
-                    </div>
+                    {reserva.observacoes && (
+                      <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+                        {reserva.observacoes}
+                      </div>
+                    )}
                   </td>
                   <td>{reserva.numPessoas}</td>
                   <td>{nomeDoLocal(reserva)}</td>
-                  {usuario?.comandaHabilitada && <td>{reserva.comanda ?? "-"}</td>}
+                  {usuario?.comandaHabilitada && (
+                    <td>
+                      {reserva.mesaFisica && <div>Mesa {reserva.mesaFisica}</div>}
+                      {reserva.comandas.length > 0 && (
+                        <div className="texto-secundario" style={{ fontSize: "0.8rem" }}>
+                          Comandas: {reserva.comandas.map((c) => c.numero).join(", ")}
+                        </div>
+                      )}
+                      {!reserva.mesaFisica && reserva.comandas.length === 0 && "-"}
+                    </td>
+                  )}
                   <td>
                     <StatusBadge estado={reserva.status} />
                   </td>
@@ -657,7 +875,7 @@ export function ReservationsPage() {
                     <div className="acoes">
                       {STATUS_ATIVOS.has(reserva.status) && (
                         <>
-                          <button className="btn" onClick={() => marcarStatus(reserva, "concluida")}>
+                          <button className="btn" onClick={() => iniciarSentar(reserva)}>
                             Sentar
                           </button>
                           <button className="btn btn-secundario" onClick={() => marcarStatus(reserva, "no_show")}>

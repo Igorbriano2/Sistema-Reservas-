@@ -72,10 +72,13 @@ export function RelatorioDiarioPage() {
   const reservasOrdenadas = useMemo(() => [...reservas].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)), [reservas]);
   const naoCanceladas = useMemo(() => reservas.filter((r) => r.status !== "cancelada"), [reservas]);
   const totalPessoas = useMemo(() => naoCanceladas.reduce((soma, r) => soma + r.numPessoas, 0), [naoCanceladas]);
-  const totalComComanda = useMemo(() => reservas.filter((r) => r.comanda).length, [reservas]);
+  const totalComMesaOuComanda = useMemo(
+    () => reservas.filter((r) => r.mesaFisica || r.comandas.length > 0).length,
+    [reservas],
+  );
 
   function exportarCsv() {
-    const cabecalho = ["Hora", "Cliente", "Telefone", "Pessoas", "Local", "Comanda", "Status", "Observacoes"];
+    const cabecalho = ["Hora", "Cliente", "Telefone", "Pessoas", "Local", "Mesa", "Comandas", "Status", "Observacoes"];
     const linhas = reservasOrdenadas.map((r) =>
       [
         r.horaInicio.slice(0, 5),
@@ -83,7 +86,8 @@ export function RelatorioDiarioPage() {
         r.clienteTelefone ?? "",
         String(r.numPessoas),
         nomeDoLocal(r),
-        r.comanda ?? "",
+        r.mesaFisica ?? "",
+        r.comandas.map((c) => c.numero).join("; "),
         STATUS_LABEL[r.status],
         r.observacoes ?? "",
       ]
@@ -144,8 +148,8 @@ export function RelatorioDiarioPage() {
           <strong>{carregando ? "-" : totalPessoas}</strong>
         </div>
         <div className="cartao cartao-metrica">
-          <span className="texto-secundario">Com comanda preenchida</span>
-          <strong>{carregando ? "-" : `${totalComComanda} de ${reservas.length}`}</strong>
+          <span className="texto-secundario">Com mesa/comanda registrada</span>
+          <strong>{carregando ? "-" : `${totalComMesaOuComanda} de ${reservas.length}`}</strong>
         </div>
       </div>
 
@@ -167,7 +171,8 @@ export function RelatorioDiarioPage() {
                   <th>Cliente</th>
                   <th>Pessoas</th>
                   <th>Local</th>
-                  <th>Comanda</th>
+                  <th>Mesa</th>
+                  <th>Comandas</th>
                   <th>Status</th>
                   <th>Observações</th>
                 </tr>
@@ -186,7 +191,8 @@ export function RelatorioDiarioPage() {
                     </td>
                     <td>{reserva.numPessoas}</td>
                     <td>{nomeDoLocal(reserva)}</td>
-                    <td>{reserva.comanda ?? "-"}</td>
+                    <td>{reserva.mesaFisica ?? "-"}</td>
+                    <td>{reserva.comandas.length > 0 ? reserva.comandas.map((c) => c.numero).join(", ") : "-"}</td>
                     <td>
                       <StatusBadge estado={reserva.status} />
                     </td>

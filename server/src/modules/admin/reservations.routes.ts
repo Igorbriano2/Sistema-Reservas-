@@ -2,12 +2,13 @@ import { Router } from "express";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/client.js";
-import { empresas, reservaStatusEnum, reservas } from "../../db/schema/index.js";
+import { empresas, reservaStatusEnum, reservas, type ReservaComanda } from "../../db/schema/index.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { validarJanelaDeFuncionamento } from "../../lib/availability.js";
 import { salvarOuAtualizarCliente } from "../../lib/clientes.js";
 import { ConflitoDeHorarioError, RequisicaoInvalidaError } from "../../lib/errors.js";
 import { atualizarReservaDaUnidade, cancelarReservaDaUnidade, criarReserva } from "../../lib/reservations.js";
+import { adicionarComandaNaReserva, comandasPorReservaId, removerComandaDaReserva } from "../../lib/reserva-comandas.js";
 
 export const reservationsRouter = Router({ mergeParams: true });
 
@@ -50,10 +51,6 @@ const criarReservaSchema = z
     clienteTelefone: z.string().min(1),
     dataNascimento: dataNascimentoSchema,
     observacoes: z.string().optional(),
-    // Doc 46 - so tem efeito quando a empresa tem comanda_habilitada=true (ver
-    // empresaTemComandaHabilitada acima); ignorado silenciosamente pra qualquer outra
-    // empresa, mesmo que o campo venha preenchido no body.
-    comanda: z.string().optional(),
   })
   .refine((d) => !!d.mesaId !== !!d.salaoId, "Informe exatamente um dos dois: mesaId ou salaoId");
 
@@ -68,11 +65,16 @@ const atualizarReservaSchema = z
     clienteNome: z.string().min(1).optional(),
     clienteTelefone: z.string().optional(),
     observacoes: z.string().optional(),
-    comanda: z.string().optional(),
+    // Doc 46 (redesign) - mesa fisica atribuida ao sentar (ou editada depois). So tem
+    // efeito quando a empresa tem comanda_habilitada=true (ver empresaTemComandaHabilitada
+    // abaixo); ignorado silenciosamente pra qualquer outra empresa.
+    mesaFisica: z.string().optional(),
     status: z.enum(reservaStatusEnum.enumValues).optional(),
   })
   .refine((d) => Object.keys(d).length > 0, "Informe ao menos um campo para atualizar")
   .refine((d) => !(d.mesaId && d.salaoId), "Informe no maximo um dos dois: mesaId ou salaoId");
+
+const criarComandaSchema = z.object({ numero: z.string().min(1) });
 
 reservationsRouter.get(
   "/",
@@ -96,7 +98,15 @@ reservationsRouter.get(
       .from(reservas)
       .where(and(...condicoes))
       .orderBy(asc(reservas.data), asc(reservas.horaInicio));
-    res.json(lista);
+
+    // Doc 46 (redesign) - anexa as comandas de cada reserva numa unica query batched
+    // (nunca uma query por linha) - so quando a empresa tem a funcionalidade marcada,
+    // pra nao pagar essa query extra em toda unidade sem comanda_habilitada.
+    const comandaHabilitada = await empresaTemComandaHabilitada(req.auth!.empresaId);
+    const mapaComandas: Map<string, ReservaComanda[]> = comandaHabilitada
+      ? await comandasPorReservaId(db, lista.map((r) => r.id))
+      : new Map();
+    res.json(lista.map((r) => ({ ...r, comandas: mapaComandas.get(r.id) ?? [] })));
   }),
 );
 
@@ -131,18 +141,14 @@ reservationsRouter.post(
       throw new ConflitoDeHorarioError(validacaoDaJanela.motivo);
     }
 
-    // Doc 46 - comanda so e persistida pra empresas com a funcionalidade marcada
-    // (Cervegela por enquanto); qualquer outra empresa que mande o campo tem ele
-    // silenciosamente ignorado, sem erro (evita 400 surpresa se o frontend cachear
-    // um form antigo/outra aba).
-    const comandaHabilitada = await empresaTemComandaHabilitada(req.auth!.empresaId);
-    const { dataNascimento, comanda, ...dadosDaReserva } = dados;
+    // Doc 46 (redesign) - mesa fisica/comandas nao entram na criacao: sao atribuidas
+    // so ao sentar o cliente (ver PATCH abaixo e as rotas de comandas), nunca antes.
+    const { dataNascimento, ...dadosDaReserva } = dados;
 
     const reserva = await criarReserva(db, {
       unidadeId: req.unidadeId!,
       canalOrigem: "manual",
       ignorarBloqueioECapacidade: podeIgnorarBloqueioECapacidade,
-      comanda: comandaHabilitada ? comanda : undefined,
       ...dadosDaReserva,
     });
 
@@ -179,11 +185,12 @@ reservationsRouter.patch(
     // salao fechado, bloqueado, ou com a capacidade esgotada; funcionario continua
     // sujeito a todas as checagens.
     const podeIgnorarBloqueioECapacidade = req.auth!.papel === "owner" || req.auth!.papel === "gerente";
-    // Doc 46 - mesmo racional do POST: ignora silenciosamente pra empresa sem a
-    // funcionalidade. So consulta o flag quando o body realmente tenta mexer na
-    // comanda (evita uma query extra em toda edicao comum, ex: marcar sentada).
-    if (dados.comanda !== undefined && !(await empresaTemComandaHabilitada(req.auth!.empresaId))) {
-      delete dados.comanda;
+    // Doc 46 (redesign) - mesmo racional do POST: ignora silenciosamente pra empresa
+    // sem a funcionalidade. So consulta o flag quando o body realmente tenta mexer na
+    // mesa fisica (evita uma query extra em toda edicao comum, ex: marcar sentada sem
+    // informar mesa).
+    if (dados.mesaFisica !== undefined && !(await empresaTemComandaHabilitada(req.auth!.empresaId))) {
+      delete dados.mesaFisica;
     }
     const reserva = await atualizarReservaDaUnidade(db, req.unidadeId!, req.params.reservationId, dados, {
       ignorarBloqueioECapacidade: podeIgnorarBloqueioECapacidade,
@@ -197,5 +204,40 @@ reservationsRouter.delete(
   asyncHandler(async (req, res) => {
     const reserva = await cancelarReservaDaUnidade(db, req.unidadeId!, req.params.reservationId);
     res.json(reserva);
+  }),
+);
+
+// Doc 46 (redesign) - comandas individuais da reserva (Cervegela: "todos os clientes
+// terao comandas individuais"), geridas a parte da reserva em si porque podem ser
+// varias por reserva e adicionadas incrementalmente (ao sentar, e depois, conforme
+// chega mais gente na mesa) - um campo unico no PATCH da reserva nao suportava isso.
+reservationsRouter.post(
+  "/:reservationId/comandas",
+  asyncHandler(async (req, res) => {
+    if (!(await empresaTemComandaHabilitada(req.auth!.empresaId))) {
+      throw new RequisicaoInvalidaError("Funcionalidade de comanda nao habilitada para esta empresa");
+    }
+    const { numero } = criarComandaSchema.parse(req.body);
+    const comanda = await adicionarComandaNaReserva(db, {
+      unidadeId: req.unidadeId!,
+      reservaId: req.params.reservationId,
+      numero,
+    });
+    res.status(201).json(comanda);
+  }),
+);
+
+reservationsRouter.delete(
+  "/:reservationId/comandas/:comandaId",
+  asyncHandler(async (req, res) => {
+    if (!(await empresaTemComandaHabilitada(req.auth!.empresaId))) {
+      throw new RequisicaoInvalidaError("Funcionalidade de comanda nao habilitada para esta empresa");
+    }
+    await removerComandaDaReserva(db, {
+      unidadeId: req.unidadeId!,
+      reservaId: req.params.reservationId,
+      comandaId: req.params.comandaId,
+    });
+    res.status(204).send();
   }),
 );

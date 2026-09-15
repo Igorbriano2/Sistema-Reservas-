@@ -267,6 +267,20 @@
       "when": 1789485677489,
       "tag": "0037_complete_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789492697968,
+      "tag": "0038_doc46_mesa_fisica_e_reserva_comandas",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1789492710012,
+      "tag": "0039_doc46_remove_comanda_antiga",
+      "breakpoints": true
     }
   ]
 }

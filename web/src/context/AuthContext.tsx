@@ -5,7 +5,7 @@ import {
   setUnauthorizedHandler,
   type AssinaturaBloqueadaInfo,
 } from "../api/client.js";
-import { listarUnidades, login as apiLogin } from "../api/resources.js";
+import { listarUnidades, login as apiLogin, obterUsuarioAtual } from "../api/resources.js";
 import { limparFluxoEscolha } from "../lib/escolhaPainel.js";
 import type { Permissao, Unidade, Usuario } from "../types.js";
 
@@ -66,6 +66,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAssinaturaBloqueadaHandler(null);
       setAssinaturaAvisoHandler(null);
     };
+  }, []);
+
+  // Doc 46 - a sessao carrega "usuario" direto do localStorage (gravado no ultimo
+  // login), sem nenhuma revalidacao - um campo que mudou no backend depois do login
+  // (ex: comandaHabilitada ligado pelo admin da plataforma, ou uma permissao extra)
+  // nunca aparecia sem deslogar e logar de novo. So roda UMA vez, so quando a aba abre
+  // ja com uma sessao salva (login() novo ja chega com o dado fresco) - falha aqui
+  // fica muda, o token expirado ja e tratado globalmente pelo interceptor 401.
+  useEffect(() => {
+    if (!usuario) return;
+    obterUsuarioAtual()
+      .then((atualizado) => {
+        localStorage.setItem("usuario", JSON.stringify(atualizado));
+        setUsuario(atualizado);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
