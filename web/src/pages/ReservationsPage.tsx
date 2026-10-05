@@ -87,6 +87,10 @@ function horaAtualLocal(): string {
 // dois casos sem duplicar UI, ja que uma unidade pode ter saloes nos dois modos.
 interface FormState {
   local: string;
+  // So usado na EDICAO (ver abrirEdicao/salvar) - gerente/owner pode trocar a propria
+  // data da reserva, nao so o horario. Na criacao a data vem do dia selecionado no
+  // painel (filtro no topo), nao deste campo - ver abrirNovaReserva.
+  data: string;
   horaInicio: string;
   numPessoas: string;
   clienteNome: string;
@@ -105,6 +109,7 @@ interface FormState {
 
 const FORM_VAZIO: FormState = {
   local: "",
+  data: "",
   horaInicio: "",
   numPessoas: "2",
   clienteNome: "",
@@ -258,6 +263,7 @@ export function ReservationsPage() {
     setEditando(reserva);
     setForm({
       local: paraLocalDaReserva(reserva),
+      data: reserva.data,
       horaInicio: reserva.horaInicio.slice(0, 5),
       numPessoas: String(reserva.numPessoas),
       clienteNome: reserva.clienteNome,
@@ -351,6 +357,7 @@ export function ReservationsPage() {
         await atualizarReserva(unidade.id, editando.id, {
           mesaId,
           salaoId,
+          data: form.data || undefined,
           horaInicio: form.horaInicio,
           numPessoas: Number(form.numPessoas),
           clienteNome: form.clienteNome,
@@ -512,6 +519,12 @@ export function ReservationsPage() {
                 ))}
               </select>
             </label>
+            {editando && (
+              <label>
+                Data
+                <input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required />
+              </label>
+            )}
             <label>
               Horario
               <input
