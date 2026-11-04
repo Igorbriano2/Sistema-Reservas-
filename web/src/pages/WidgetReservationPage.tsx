@@ -88,6 +88,21 @@ export function WidgetReservationPage() {
         dataNascimento,
       });
       setConfirmada(reserva);
+      // Avisa o site do restaurante (pagina que embute este iframe) para ele disparar
+      // a propria conversao (Pixel/GTM). Sem dados pessoais do cliente.
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: "queroreservar:reserva_confirmada",
+            unidadeId,
+            unidadeNome,
+            reservaId: reserva.id,
+            data: reserva.data,
+            numPessoas: reserva.numPessoas,
+          },
+          "*",
+        );
+      }
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Não foi possível completar a reserva. Tente novamente.");
     } finally {
