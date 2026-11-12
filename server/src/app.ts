@@ -14,6 +14,7 @@ import { cardapioPublicRouter } from "./modules/public/cardapio.routes.js";
 import { widgetRouter } from "./modules/public/widget.routes.js";
 import { pesquisaPublicRouter } from "./modules/public/pesquisa.routes.js";
 import { plataformaRouter } from "./modules/plataforma/index.js";
+import { integracaoOrbitaRouter } from "./modules/integracao/orbita.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
 export function createApp() {
@@ -49,6 +50,7 @@ export function createApp() {
   app.use("/public/widget", widgetRouter);
   app.use("/public/pesquisa", pesquisaPublicRouter);
   app.use("/plataforma", plataformaRouter);
+  app.use("/integracao/orbita", integracaoOrbitaRouter);
 
   app.use(errorHandler);
 

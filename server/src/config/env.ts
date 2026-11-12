@@ -66,6 +66,10 @@ const envSchema = z.object({
   // Se nao definido, cai para JWT_SECRET (mesmo esquema do RESERVATION_LINK_SECRET
   // acima - um campo "purpose" no token evita cruzamento mesmo com segredo compartilhado).
   PLATAFORMA_JWT_SECRET: z.string().optional(),
+  // Integracao com o Orbita: chave secreta compartilhada entre os dois servidores
+  // (cabecalho Authorization: Bearer <chave> nas rotas /integracao/orbita). Sem ela,
+  // as rotas de integracao respondem 404 (integracao desligada).
+  INTEGRACAO_ORBITA_SECRET: z.string().min(32).optional(),
   // Tempo de espera (ms) apos a ultima mensagem de uma rajada antes de acionar o agente,
   // agrupando mensagens seguidas do mesmo cliente numa unica resposta.
   AGENT_DEBOUNCE_MS: z.coerce.number().int().positive().default(6000),

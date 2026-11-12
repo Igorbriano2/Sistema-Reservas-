@@ -123,6 +123,10 @@ services:
       - key: WEB_APP_URL
         type: GENERAL
         value: ""
+      # Integracao com o Orbita (modulo Reservas): chave compartilhada entre os dois
+      # servidores. A mesma vai no Orbita como QR_INTEGRATION_KEY. Sem ela, /integracao/orbita responde 404.
+      - key: INTEGRACAO_ORBITA_SECRET
+        type: SECRET
       - key: RESERVATION_LINK_SECRET
         type: SECRET
       - key: AGENT_DEBOUNCE_MS

@@ -28,6 +28,7 @@ import { WhatsAppPage } from "./pages/WhatsAppPage.js";
 import { PublicReservationPage } from "./pages/PublicReservationPage.js";
 import { PublicMenuPage } from "./pages/PublicMenuPage.js";
 import { WidgetReservationPage } from "./pages/WidgetReservationPage.js";
+import { EntrarOrbitaPage } from "./pages/EntrarOrbitaPage.js";
 import { PublicSurveyPage } from "./pages/PublicSurveyPage.js";
 import { CheckoutPage } from "./pages/CheckoutPage.js";
 import { AssinaturaBloqueadaPage } from "./pages/AssinaturaBloqueadaPage.js";
@@ -114,6 +115,7 @@ function AppRoutes() {
       <Route path="/" element={window.location.hostname.startsWith("painel.") ? <Navigate to="/painel" replace /> : <LandingPage />} />
       <Route path="/apresentacao" element={<ApresentacaoPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/entrar-orbita" element={<EntrarOrbitaPage />} />
       <Route
         path="/admin/escolher-painel"
         element={

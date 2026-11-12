@@ -6,6 +6,7 @@ import { empresas, usuarios } from "../../db/schema/index.js";
 import { verifyPassword } from "../../lib/password.js";
 import { signAuthToken } from "../../lib/jwt.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
+import { verifyOrbitaSso, type OrbitaSsoPayload } from "../../lib/orbita-sso.js";
 
 export const authRouter = Router();
 
@@ -67,6 +68,46 @@ authRouter.post("/login", async (req, res) => {
       empresaId: usuario.empresaId,
       comandaHabilitada: empresaDoUsuario?.comandaHabilitada ?? false,
     },
+  });
+});
+
+// Entrada vinda do Orbita: troca o codigo de 2 min (ver /integracao/orbita/empresas/:id/sso)
+// por uma sessao normal do dono, no mesmo formato do /login.
+authRouter.post("/orbita-sso", async (req, res) => {
+  const parsed = z.object({ codigo: z.string().min(20).max(2000) }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Codigo ausente" });
+    return;
+  }
+  let dados: OrbitaSsoPayload;
+  try {
+    dados = verifyOrbitaSso(parsed.data.codigo);
+  } catch {
+    res.status(401).json({ error: "Link de entrada expirado. Abra Reservas de novo pelo Orbita." });
+    return;
+  }
+  const [usuario] = await db.select().from(usuarios).where(eq(usuarios.id, dados.sub)).limit(1);
+  if (!usuario || usuario.empresaId !== dados.empresaId) {
+    res.status(401).json({ error: "Usuario nao encontrado" });
+    return;
+  }
+  const [empresaDoUsuario] = await db
+    .select({ comandaHabilitada: empresas.comandaHabilitada })
+    .from(empresas)
+    .where(eq(empresas.id, usuario.empresaId))
+    .limit(1);
+  res.json({
+    token: signAuthToken({ sub: usuario.id, empresaId: usuario.empresaId, papel: usuario.papel }),
+    usuario: {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      username: usuario.username,
+      papel: usuario.papel,
+      empresaId: usuario.empresaId,
+      comandaHabilitada: empresaDoUsuario?.comandaHabilitada ?? false,
+    },
+    unidadeId: dados.unidadeId ?? null,
   });
 });
 

@@ -22,6 +22,10 @@ export const empresas = pgTable("empresas", {
   // adicionar uma 2a unidade, cria uma nova subscription pro mesmo customer em vez
   // de duplicar cadastro no gateway. Preenchido na 1a assinatura da empresa.
   stripeCustomerId: text("stripe_customer_id"),
+  // Integracao com o Orbita (sistema de PDV/gestao): id da empresa (tenant) do Orbita
+  // ligada a esta empresa. Preenchido quando o modulo "Reservas" e ligado para o
+  // cliente no painel da plataforma do Orbita. Unico: um tenant do Orbita = uma empresa.
+  orbitaTenantId: text("orbita_tenant_id").unique(),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 
